@@ -1,0 +1,87 @@
+basepath: collections # The path where document lists is stored
+data:
+    - 
+        id: ap88 
+        description: Associated Press (1988)
+        pattern: ^AP88.*$
+    -
+        id: ap89 
+        description: Associated Press (1989)
+        pattern: ^AP89.*$
+        type: trec.collection
+    -
+        id: ap90
+        description: Associated Press (1990)
+        pattern: ^AP90.*$
+        type: trec.collection
+    -
+        id: 1.adhoc
+        description: Data collection used from TREC-1 to TREC-3
+        references: ap88 ap89 doe1 fr88 fr89 wsj87 wsj88 wsj89 wsj90 wsj91 wsj92 ziff1 ziff2
+    -
+        id: 4.adhoc
+        description: Data collection used in TREC-4
+        references: ap88 ap89 ap90 fr88 sjm1 usp93 wsj90 wsj91 wsj92 ziff2 ziff3
+    -
+        id: 5.adhoc
+        description: Data collection used in TREC-5
+        references: ap88 cr1 fr88 fr94 ft1 wsj90 wsj91 wsj92 ziff2
+    -
+        id: 6.adhoc
+        description: Data collection used in TREC-6
+        references: cr1 fbis1 fr94 ft1 la8990
+    -
+        id: 7.adhoc
+        description: Data collection used in TREC-7 and TREC-8
+        references: fbis1 fr94 ft1 la8990
+    -
+        id: clueweb09b
+        description: The ClueWeb09-B dataset, a subsample from ClueWeb09
+        type: warc
+        warc-version: 0.18
+    -
+        id: clueweb12b
+        description: The ClueWeb12-B dataset, a subsample from ClueWeb12
+        type: warc
+        warc-version: 0.18
+        
+        # <collection id="trec.cr1"/>
+        # <collection id="trec.doe1">
+        #     <document pattern="^DOE.*$"/>
+        # </collection>
+        #
+        # <collection id="trec.fbis1"/>
+        # <collection id="trec.fr88">
+        #     <document pattern="^FR88.*$"/>
+        # </collection>
+        # <collection id="trec.fr89"/>
+        # <collection id="trec.fr94"/>
+        # <collection id="trec.ft1"/>
+        # <collection id="trec.la8990"/>
+        # <collection id="trec.sjm1"/>
+        # <collection id="trec.usp93"/>
+        # <collection id="trec.wsj87"/>
+        # <collection id="trec.wsj88"/>
+        # <collection id="trec.wsj89"/>
+        # <collection id="trec.wsj90"/>
+        # <collection id="trec.wsj91"/>
+        # <collection id="trec.wsj92"/>
+        #
+        # <collection id="trec.ziff1"/>
+        # <collection id="trec.ziff2"/>
+        # <collection id="trec.ziff3"/>
+
+        # <!-- The TREC web files -->
+        # <collection id="trec.wt10g" type="trec.web"/>
+        # <collection id="trec.dotgov" type="trec.web"/>
+        # <collection id="trec.dotgov2" type="trec.web"/>
+        # <collection id="trec.aquaint" type="trec.web"/>
+        #
+        # <!-- ClueWeb collections are WARC/0.18 files -->
+        # <collection id="trec.clueweb09A" type="warc/0.18" description="ClueWeb09 Subset A"/>
+        # <collection id="trec.clueweb09b" type="warc/0.18" description="ClueWeb09 Subset B">
+        #     <!-- Defines a sub-collection -->
+        #     <subcollection id="en0000" file-pattern="en0000-.*" document-pattern="en0000/\d+\.warc.*"/>
+        # </collection>
+        #
+        #  <collection id="trec.clueweb12b" type="warc/0.18" description="ClueWeb12 Subset B"/>

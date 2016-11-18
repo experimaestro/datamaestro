@@ -1,0 +1,49 @@
+type: trec/adhoc
+data:
+    -
+        id: ["1.adhoc", "1992.adhoc"]
+        description: "Ad-hoc task of TREC 1 (1992)"
+        documents: "trec.1.adhoc"
+        topics:
+            properties:
+                parts: [desc]
+            url: "http://trec.nist.gov/data/topics_eng/topics.51-100.gz"
+            replace: 
+                pattern: "Number:(\\s+)0"
+                with: "Number: \\1"
+        qrels:              
+            url: "http://trec.nist.gov/data/qrels_eng/qrels.51-100.disk1.disk2.parts1-5.tar.gz"
+            type: "tar.gz#gz"
+    -
+        id: ["2.adhoc", "1993.adhoc"]
+        description: "Ad-hoc task of TREC 2 (1993)"
+        documents: "trec.1.adhoc"
+        topics:
+            properties:
+                parts: [desc]
+            url: "http://trec.nist.gov/data/topics_eng/topics.101-150.gz"
+        qrels:              
+            url: "http://trec.nist.gov/data/qrels_eng/qrels.101-150.disk1.disk2.parts1-5.tar.gz"
+            type: "tar.gz#gz"
+    -
+        id: ["trec.3.adhoc", "1994.adhoc"]
+        description: "Ad-hoc task of TREC 3 (1994)"
+        documents: "trec.1.adhoc"
+        topics:
+            properties:
+                parts: [desc]
+            url: "http://trec.nist.gov/data/topics_eng/topics.151-200.gz"
+        qrels:              
+            url: "http://trec.nist.gov/data/qrels_eng/qrels.151-200.201-250.disks1-3.all.tar.gz"
+            type: "tar.gz#gz"
+    -
+        id: ["trec.4.adhoc", "1995.adhoc"]
+        description: "Ad-hoc task of TREC 4 (1995)"
+        documents: "trec.4.adhoc"
+        topics:
+            properties:
+                parts: [desc]
+            url: "http://trec.nist.gov/data/topics_eng/topics.201-250.gz"
+        qrels:              
+            url: "http://trec.nist.gov/data/qrels_eng/qrels.251-300.parts1-5.tar.gz"
+            type: "tar.gz#gz"
