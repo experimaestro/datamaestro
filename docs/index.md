@@ -1,6 +1,5 @@
-# Introduction
+# Datasets
 
-[![Documentation Status](https://readthedocs.org/projects/datasets/badge/?version=latest)](https://readthedocs.org/projects/datasets/?badge=latest)
 
 This projects aims at grouping utilities to deal with the numerous and heterogenous datasets present on the Web. It aims
 at being
@@ -13,5 +12,3 @@ Each datasets is uniquely identified by a qualified name such as `nist.trec.2009
 datasets.
 
 This software integrates with the [experimaestro](http://experimaestro.sf.net) experiment manager.
-
-
