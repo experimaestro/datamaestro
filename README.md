@@ -15,3 +15,9 @@ datasets.
 This software integrates with the [experimaestro](http://experimaestro.sf.net) experiment manager.
 
 
+# Datasets
+
+Each dataset (or a set of related datasets) is described by a YAML file.
+Fields:
+
+- id

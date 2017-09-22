@@ -44,44 +44,4 @@ data:
         description: The ClueWeb12-B dataset, a subsample from ClueWeb12
         type: warc
         warc-version: 0.18
-        
-        # <collection id="trec.cr1"/>
-        # <collection id="trec.doe1">
-        #     <document pattern="^DOE.*$"/>
-        # </collection>
-        #
-        # <collection id="trec.fbis1"/>
-        # <collection id="trec.fr88">
-        #     <document pattern="^FR88.*$"/>
-        # </collection>
-        # <collection id="trec.fr89"/>
-        # <collection id="trec.fr94"/>
-        # <collection id="trec.ft1"/>
-        # <collection id="trec.la8990"/>
-        # <collection id="trec.sjm1"/>
-        # <collection id="trec.usp93"/>
-        # <collection id="trec.wsj87"/>
-        # <collection id="trec.wsj88"/>
-        # <collection id="trec.wsj89"/>
-        # <collection id="trec.wsj90"/>
-        # <collection id="trec.wsj91"/>
-        # <collection id="trec.wsj92"/>
-        #
-        # <collection id="trec.ziff1"/>
-        # <collection id="trec.ziff2"/>
-        # <collection id="trec.ziff3"/>
-
-        # <!-- The TREC web files -->
-        # <collection id="trec.wt10g" type="trec.web"/>
-        # <collection id="trec.dotgov" type="trec.web"/>
-        # <collection id="trec.dotgov2" type="trec.web"/>
-        # <collection id="trec.aquaint" type="trec.web"/>
-        #
-        # <!-- ClueWeb collections are WARC/0.18 files -->
-        # <collection id="trec.clueweb09A" type="warc/0.18" description="ClueWeb09 Subset A"/>
-        # <collection id="trec.clueweb09b" type="warc/0.18" description="ClueWeb09 Subset B">
-        #     <!-- Defines a sub-collection -->
-        #     <subcollection id="en0000" file-pattern="en0000-.*" document-pattern="en0000/\d+\.warc.*"/>
-        # </collection>
-        #
-        #  <collection id="trec.clueweb12b" type="warc/0.18" description="ClueWeb12 Subset B"/>
+   

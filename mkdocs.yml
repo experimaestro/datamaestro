@@ -1,1 +1,10 @@
+# Configuration
+
 site_name: Datasets
+site_description: datasets A dataset manager
+theme: readthedocs
+
+# Pages
+pages:
+  - Home: index.md
+  - Configuration: configuration.md

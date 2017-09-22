@@ -1,6 +1,17 @@
 type: trec/adhoc
 data:
     -
+        id: "5.topics"
+        description: "TREC 5 topics"
+        handler: trec.adhoc/topics
+        download:
+            handler: gz
+            url: "http://trec.nist.gov/data/topics_eng/topics.251-300.gz"
+            path: "trec/trec5/adhoc/trec5.topics.251-300"
+
+
+
+    -
         id: ["1.adhoc", "1992.adhoc"]
         description: "Ad-hoc task of TREC 1 (1992)"
         documents: "trec.1.adhoc"
