@@ -1,5 +1,52 @@
 type: trec/adhoc
 data:
+    - 
+        id: ap88 
+        description: Associated Press (1988)
+        pattern: ^AP88.*$
+        handler: trec.documents/sgml
+    -
+        id: ap89 
+        description: Associated Press (1989)
+        pattern: ^AP89.*$
+        handler: trec.documents/sgml
+    -
+        id: ap90
+        description: Associated Press (1990)
+        pattern: ^AP90.*$
+        handler: trec.documents/sgml
+    -
+        id: 1.documents
+        description: Data collection used from TREC-1 to TREC-3
+        references: [ap88, ap89, doe1, fr88, fr89, wsj87, wsj88, wsj89, wsj90, wsj91, wsj92, ziff1, ziff2]
+        handler: trec.documents/collection
+    -
+        id: 4.adhoc
+        description: Data collection used in TREC-4
+        references: ap88 ap89 ap90 fr88 sjm1 usp93 wsj90 wsj91 wsj92 ziff2 ziff3
+    -
+        id: 5.adhoc
+        description: Data collection used in TREC-5
+        references: ap88 cr1 fr88 fr94 ft1 wsj90 wsj91 wsj92 ziff2
+    -
+        id: 6.adhoc
+        description: Data collection used in TREC-6
+        references: cr1 fbis1 fr94 ft1 la8990
+    -
+        id: 7.adhoc
+        description: Data collection used in TREC-7 and TREC-8
+        references: fbis1 fr94 ft1 la8990
+    -
+        id: clueweb09b
+        description: The ClueWeb09-B dataset, a subsample from ClueWeb09
+        type: warc
+        warc-version: 0.18
+    -
+        id: clueweb12b
+        description: The ClueWeb12-B dataset, a subsample from ClueWeb12
+        type: warc
+        warc-version: 0.18
+   
     # --- TREC 1 
    
     -
@@ -9,7 +56,7 @@ data:
         properties:
             parts: [desc]
         download:
-            handler: simple/gz
+            handler: single/file
             url: "http://trec.nist.gov/data/topics_eng/topics.51-100.gz"
             replace:
                 pattern: "Number:(\\s+)0" 
@@ -19,7 +66,7 @@ data:
         description: "TREC 1 relevance assessments"
         handler: trec.adhoc/assesments
         download:
-            handler: simple/tar
+            handler: single/archive
             url: "http://trec.nist.gov/data/qrels_eng/qrels.51-100.disk1.disk2.parts1-5.tar.gz"
 
     -
@@ -40,7 +87,7 @@ data:
         description: "TREC 5 topics"
         handler: trec.adhoc/topics
         download:
-            handler: simple/gz
+            handler: single/file
             url: "http://trec.nist.gov/data/topics_eng/topics.251-300.gz"
 
     # --- TREC 6

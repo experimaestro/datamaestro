@@ -90,7 +90,7 @@ class Dataset:
         for i, c in enumerate(components):
             path = op.join(path, c)    
             if op.isfile(path + YAML_SUFFIX):
-                prefix = ".".join(components[:i])
+                prefix = ".".join(components[:i+1])
                 sub = ".".join(components[i+1:])
                 path += YAML_SUFFIX
                 break
@@ -99,9 +99,10 @@ class Dataset:
 
         # Get the dataset
         logging.debug("Found file %s [prefix=%s/id=%s]", path, prefix, sub)
+        # TODO: cache datafile
         f = DataFile(prefix, path)
         if not sub in f:
-            raise Exception("Could not find the dataset %s in %s" % (args.dataset, path))
+            raise Exception("Could not find the dataset %s in %s" % (name, path))
         return f[sub]
         
 
@@ -111,6 +112,27 @@ class Handler:
         self.config = config
         self.id = id
         self.content = content
+
+        # Search for dependencies
+        self.dependencies = {}
+        self._searchdependencies(config, self.content)
+
+    def _searchdependencies(self, config, content):
+        if isinstance(content, dict):
+            for k, v in content.items():
+                self._searchdependencies(config, v)
+        elif isinstance(content, list):
+            for v in content:
+                self._searchdependencies(config, v)
+        elif isinstance(content, DatasetReference):
+            did = content.value
+            if did.startswith("."):
+                did = self.id[:self.id.rfind(".")] + did
+
+
+            dataset = Dataset.find(config, did)
+            handler = dataset.getHandler(config)
+            self.dependencies[did] = handler
 
     """Base class for all handlers"""
     def download(self, force=False):
@@ -123,6 +145,10 @@ class Handler:
                 logging.info("File already downloaded")
             else:
                 handler.download(self.destpath)
+
+        # Download dependencies
+        for dependency in self.dependencies.values():
+            dependency.download()
 
     def description(self):
         return self.content["description"]
@@ -156,9 +182,9 @@ class DataFile:
         for d in self.content["data"]:
             if type(d["id"]) == list:
                 for _id in d["id"]:
-                    self.datasets[_id] = Dataset(prefix + "."  + _id, d)
+                    self.datasets[_id] = Dataset("%s.%s" % (prefix, _id), d)
             else:
-                self.datasets[d["id"]] = Dataset(prefix + "."  + d["id"], d)
+                self.datasets[d["id"]] = Dataset("%s.%s" % (prefix, d["id"]), d)
 
         logging.debug("Found datasets: %s", ", ".join(self.datasets.keys()))
 

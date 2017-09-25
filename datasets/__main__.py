@@ -35,7 +35,8 @@ def prepare(args, pargs):
     dataset = Dataset.find(pargs.dataset)
     # Now, do something
     handler = dataset.getHandler()
-    handler.handle(pargs.args)
+    handler.download()
+    handler.prepare()
 
 @arguments("dataset", help="The dataset ID")
 @command
@@ -52,7 +53,6 @@ def info(config, args):
     dataset = Dataset.find(config, args.dataset)
     handler = dataset.getHandler(config)
     print(handler.description())
-
 
 
 # --- Search

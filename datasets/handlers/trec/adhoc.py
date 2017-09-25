@@ -1,5 +1,4 @@
 import logging
-import argparse
 from datasets.data import Handler, DownloadHandler
 
 class Topics(Handler):
