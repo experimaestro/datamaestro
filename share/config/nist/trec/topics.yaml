@@ -1,13 +1,4 @@
 data:
-  -
-    id: "5"
-    description: "TREC 5 topics"
-    type: trec/topic
-    download:
-      url: "http://trec.nist.gov/data/topics_eng/topics.251-300.gz"
-      path: "trec/trec5/adhoc/trec5.topics.251-300"
-      type: gz
-
   # -
   #   url: "http://trec.nist.gov/data/topics_eng/topics.301-350.gz"
   #    _type: gz

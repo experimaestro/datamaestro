@@ -1,30 +1,54 @@
 type: trec/adhoc
 data:
+    # --- TREC 1 
+   
+    -
+        id: "1.topics"
+        description: "TREC 1 topics"
+        handler: trec.adhoc/topics
+        properties:
+            parts: [desc]
+        download:
+            handler: simple/gz
+            url: "http://trec.nist.gov/data/topics_eng/topics.51-100.gz"
+            replace:
+                pattern: "Number:(\\s+)0" 
+                replace: "Number: \\1"
+    -
+        id: "1.qrels"
+        description: "TREC 1 relevance assessments"
+        handler: trec.adhoc/assesments
+        download:
+            handler: simple/tar
+            url: "http://trec.nist.gov/data/qrels_eng/qrels.51-100.disk1.disk2.parts1-5.tar.gz"
+
+    -
+        id: ["1", "1992.adhoc"]
+        description: "Ad-hoc task of TREC 1 (1992)"
+        handler: trec.adhoc/task
+        topics: !dataset ".1.topics"
+        documents: !dataset ".1.documents"
+
+
+    # --- TREC 2
+    # --- TREC 3
+    # --- TREC 4
+    # --- TREC 5
+
     -
         id: "5.topics"
         description: "TREC 5 topics"
         handler: trec.adhoc/topics
         download:
-            handler: gz
+            handler: simple/gz
             url: "http://trec.nist.gov/data/topics_eng/topics.251-300.gz"
-            path: "trec/trec5/adhoc/trec5.topics.251-300"
+
+    # --- TREC 6
+    # --- TREC 7
+    # --- TREC 8
+    
 
 
-
-    -
-        id: ["1.adhoc", "1992.adhoc"]
-        description: "Ad-hoc task of TREC 1 (1992)"
-        documents: "trec.1.adhoc"
-        topics:
-            properties:
-                parts: [desc]
-            url: "http://trec.nist.gov/data/topics_eng/topics.51-100.gz"
-            replace: 
-                pattern: "Number:(\\s+)0"
-                with: "Number: \\1"
-        qrels:              
-            url: "http://trec.nist.gov/data/qrels_eng/qrels.51-100.disk1.disk2.parts1-5.tar.gz"
-            type: "tar.gz#gz"
     -
         id: ["2.adhoc", "1993.adhoc"]
         description: "Ad-hoc task of TREC 2 (1993)"
