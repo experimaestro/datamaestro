@@ -51,6 +51,20 @@ class Configuration:
     def webpath(self):
         return op.join(op.dirname(self._path), "www")
 
+    def files(self):
+        """Returns an iterator over all files"""
+        for root, dirs, files in os.walk(self.configpath, topdown=False):
+            for relpath in files:
+                if relpath.endswith(YAML_SUFFIX):
+                    path = op.join(root, relpath)
+                    prefix = op.relpath(path, self.configpath)[:-len(YAML_SUFFIX)].replace("/", ".")
+                    data = readyaml(path)
+                    if data is not None and "data" in data:
+                        for d in data["data"]:
+                            l = d["id"] if isinstance(d["id"], list) else [d["id"]]
+                            yield Dataset(["%s.%s" % (prefix, _id) for _id in l], d)
+
+
 
 class Data:
     def __init__(self, context, config):
@@ -66,9 +80,12 @@ class Documents:
 
 
 class Dataset:
-    def __init__(self, id, content):
-        self.id = id
+    def __init__(self, ids, content):
+        self.ids = list(ids)
         self.content = content
+
+    def __repr__(self):
+        return "Dataset(%s)" % (", ".join(self.ids))
 
     def getHandler(self, config):
         name = self.content["handler"]
@@ -108,6 +125,7 @@ class Dataset:
 
 
 class Handler:
+    """Base class for all dataset handlers"""
     def __init__(self, config, id, content):
         self.config = config
         self.id = id
@@ -118,6 +136,7 @@ class Handler:
         self._searchdependencies(config, self.content)
 
     def _searchdependencies(self, config, content):
+        """Retrieve all dependencies"""
         if isinstance(content, dict):
             for k, v in content.items():
                 self._searchdependencies(config, v)
@@ -134,8 +153,8 @@ class Handler:
             handler = dataset.getHandler(config)
             self.dependencies[did] = handler
 
-    """Base class for all handlers"""
     def download(self, force=False):
+        """Download all the resources (if available)"""
         logging.info("Downloading %s", self.content["description"])
 
         # Download direct resources
@@ -193,3 +212,5 @@ class DataFile:
 
     def __getitem__(self, name):
         return self.datasets[name]
+
+

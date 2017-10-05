@@ -58,22 +58,22 @@ def info(config, args):
 # --- Search
 
 @command
-def search(args):
-    cpath = configpath(args)
-
-    for root, dirs, files in os.walk(cpath, topdown=False):
-        for relpath in files:
-            if relpath.endswith(YAML_SUFFIX):
-                path = op.join(root, relpath)
-                prefix = op.relpath(path, cpath)[:-len(YAML_SUFFIX)].replace("/", ".")
-                data = readyaml(path)
-                if data is not None and "data" in data:
-                    for d in data["data"]:
-                        if type(d["id"]) == list:
-                            for _id in d["id"]:
-                                print("%s.%s" % (prefix, _id))
-                        else:
-                            print("%s.%s" % (prefix, d["id"]))
+def search(config, args):
+    for df in config.files():
+        print(df)
+    # for root, dirs, files in os.walk(cpath, topdown=False):
+    #     for relpath in files:
+    #         if relpath.endswith(YAML_SUFFIX):
+    #             path = op.join(root, relpath)
+    #             prefix = op.relpath(path, cpath)[:-len(YAML_SUFFIX)].replace("/", ".")
+    #             data = readyaml(path)
+    #             if data is not None and "data" in data:
+    #                 for d in data["data"]:
+    #                     if type(d["id"]) == list:
+    #                         for _id in d["id"]:
+    #                             print("%s.%s" % (prefix, _id))
+    #                     else:
+    #                         print("%s.%s" % (prefix, d["id"]))
 
 
 # --- Create the argument parser
