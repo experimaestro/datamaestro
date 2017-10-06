@@ -1,8 +1,8 @@
 import logging
 from datasets.data import Handler, DownloadHandler
 
-class Sgml(Handler):
+class Collection(Handler):
+    """Just a set of document collections"""
     def download(self):
         # Verify if the dataset has been downloaded
-        print(self.dataset)
-        raise Exception("Not implemented")
+        pass

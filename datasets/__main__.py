@@ -11,7 +11,7 @@ import importlib
 from .data import Dataset, DataFile, Configuration
 from .commands import command, commands, arguments
 
-MAINDIR = op.join(op.dirname(op.dirname(__file__)), "share")
+MAINDIR = op.join(op.expanduser("~"), "datasets")
 
 # --- Definition of commands
 
@@ -58,7 +58,7 @@ def info(config, args):
 # --- Search
 
 @command
-def search(config, args):
+def search(config: Configuration, args):
     for df in config.files():
         print(df)
     # for root, dirs, files in os.walk(cpath, topdown=False):
@@ -77,37 +77,39 @@ def search(config, args):
 
 
 # --- Create the argument parser
+def main():
+    parser = argparse.ArgumentParser(description='datasets manager')
+    parser.add_argument("--verbose", action="store_true", help="Be verbose")
+    parser.add_argument("--debug", action="store_true", help="Be even more verbose (implies traceback)")
+    parser.add_argument("--traceback", action="store_true", help="Display traceback if an exception occurs")
+    parser.add_argument("--data", help="Directory containing datasets", default=MAINDIR)
 
-parser = argparse.ArgumentParser(description='datasets manager')
-parser.add_argument("--verbose", action="store_true", help="Be verbose")
-parser.add_argument("--debug", action="store_true", help="Be even more verbose")
-parser.add_argument("--configuration", help="Directory containing the configuration files", default=MAINDIR)
+    parser.add_argument("command", choices=commands.keys())
+    parser.add_argument("arguments", nargs=argparse.REMAINDER, help="Arguments for the preparation")
 
-parser.add_argument("command", choices=commands.keys())
-parser.add_argument("arguments", nargs=argparse.REMAINDER, help="Arguments for the preparation")
-
-args = parser.parse_args()
-
-
-if args.command is None:
-    parser.print_help()
-    sys.exit()
-
-if args.verbose:
-    logging.getLogger().setLevel(logging.INFO)
-
-if args.debug:
-    logging.getLogger().setLevel(logging.DEBUG)
+    args = parser.parse_args()
 
 
-try:
-    fname = "command_%s" % args.command.replace("-", "_")
-    config = Configuration(args.configuration)
-    commands[args.command](config, args)
-except Exception as e:
-    sys.stderr.write("Error while running command %s:\n" % args.command)
-    sys.stderr.write(str(e))
+    if args.command is None:
+        parser.print_help()
+        sys.exit()
+
+    if args.verbose:
+        logging.getLogger().setLevel(logging.INFO)
 
     if args.debug:
-        import traceback
-        sys.stderr.write(traceback.format_exc())
+        logging.getLogger().setLevel(logging.DEBUG)
+
+
+    try:
+        config = Configuration(args.data)
+        commands[args.command](config, args)
+    except Exception as e:
+        sys.stderr.write("Error while running command %s:\n" % args.command)
+        sys.stderr.write(str(e))
+
+        if args.debug or args.traceback:
+            import traceback
+            sys.stderr.write(traceback.format_exc())
+
+        sys.exit(1)

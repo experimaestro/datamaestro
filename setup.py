@@ -10,6 +10,8 @@ setup(name='datasets',
     url='https://github.com/bpiwowar/datasets',
     packages=['datasets'],
     package_dir={'datasets': 'datasets'},
+
+    package_data={'': ['LICENSE', 'repositories.yaml']},
     entry_points = {
         'console_scripts': [
             'datasets = datasets.__main__:main',                  
