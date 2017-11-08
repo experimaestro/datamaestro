@@ -11,16 +11,18 @@ at being
 
 Each datasets is uniquely identified by a qualified name such as `nist.trec.2009.web.adhoc`. A dataset can reference other datasets.
 
-This software integrates with the [experimaestro](http://experimaestro.sf.net) experiment manager.
+This software integrates with the [experimaestro](https://github.com/bpiwowar/experimaestro) experiment manager.
 
-## Datasets Definitions
+## Repositories
 
-Datasets themselves are stored in different repositories whose list is given in [repositories.yaml](repositories.yaml)
+Datasets themselves are stored in different repositories whose list is given in [repositories.yaml](datasets/repositories.yaml).
+Each repository provides :
 
+- a list of new resources
+- tools to process the resources
 
 # YAML syntax
 
-Each dataset (or a set of related datasets) is described by a YAML file. We describe now
-the general YAML syntax; it can be extended by specific defitions.
+Each dataset (or a set of related datasets) is described by a YAML file. Its syntax is
+described in the documentation.
 
-- id

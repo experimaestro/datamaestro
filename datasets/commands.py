@@ -7,15 +7,16 @@ commands = {}
 class Command:
     def __init__(self, method, description=None):
         self.method = method
-        @wraps(method)
-        def wrapper(config, args):
-            method.__globals__["config"] = config
-            for key, value in args.__dict__.items():
-                logging.info("Setting %s to %s", key, value)
-                method.__globals__[key] = value
-            return method()
+        # @wraps(method)
+        # def wrapper(config, args):
+        #     print(method.__local__)
+        #     method.__globals__["config"] = config
+        #     for key, value in args.__dict__.items():
+        #         logging.info("Setting %s to %s", key, value)
+        #         method.__globals__[key] = value
+        #     return method()
 
-        self.wrapper = wrapper
+        self.wrapper = method
 
         self.description = description
         self.name = method.__name__.replace('_', '-')
@@ -23,7 +24,7 @@ class Command:
         self.subcommands = {}
 
     def __call__(self, config, args):
-        logging.debug("Parsing remainding arguments: %s", args.arguments)
+        logging.debug("Parsing remaining arguments: %s", args.arguments)
         if self.subcommands:
             subparsers = self.parser.add_subparsers()
             for key, command in self.subcommands.items():

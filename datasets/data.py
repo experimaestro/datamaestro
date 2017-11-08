@@ -2,6 +2,8 @@ import logging
 import os.path as op, os
 import yaml
 import importlib
+from pathlib import Path
+
 
 YAML_SUFFIX = ".yaml"
 
@@ -42,10 +44,15 @@ class Context(object):
     def id(self, _id):
         return "%s.%s" % (self.prefix, _id)
 
-class Definitions:
-    def __init__(self, basedir):
+class Repository:
+    """A repository"""
+    def __init__(self, config, basedir):
         self.basedir = basedir
+        self.config = config
         self.etcdir = op.join(basedir, "etc")
+
+    def __repr__(self):
+        return "Repository(%s)" % self.basedir
 
     def search(self, name: str):
         """Search for a dataset in the definitions"""
@@ -62,6 +69,7 @@ class Definitions:
                 path += YAML_SUFFIX
                 break
             if not op.isdir(path):
+                logging.error("Could not find %s", path)
                 return None
 
         # Get the dataset
@@ -72,62 +80,67 @@ class Definitions:
         return f[sub]
 
     def __iter__(self):
+        """Iterates over all datasets in this repository"""
         logging.debug("Looking at definitions in %s", self.etcdir)
         for root, dirs, files in os.walk(self.etcdir, topdown=False):
+            relroot = Path(root).relative_to(self.etcdir)
+            prefix = ".".join(relroot.parts)
             for relpath in files:
                 try:
                     if relpath.endswith(YAML_SUFFIX):
                         path = op.join(root, relpath)
-                        prefix = op.relpath(path, self.etcdir)[:-len(YAML_SUFFIX)].replace("/", ".")
-                        data = readyaml(path)
-                        if data is not None and "data" in data:
-                            for d in data["data"]:
-                                l = d["id"] if isinstance(d["id"], list) else [d["id"]]
-                                yield Dataset(["%s.%s" % (prefix, _id) for _id in l], d)
+                        datafile = DataFile(self, "%s.%s" % (prefix, Path(relpath).stem), path)
+                        for dataset in datafile:
+                            yield dataset
                 except Exception as e:
-                    logging.error("Error while reading dataset file %s: %s", relpath, e)
+                    import traceback
+                    traceback.print_exc()
+                    logging.error("Error while reading definitions file %s: %s", relpath, e)
+
 
 class Configuration:
-    MAINDIR = op.join(op.expanduser("~"), "datasets")
+    """
+    Represents the configuration
+    """
+    MAINDIR = Path("~/datasets").expanduser()
 
     """Main settings"""
-    def __init__(self, path):
+    def __init__(self, path: Path):
         self._path = path
 
     @property
-    def configpath(self):
-        """Directory containing definitions"""
-        return op.join(self._path, "definitions")
+    def repositoriespath(self):
+        """Directory containing repositories"""
+        return self._path.joinpath("repositories")
 
     @property
     def datapath(self):
-        return op.join(self._path, "data")
+        return self._path.joinpath("data")
 
     @property
     def datasetspath(self):
-        return op.join(self._path, "datasets")
+        return self._path.joinpath("datasets")
 
     @property
-    def webpath(self):
-        return op.join(op.dirname(self._path), "www")
+    def webpath(self) -> Path:
+        return self._path.joinpath("www")
 
-    def definitions(self):
+    def finddataset(self, name):
+        return Dataset.find(self, name)
+
+    def repositories(self):
         """Returns an iterator over definitions base directories"""
         yielded = False
-        for name in os.listdir(self.configpath):
-            path = op.join(self.configpath, name)
+        for name in os.listdir(self.repositoriespath):
+            path = op.join(self.repositoriespath, name)
             if op.isdir(path):
-                for name in os.listdir(path):
-                    path2 = op.join(path, name)
-                    if op.isdir(path2):
-                        yield Definitions(path2)
-                        yielded = True
+                yield Repository(self, path)
 
         if not yielded: return []
 
     def files(self):
         """Returns an iterator over all files"""
-        for definitions in self.definitions():
+        for definitions in self.repositories():
             for dataset in definitions:
                 yield dataset
             
@@ -147,13 +160,18 @@ class Documents:
 
 class DataFile:
     """A single dataset definition file"""
-    def __init__(self, definitions: Definitions, prefix: str, path: str):
-        self.definitions = definitions
+    def __init__(self, repository: Repository, prefix: str, path: str):
+        self.repository = repository
+        logging.debug("Reading %s", path)
         self.content = readyaml(path)
+        if not self.content: self.content = {}
         self.datasets = {}
         self.id = prefix
-        for d in self.content["data"]:
-            if type(d["id"]) == list:
+
+        for d in self.content.get("data", []):
+            if "id" not in d:
+                self.datasets[prefix] = Dataset(self, [prefix], d)
+            elif type(d["id"]) == list:
                 ids = ["%s.%s" % (prefix, d["id"][0]) for _id in d["id"]]
                 dataset = Dataset(self, ids, d)
                 for _id in d["id"]:
@@ -169,10 +187,13 @@ class DataFile:
 
     def resolvens(self, ns):
         return self.content["namespaces"][ns]
+
+    def __iter__(self):
+        return self.datasets.values().__iter__()
     
     @property
     def downloadpath(self):
-        return op.join(self.definitions.basedir, "downloads")
+        return op.join(self.repository.basedir, "downloads")
         
 
 
@@ -180,6 +201,13 @@ class Dataset:
     """Represents one dataset"""
 
     def __init__(self, datafile: DataFile, ids, content):
+        """
+        Construct a new dataset
+
+        :param datafile: the attached definition file
+        :param ids: the IDs of this dataset
+        :param content: The dataset definition
+        """
         self.datafile = datafile
         self.ids = ids
         self.content = content
@@ -200,25 +228,26 @@ class Dataset:
     def __repr__(self):
         return "Dataset(%s)" % (", ".join(self.ids))
 
-    def getHandler(self, config):
+    def getHandler(self):
         name = self.content["handler"]
         logging.debug("Searching for handler %s", name)
         package, name = name.split("/")
         name = name[0].upper() + name[1:]
         
         package = importlib.import_module("datasets.handlers." + package, package="")
-        return getattr(package, name)(config, self, self.content)
+        return getattr(package, name)(self.datafile.repository.config, self, self.content)
 
     @property
     def downloadpath(self):
         return self.datafile.downloadpath
 
     @staticmethod
-    def find(configuration: Configuration, name: str):
+    def find(config: Configuration, name: str):
         """Find a dataset given its name"""
-        logging.debug("Searching dataset %s" % name)
-        for definitions in configuration.definitions():
-            dataset = definitions.search(name)
+        logging.debug("Searching dataset %s", name)
+        for repository in config.repositories():
+            logging.debug("Searching dataset %s in %s", name, repository)
+            dataset = repository.search(name)
             if dataset is not None:
                 return dataset
         raise Exception("Could not find the dataset %s" % (name))
@@ -256,7 +285,7 @@ class Handler:
                 did = self.dataset.baseid + did
 
             dataset = Dataset.find(config, did)
-            handler = dataset.getHandler(config)
+            handler = dataset.getHandler()
             self.dependencies[did] = handler
 
     def download(self, force=False):

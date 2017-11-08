@@ -25,14 +25,15 @@ def command_serve(args):
         print("serving at port", args.port)
         httpd.serve_forever()
 
+
 # --- Manage repositories
 
 @command(description="List repositories")
-def repositories():
+def repositories(config: Configuration, args):
     pass
 
 @command(parent=repositories)
-def list():
+def list(config: Configuration, args):
     import pkgutil
     data = pkgutil.get_data('datasets', 'repositories.yaml')
     repositories = yaml.load(data)
@@ -40,13 +41,12 @@ def list():
         print(key, info["description"])
 
 
-
 # --- prepare and download
 
 @arguments("dataset", help="The dataset ID")
 @command()
-def prepare(args, pargs):
-    dataset = Dataset.find(pargs.dataset)
+def prepare(config: Configuration, args):
+    dataset = config.finddataset(args.dataset)
     # Now, do something
     handler = dataset.getHandler()
     handler.download()
@@ -54,17 +54,17 @@ def prepare(args, pargs):
 
 @arguments("dataset", help="The dataset ID")
 @command()
-def download():
-    dataset = Dataset.find(config, dataset)
+def download(config: Configuration, args):
+    dataset = Dataset.find(config, args.dataset)
 
     # Now, do something
-    handler = dataset.getHandler(config)
+    handler = dataset.getHandler()
     handler.download()
 
 @arguments("dataset", help="The dataset ID")
 @command()
-def info():
-    dataset = Dataset.find(config, dataset)
+def info(config: Configuration, args):
+    dataset = Dataset.find(config, args.dataset)
     handler = dataset.getHandler(config)
     print(handler.description())
 
