@@ -7,11 +7,10 @@ import logging
 import http.server
 import os.path as op
 import importlib
+import yaml
 
 from .data import Dataset, DataFile, Configuration
 from .commands import command, commands, arguments
-
-MAINDIR = op.join(op.expanduser("~"), "datasets")
 
 # --- Definition of commands
 
@@ -26,11 +25,26 @@ def command_serve(args):
         print("serving at port", args.port)
         httpd.serve_forever()
 
+# --- Manage repositories
+
+@command(description="List repositories")
+def repositories():
+    pass
+
+@command(parent=repositories)
+def list():
+    import pkgutil
+    data = pkgutil.get_data('datasets', 'repositories.yaml')
+    repositories = yaml.load(data)
+    for key, info in repositories.items():
+        print(key, info["description"])
+
+
 
 # --- prepare and download
 
 @arguments("dataset", help="The dataset ID")
-@command
+@command()
 def prepare(args, pargs):
     dataset = Dataset.find(pargs.dataset)
     # Now, do something
@@ -39,25 +53,25 @@ def prepare(args, pargs):
     handler.prepare()
 
 @arguments("dataset", help="The dataset ID")
-@command
-def download(config, args):
-    dataset = Dataset.find(config, args.dataset)
+@command()
+def download():
+    dataset = Dataset.find(config, dataset)
 
     # Now, do something
     handler = dataset.getHandler(config)
     handler.download()
 
 @arguments("dataset", help="The dataset ID")
-@command
-def info(config, args):
-    dataset = Dataset.find(config, args.dataset)
+@command()
+def info():
+    dataset = Dataset.find(config, dataset)
     handler = dataset.getHandler(config)
     print(handler.description())
 
 
 # --- Search
 
-@command
+@command()
 def search(config: Configuration, args):
     for df in config.files():
         print(df)
@@ -82,13 +96,12 @@ def main():
     parser.add_argument("--verbose", action="store_true", help="Be verbose")
     parser.add_argument("--debug", action="store_true", help="Be even more verbose (implies traceback)")
     parser.add_argument("--traceback", action="store_true", help="Display traceback if an exception occurs")
-    parser.add_argument("--data", help="Directory containing datasets", default=MAINDIR)
+    parser.add_argument("--data", help="Directory containing datasets", default=Configuration.MAINDIR)
 
     parser.add_argument("command", choices=commands.keys())
     parser.add_argument("arguments", nargs=argparse.REMAINDER, help="Arguments for the preparation")
 
     args = parser.parse_args()
-
 
     if args.command is None:
         parser.print_help()

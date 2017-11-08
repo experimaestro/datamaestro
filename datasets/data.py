@@ -88,12 +88,15 @@ class Definitions:
                     logging.error("Error while reading dataset file %s: %s", relpath, e)
 
 class Configuration:
+    MAINDIR = op.join(op.expanduser("~"), "datasets")
+
     """Main settings"""
     def __init__(self, path):
         self._path = path
 
     @property
     def configpath(self):
+        """Directory containing definitions"""
         return op.join(self._path, "definitions")
 
     @property

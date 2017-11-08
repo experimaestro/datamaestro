@@ -1,0 +1,16 @@
+# List of repositories
+
+# The structure for each definition repository is 
+# Repository-ID:
+#   keywords = a list of keywords
+#   description = Markdown description of the dataset
+#   url = The URL that contains the code and yaml configuration files
+
+information-access:
+  keywords:
+    - information access
+    - information retrieval
+    - structured information retrieval
+  description: Datasets definitions for Information Access tasks
+  url: https://github.com/bpiwowar/datasets-information-access
+  

@@ -9,15 +9,18 @@ at being
 1. a tool to automatically download and/or process resources
 
 
-Each datasets is uniquely identified by a qualified name such as `nist.trec.2009.web.adhoc`. A dataset can reference other
-datasets.
+Each datasets is uniquely identified by a qualified name such as `nist.trec.2009.web.adhoc`. A dataset can reference other datasets.
 
 This software integrates with the [experimaestro](http://experimaestro.sf.net) experiment manager.
 
+## Datasets Definitions
 
-# Datasets
+Datasets themselves are stored in different repositories whose list is given in [repositories.yaml](repositories.yaml)
 
-Each dataset (or a set of related datasets) is described by a YAML file.
-Fields:
+
+# YAML syntax
+
+Each dataset (or a set of related datasets) is described by a YAML file. We describe now
+the general YAML syntax; it can be extended by specific defitions.
 
 - id
