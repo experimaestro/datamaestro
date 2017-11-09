@@ -12,6 +12,8 @@ import yaml
 from .data import Dataset, DataFile, Configuration
 from .commands import command, commands, arguments
 
+logging.basicConfig(level=logging.INFO)
+
 # --- Definition of commands
 
 class HTTPHandler(http.server.SimpleHTTPRequestHandler):
@@ -47,7 +49,7 @@ def list(config: Configuration, args):
 @command()
 def prepare(config: Configuration, args):
     dataset = config.finddataset(args.dataset)
-    # Now, do something
+
     handler = dataset.getHandler()
     handler.download()
     handler.prepare()
@@ -65,35 +67,25 @@ def download(config: Configuration, args):
 @command()
 def info(config: Configuration, args):
     dataset = Dataset.find(config, args.dataset)
-    handler = dataset.getHandler(config)
+    handler = dataset.getHandler()
     print(handler.description())
 
 
 # --- Search
 
+@arguments("regexp", help="The regular expression")
 @command()
 def search(config: Configuration, args):
-    for df in config.files():
-        print(df)
-    # for root, dirs, files in os.walk(cpath, topdown=False):
-    #     for relpath in files:
-    #         if relpath.endswith(YAML_SUFFIX):
-    #             path = op.join(root, relpath)
-    #             prefix = op.relpath(path, cpath)[:-len(YAML_SUFFIX)].replace("/", ".")
-    #             data = readyaml(path)
-    #             if data is not None and "data" in data:
-    #                 for d in data["data"]:
-    #                     if type(d["id"]) == list:
-    #                         for _id in d["id"]:
-    #                             print("%s.%s" % (prefix, _id))
-    #                     else:
-    #                         print("%s.%s" % (prefix, d["id"]))
-
+    import re
+    pattern = re.compile(args.regexp)
+    for dataset in config.datasets():
+        if any([pattern.search(id) is not None for id in dataset.ids]):
+            print(dataset)
 
 # --- Create the argument parser
 def main():
     parser = argparse.ArgumentParser(description='datasets manager')
-    parser.add_argument("--verbose", action="store_true", help="Be verbose")
+    parser.add_argument("--quiet", action="store_true", help="Be quiet")
     parser.add_argument("--debug", action="store_true", help="Be even more verbose (implies traceback)")
     parser.add_argument("--traceback", action="store_true", help="Display traceback if an exception occurs")
     parser.add_argument("--data", help="Directory containing datasets", default=Configuration.MAINDIR)
@@ -107,10 +99,9 @@ def main():
         parser.print_help()
         sys.exit()
 
-    if args.verbose:
-        logging.getLogger().setLevel(logging.INFO)
-
-    if args.debug:
+    if args.quiet:
+        logging.getLogger().setLevel(logging.WARN)
+    elif args.debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
 

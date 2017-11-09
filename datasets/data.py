@@ -3,7 +3,7 @@ import os.path as op, os
 import yaml
 import importlib
 from pathlib import Path
-
+import re
 
 YAML_SUFFIX = ".yaml"
 
@@ -134,11 +134,11 @@ class Configuration:
         for name in os.listdir(self.repositoriespath):
             path = op.join(self.repositoriespath, name)
             if op.isdir(path):
-                yield Repository(self, path)
+                yield Repository(self, Path(path))
 
         if not yielded: return []
 
-    def files(self):
+    def datasets(self):
         """Returns an iterator over all files"""
         for definitions in self.repositories():
             for dataset in definitions:
@@ -218,6 +218,11 @@ class Dataset:
         return self.ids[0]
 
     @property
+    def repository(self):
+        """Main ID is the first one"""
+        return self.datafile.repository
+
+    @property
     def baseid(self):
         """Main ID is the first one"""
         return self.datafile.id
@@ -231,10 +236,22 @@ class Dataset:
     def getHandler(self):
         name = self.content["handler"]
         logging.debug("Searching for handler %s", name)
+
+        pattern = re.compile(r"(/|\w+:)?(\w+)/(\w\w+)")
+        m = pattern.match(name)
+        print(m)
         package, name = name.split("/")
         name = name[0].upper() + name[1:]
-        
-        package = importlib.import_module("datasets.handlers." + package, package="")
+        try:
+            # Try in repository
+            path = self.repository.basedir.joinpath("module")
+            pname = "handlers.%s" % package
+            print(pname, importlib.util.find_spec(pname, [path]))
+            print()
+        except ModuleNotFoundError:
+            # Try main code source
+            package = importlib.import_module("datasets.handlers." + package, package="")
+    
         return getattr(package, name)(self.datafile.repository.config, self, self.content)
 
     @property
@@ -303,6 +320,10 @@ class Handler:
         # Download dependencies
         for dependency in self.dependencies.values():
             dependency.download()
+
+    def prepare(self, **kwargs):
+        """Prepare the dataset"""
+        pass 
 
     def description(self):
         return self.content["description"]

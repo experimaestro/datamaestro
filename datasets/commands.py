@@ -5,26 +5,18 @@ from functools import wraps
 commands = {}
 
 class Command:
-    def __init__(self, method, description=None):
+    def __init__(self, method, description=None, allowextraargs=False):
         self.method = method
-        # @wraps(method)
-        # def wrapper(config, args):
-        #     print(method.__local__)
-        #     method.__globals__["config"] = config
-        #     for key, value in args.__dict__.items():
-        #         logging.info("Setting %s to %s", key, value)
-        #         method.__globals__[key] = value
-        #     return method()
-
-        self.wrapper = method
 
         self.description = description
         self.name = method.__name__.replace('_', '-')
         self.parser = argparse.ArgumentParser(self.name)
         self.subcommands = {}
+        self.allowextraargs = allowextraargs
 
     def __call__(self, config, args):
         logging.debug("Parsing remaining arguments: %s", args.arguments)
+
         if self.subcommands:
             subparsers = self.parser.add_subparsers()
             for key, command in self.subcommands.items():
@@ -32,13 +24,13 @@ class Command:
                 parser.set_defaults(subcommand=command)
                 parser.add_argument("arguments", nargs=argparse.REMAINDER, 
                     help="Arguments for %s" % key)
-        else:
+        elif self.allowextraargs:
             self.parser.add_argument("arguments", nargs=argparse.REMAINDER, 
                 help="Arguments for the preparation")
         
         pargs = self.parser.parse_args(args.arguments)
         
-        self.wrapper(config, pargs)
+        self.method(config, pargs)
         if self.subcommands and pargs.subcommand:
             pargs.subcommand(config, pargs)
 
