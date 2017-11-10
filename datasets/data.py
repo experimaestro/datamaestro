@@ -125,11 +125,11 @@ class Repository:
         name = m.group(4).upper() + m.group(5)
 
         if root:
-            package = "datasets.%s.%s" % (handlertype, package)
+            package = "datasets.handlers.%s.%s" % (handlertype, package)
         elif repo:
-            package = "datasets.r.%s.%s.%s" % (repo, handlertype, package)
+            package = "datasets.r.%s.handlers.%s.%s" % (repo, handlertype, package)
         else:
-            package = "datasets.r.%s.%s.%s" % (self.basedir.stem, handlertype, package)
+            package = "datasets.r.%s.handlers.%s.%s" % (self.basedir.stem, handlertype, package)
         
         logging.debug("Searching for handler: package %s, class %s", package, name)
         package = importlib.import_module(package)
@@ -273,7 +273,7 @@ class Dataset:
 
     def getHandler(self):
         name = self.content["handler"]
-        return self.repository.findhandler("handlers", name)(self, self.content)
+        return self.repository.findhandler("dataset", name)(self, self.content)
 
     @property
     def downloadpath(self):
