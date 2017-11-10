@@ -23,18 +23,30 @@ def readyaml(path):
         return yaml.safe_load(f)
 
 
-def findhandler(handlertype, name, definition):
-    logging.debug("Searching for %s handler %s", handlertype, name)
-    l = name.split("/")
-    if len(l) == 2:
-        package, name = name.split("/")
-        package = importlib.import_module("datasets.%s.%s" % (handlertype, package), package="")
-    else:
-        package = importlib.import_module("datasets.%s.main" % (handlertype), package="")
-        name = l[0]
 
-    name = name[0].upper() + name[1:]
-    return getattr(package, name)(definition)
+import sys
+class Importer(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname.startswith("datasets.r."):
+            names = fullname.split(".")[2:]
+            names.insert(1, "module")
+            path = Path("/Users/bpiwowar/datasets/repositories").joinpath(*names)
+            pypath = path.with_suffix(".py")
+            if pypath.is_file():
+                path = pypath
+            else:
+                path = path.joinpath("__init__.py")
+                if not path.is_file():
+                    logging.warn("Could not find %s", path)
+                    return None
+            loader = importlib.machinery.SourceFileLoader(fullname, str(path))
+
+            spec = importlib.machinery.ModuleSpec(fullname, loader, is_package=True)
+            return spec
+
+        return None
+sys.meta_path.append(Importer())
+
 
 class Context(object):
     """Context of a configuration file"""
@@ -96,6 +108,33 @@ class Repository:
                     import traceback
                     traceback.print_exc()
                     logging.error("Error while reading definitions file %s: %s", relpath, e)
+        
+    def findhandler(self, handlertype, name):
+        """
+        Find a handler
+        """
+        logging.debug("Searching for handler %s of type %s", name, handlertype)
+        pattern = re.compile(r"^(?:(/)|(?:(\w+):))?([.\w]+)/(\w)(\w+)$")
+        m = pattern.match(name)
+        if not m:
+            raise Exception("Invalid handler specification %s" % name)
+
+        root = m.group(1)
+        repo = m.group(2)
+        package = m.group(3)
+        name = m.group(4).upper() + m.group(5)
+
+        if root:
+            package = "datasets.%s.%s" % (handlertype, package)
+        elif repo:
+            package = "datasets.r.%s.%s.%s" % (repo, handlertype, package)
+        else:
+            package = "datasets.r.%s.%s.%s" % (self.basedir.stem, handlertype, package)
+        
+        logging.debug("Searching for handler: package %s, class %s", package, name)
+        package = importlib.import_module(package)
+
+        return getattr(package, name)
 
 
 class Configuration:
@@ -194,7 +233,6 @@ class DataFile:
     @property
     def downloadpath(self):
         return op.join(self.repository.basedir, "downloads")
-        
 
 
 class Dataset:
@@ -235,24 +273,7 @@ class Dataset:
 
     def getHandler(self):
         name = self.content["handler"]
-        logging.debug("Searching for handler %s", name)
-
-        pattern = re.compile(r"(/|\w+:)?(\w+)/(\w\w+)")
-        m = pattern.match(name)
-        print(m)
-        package, name = name.split("/")
-        name = name[0].upper() + name[1:]
-        try:
-            # Try in repository
-            path = self.repository.basedir.joinpath("module")
-            pname = "handlers.%s" % package
-            print(pname, importlib.util.find_spec(pname, [path]))
-            print()
-        except ModuleNotFoundError:
-            # Try main code source
-            package = importlib.import_module("datasets.handlers." + package, package="")
-    
-        return getattr(package, name)(self.datafile.repository.config, self, self.content)
+        return self.repository.findhandler("handlers", name)(self, self.content)
 
     @property
     def downloadpath(self):
@@ -273,14 +294,14 @@ class Dataset:
 
 class Handler:
     """Base class for all dataset handlers"""
-    def __init__(self, config, dataset: Dataset, content):
-        self.config = config
+    def __init__(self, dataset: Dataset, content):
+        self.config = dataset.repository.config
         self.dataset = dataset
         self.content = content
 
         # Search for dependencies
         self.dependencies = {}
-        self._searchdependencies(config, self.content)
+        self._searchdependencies(self.config, self.content)
 
 
     def _searchdependencies(self, config, content):
@@ -311,7 +332,7 @@ class Handler:
 
         # Download direct resources
         if "download" in self.content:
-            handler = DownloadHandler.find(self.content["download"])
+            handler = DownloadHandler.find(self.repository, self.content["download"])
             if op.exists(self.destpath) and not force:
                 logging.info("File already downloaded [%s]", self.destpath)
             else:
@@ -329,6 +350,10 @@ class Handler:
         return self.content["description"]
 
     @property
+    def repository(self):
+        return self.dataset.repository
+
+    @property
     def destpath(self):
         return op.join(self.dataset.downloadpath, *self.dataset.id.split("."))
 
@@ -338,7 +363,7 @@ class DownloadHandler:
         self.definition = definition
 
     @staticmethod
-    def find(definition):
-        return findhandler("download", definition["handler"], definition)
+    def find(repository, definition):
+        return repository.findhandler("download", definition["handler"])(definition)
 
 

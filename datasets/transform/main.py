@@ -1,10 +1,6 @@
 import io
 import logging
 
-from ..data import findhandler
-
-
-
 class Transform:
     def __init__(self, definition):
         self.definition = definition
