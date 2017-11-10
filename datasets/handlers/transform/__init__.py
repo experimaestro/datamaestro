@@ -6,14 +6,14 @@ class Transform:
         self.definition = definition
        
     @staticmethod
-    def create(definition):
+    def create(repository, definition):
         t = TransformerList()
         for item in definition:
             if isinstance(item, list):
                 name, d = item
-                t.append(findhandler("transform", name, d))
+                t.append(repository.findhandler("transform", name)(d))
             else:
-                t.append(findhandler("transform", item, {}))
+                t.append(repository.findhandler("transform", item)({}))
         return t
 
     def __call__(self, input):

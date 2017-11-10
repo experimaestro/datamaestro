@@ -114,22 +114,23 @@ class Repository:
         Find a handler
         """
         logging.debug("Searching for handler %s of type %s", name, handlertype)
-        pattern = re.compile(r"^(?:(/)|(?:(\w+):))?([.\w]+)/(\w)(\w+)$")
+        pattern = re.compile(r"^(?:(/)|(?:(\w+):))?(?:([.\w]+)/)?(\w)(\w+)$")
         m = pattern.match(name)
         if not m:
             raise Exception("Invalid handler specification %s" % name)
 
         root = m.group(1)
         repo = m.group(2)
-        package = m.group(3)
         name = m.group(4).upper() + m.group(5)
-
         if root:
-            package = "datasets.handlers.%s.%s" % (handlertype, package)
+            package = "datasets.handlers.%s" % (handlertype)
         elif repo:
-            package = "datasets.r.%s.handlers.%s.%s" % (repo, handlertype, package)
+            package = "datasets.r.%s.handlers.%s" % (repo, handlertype)
         else:
-            package = "datasets.r.%s.handlers.%s.%s" % (self.basedir.stem, handlertype, package)
+            package = "datasets.r.%s.handlers.%s" % (self.basedir.stem, handlertype)
+
+        if m.group(3):
+            package = "%s.%s" % (package, m.group(3))
         
         logging.debug("Searching for handler: package %s, class %s", package, name)
         package = importlib.import_module(package)
@@ -359,11 +360,12 @@ class Handler:
 
 
 class DownloadHandler:
-    def __init__(self, definition):
+    def __init__(self, repository, definition):
+        self.repository = repository
         self.definition = definition
 
     @staticmethod
     def find(repository, definition):
-        return repository.findhandler("download", definition["handler"])(definition)
+        return repository.findhandler("download", definition["handler"])(repository, definition)
 
 
