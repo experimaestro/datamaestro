@@ -233,7 +233,11 @@ class DataFile:
     
     @property
     def downloadpath(self):
-        return op.join(self.repository.basedir, "downloads")
+        return self.repository.basedir.joinpath("downloads")
+
+    @property
+    def datapath(self):
+        return self.repository.basedir.joinpath("data")
 
 
 class Dataset:
@@ -280,6 +284,10 @@ class Dataset:
     def downloadpath(self):
         return self.datafile.downloadpath
 
+    @property
+    def datapath(self):
+        return self.datafile.datapath
+
     @staticmethod
     def find(config: Configuration, name: str):
         """Find a dataset given its name"""
@@ -302,17 +310,19 @@ class Handler:
 
         # Search for dependencies
         self.dependencies = {}
-        self._searchdependencies(self.config, self.content)
+        self.content = self._resolve(self.config, self.content)
 
+    def _resolve(self, config, content):
+        """
+        Resolve all dependent datasets by finding appropriate handlers
 
-    def _searchdependencies(self, config, content):
-        """Retrieve all dependencies"""
+        Returns the content 
+        """
         if isinstance(content, dict):
-            for k, v in content.items():
-                self._searchdependencies(config, v)
+            return {k: self._resolve(config,v) for k, v in content.items()}
+
         elif isinstance(content, list):
-            for v in content:
-                self._searchdependencies(config, v)
+            return [self._resolve(config, v) for v in content]
         elif isinstance(content, DatasetReference):
             did = content.value
             pos = did.find("!")
@@ -326,6 +336,9 @@ class Handler:
             dataset = Dataset.find(config, did)
             handler = dataset.getHandler()
             self.dependencies[did] = handler
+            return handler
+        
+        return content
 
     def download(self, force=False):
         """Download all the resources (if available)"""
@@ -355,7 +368,13 @@ class Handler:
         return self.dataset.repository
 
     @property
+    def datapath(self):
+        """Returns the data path for downloads"""
+        return self.dataset.datapath.joinpath(*self.dataset.id.split("."))
+
+    @property
     def destpath(self):
+        """Returns the destination path for downloads"""
         return op.join(self.dataset.downloadpath, *self.dataset.id.split("."))
 
 
