@@ -8,7 +8,7 @@ import urllib.request
 import os.path as op, os
 from datasets.utils import rm_rf
 from datasets.handlers.transform import Transform
-from datasets.data import DownloadHandler
+from datasets.handlers.download import DownloadHandler
 
 
 def open_ext(*args, **kwargs):
@@ -74,6 +74,10 @@ class Archive(DownloadHandler):
     def download(self, destination):
         tmpdir = None
         try:
+            transformer = None
+            if "transforms" in self.definition:
+                transformer = Transform.create(self.repository, self.definition["transforms"])
+
             # Temporary directory
             tmpdir = tempfile.mkdtemp()
             tmpfile = "%s/file.dl" % tmpdir
@@ -88,8 +92,7 @@ class Archive(DownloadHandler):
                     with open_ext(aPath, "rb") as gzf:
                         f_out.write(gzf.read())
 
-            if "transforms" in self.definition:
-                transformer = Transform.create(self.definition["transforms"])
+            if transformer:
                 tname = outfilename + ".filtered"
                 with open(outfilename, mode="rb") as r, open(tname, mode="wb") as w:
                     stream = transformer(r)

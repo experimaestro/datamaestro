@@ -38,6 +38,7 @@ class TransformerList(Transform):
 
 
 class LineTransformStream(io.RawIOBase):
+    """Transform line by line"""
     def __init__(self, fileobj, transform):
         self.current = ""
         self.offset = 1
@@ -53,6 +54,8 @@ class LineTransformStream(io.RawIOBase):
         self.current = self.transform(self.fileobj.readline().decode("utf-8")).encode("utf-8")
 
     def readinto(self, b):
+        """Read bytes into a pre-allocated, writable bytes-like object b and return the number of bytes read"""
+        raise ProblemToBeFixed() # Does not output everything!!!
         offset = 0
         lb = len(b)
         while lb > 0:
@@ -80,3 +83,17 @@ class Replace(Transform):
        
     def __call__(self, fileobj):
         return LineTransformStream(fileobj, lambda s: self.re.sub(self.repl, s))
+
+class Filter(Transform):
+    """Line by line transform"""
+    def __init__(self, content):
+        import re
+        self.re = re.compile(content["pattern"])
+       
+    def filter(self, line):
+        if self.re.match(line): 
+            return line
+        return ""
+
+    def __call__(self, fileobj):
+        return LineTransformStream(fileobj, self.filter)

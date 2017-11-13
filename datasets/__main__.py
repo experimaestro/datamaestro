@@ -8,8 +8,10 @@ import http.server
 import os.path as op
 import importlib
 import yaml
+from .xpm import ExperimaestroEncoder
 
-from .data import Dataset, DataFile, Configuration
+from .data import Configuration
+from .handlers.datasets import Dataset
 from .commands import command, commands, arguments
 
 logging.basicConfig(level=logging.INFO)
@@ -47,21 +49,35 @@ def list(config: Configuration, args):
 
 @arguments("dataset", help="The dataset ID")
 @command()
-def prepare(config: Configuration, args):
-    dataset = config.finddataset(args.dataset)
-
-    handler = dataset.getHandler()
-    handler.download()
-    handler.prepare()
-
-@arguments("dataset", help="The dataset ID")
-@command()
 def download(config: Configuration, args):
     dataset = Dataset.find(config, args.dataset)
 
     # Now, do something
     handler = dataset.getHandler()
+    if not handler.download():
+        logging.error("One or more errors occured while downloading the dataset")
+        sys.exit(1)
+
+
+@arguments("dataset", help="The dataset ID")
+@command()
+def prepare(config: Configuration, args):
+    dataset = Dataset.find(config, args.dataset)
+
+    handler = dataset.getHandler()
     handler.download()
+    if not handler.download():
+        logging.error("One or more errors occured while downloading the dataset")
+        sys.exit(1)
+    
+    s = handler.prepare()
+  
+    try: 
+        print(ExperimaestroEncoder().encode(s))
+    except:
+        logging.error("Error encoding to JSON: %s", s)
+        sys.exit(1)
+
 
 @arguments("dataset", help="The dataset ID")
 @command()
