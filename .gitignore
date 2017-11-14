@@ -1,3 +1,4 @@
 __pycache__
 share/datasets
 datasets.egg-info
+.vscode

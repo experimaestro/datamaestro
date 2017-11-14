@@ -30,7 +30,7 @@ class DataFile:
         self.repository = repository
         logging.debug("Reading %s", path)
         self.content = readyaml(path)
-        if not self.content: self.content = {}
+        self.content = self.content or {}
         self.datasets = {}
         self.id = prefix
 

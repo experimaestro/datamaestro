@@ -50,6 +50,11 @@ class Repository:
         self.basedir = basedir
         self.config = config
         self.etcdir = op.join(basedir, "etc")
+        
+        with self.basedir.joinpath("index.yaml").open("rb") as fp:
+            index = yaml.load(fp)
+            self.description = index["description"]
+            self.name = index["name"]
 
     def __repr__(self):
         return "Repository(%s)" % self.basedir
@@ -80,8 +85,8 @@ class Repository:
             return None
         return f[sub]
 
-    def __iter__(self):
-        """Iterates over all datasets in this repository"""
+    def datafiles(self):
+        """Iterates over all datafiles in this repository"""
         from datasets.handlers.datasets import  DataFile
         logging.debug("Looking at definitions in %s", self.etcdir)
         for root, dirs, files in os.walk(self.etcdir, topdown=False):
@@ -92,16 +97,21 @@ class Repository:
                     if relpath.endswith(YAML_SUFFIX):
                         path = op.join(root, relpath)
                         datafile = DataFile(self, "%s.%s" % (prefix, Path(relpath).stem), path)
-                        for dataset in datafile:
-                            yield dataset
+                        yield datafile
                 except Exception as e:
                     import traceback
                     traceback.print_exc()
                     logging.error("Error while reading definitions file %s: %s", relpath, e)
-        
+
+    def __iter__(self):
+        """Iterates over all datasets in this repository"""
+        for datafile in self.datafiles():
+            for dataset in datafile:
+                return dataset
+
     def findhandler(self, handlertype, name):
         """
-        Find a handler
+        Find a handler of a given type
         """
         logging.debug("Searching for handler %s of type %s", name, handlertype)
         pattern = re.compile(r"^(?:(/)|(?:(\w+):))?(?:([.\w]+)/)?(\w)(\w+)$")

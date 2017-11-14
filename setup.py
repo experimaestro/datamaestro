@@ -15,6 +15,9 @@ setup(name='datasets',
     entry_points = {
         'console_scripts': [
             'datasets = datasets.__main__:main',                  
-        ],              
+        ],         
+        'mkdocs.plugins': [
+                'datasets = datasets.commands.site:DatasetGenerator',
+        ]
     },
 )
