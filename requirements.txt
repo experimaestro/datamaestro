@@ -1,1 +1,5 @@
+# Command line handling
+click
+
+# YAML support
 pyyaml

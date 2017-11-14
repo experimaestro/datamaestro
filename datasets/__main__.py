@@ -12,7 +12,8 @@ from .xpm import ExperimaestroEncoder
 
 from .data import Configuration
 from .handlers.datasets import Dataset
-from .commands import command, commands, arguments
+
+import click
 
 logging.basicConfig(level=logging.INFO)
 
@@ -30,14 +31,45 @@ def command_serve(args):
         httpd.serve_forever()
 
 
+# --- Create the argument parser
+
+@click.group()
+@click.option("--quiet", is_flag=True, help="Be quiet")
+@click.option("--debug", is_flag=True, help="Be even more verbose (implies traceback)")
+@click.option("--traceback", is_flag=True, help="Display traceback if an exception occurs")
+@click.option("--data", type=click.Path(exists=True), help="Directory containing datasets", default=Configuration.MAINDIR)
+@click.pass_context
+def cli(ctx, quiet, debug, traceback, data):
+    if quiet:
+        logging.getLogger().setLevel(logging.WARN)
+    elif debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+
+    ctx.obj = Configuration(data)
+
+def main():
+    cli(obj=None)
+
+@cli.command()
+@click.argument("dataset", type=str) #, help="The dataset ID")
+@click.pass_context
+def info(ctx, dataset):
+    dataset = Dataset.find(ctx.obj, dataset)
+    handler = dataset.getHandler()
+    print(handler.description())
+
+
 # --- Manage repositories
 
-@command(description="List repositories")
-def repositories(config: Configuration, args):
+@cli.group(help="Manage repositories")
+@click.pass_context
+def repositories(ctx):
     pass
 
-@command(parent=repositories)
-def list(config: Configuration, args):
+@repositories.command()
+@click.pass_context
+def list(ctx):
     import pkgutil
     data = pkgutil.get_data('datasets', 'repositories.yaml')
     repositories = yaml.load(data)
@@ -47,10 +79,17 @@ def list(config: Configuration, args):
 
 # --- prepare and download
 
-@arguments("dataset", help="The dataset ID")
-@command()
-def download(config: Configuration, args):
-    dataset = Dataset.find(config, args.dataset)
+@cli.command()
+def generate_site(config: Configuration, args):
+    import datasets.commands.site as site
+    site.generate()
+
+
+@click.argument("dataset")
+@cli.command()
+@click.pass_context
+def download(ctx, dataset):
+    dataset = Dataset.find(ctx.obj, dataset)
 
     # Now, do something
     handler = dataset.getHandler()
@@ -59,10 +98,11 @@ def download(config: Configuration, args):
         sys.exit(1)
 
 
-@arguments("dataset", help="The dataset ID")
-@command()
-def prepare(config: Configuration, args):
-    dataset = Dataset.find(config, args.dataset)
+@click.argument("dataset")
+@cli.command()
+@click.pass_context
+def prepare(ctx, dataset):
+    dataset = Dataset.find(ctx.obj, dataset)
 
     handler = dataset.getHandler()
     handler.download()
@@ -79,57 +119,14 @@ def prepare(config: Configuration, args):
         sys.exit(1)
 
 
-@arguments("dataset", help="The dataset ID")
-@command()
-def info(config: Configuration, args):
-    dataset = Dataset.find(config, args.dataset)
-    handler = dataset.getHandler()
-    print(handler.description())
-
 
 # --- Search
 
-@arguments("regexp", help="The regular expression")
-@command()
+@click.argument("regexp")
+@cli.command()
 def search(config: Configuration, args):
     import re
     pattern = re.compile(args.regexp)
     for dataset in config.datasets():
         if any([pattern.search(id) is not None for id in dataset.ids]):
             print(dataset)
-
-# --- Create the argument parser
-def main():
-    parser = argparse.ArgumentParser(description='datasets manager')
-    parser.add_argument("--quiet", action="store_true", help="Be quiet")
-    parser.add_argument("--debug", action="store_true", help="Be even more verbose (implies traceback)")
-    parser.add_argument("--traceback", action="store_true", help="Display traceback if an exception occurs")
-    parser.add_argument("--data", help="Directory containing datasets", default=Configuration.MAINDIR)
-
-    parser.add_argument("command", choices=commands.keys())
-    parser.add_argument("arguments", nargs=argparse.REMAINDER, help="Arguments for the preparation")
-
-    args = parser.parse_args()
-
-    if args.command is None:
-        parser.print_help()
-        sys.exit()
-
-    if args.quiet:
-        logging.getLogger().setLevel(logging.WARN)
-    elif args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-
-
-    try:
-        config = Configuration(args.data)
-        commands[args.command](config, args)
-    except Exception as e:
-        sys.stderr.write("Error while running command %s:\n" % args.command)
-        sys.stderr.write(str(e))
-
-        if args.debug or args.traceback:
-            import traceback
-            sys.stderr.write(traceback.format_exc())
-
-        sys.exit(1)

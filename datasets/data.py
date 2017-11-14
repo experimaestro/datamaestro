@@ -82,6 +82,7 @@ class Repository:
 
     def __iter__(self):
         """Iterates over all datasets in this repository"""
+        from datasets.handlers.datasets import  DataFile
         logging.debug("Looking at definitions in %s", self.etcdir)
         for root, dirs, files in os.walk(self.etcdir, topdown=False):
             relroot = Path(root).relative_to(self.etcdir)
