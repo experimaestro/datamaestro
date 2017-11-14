@@ -79,10 +79,15 @@ def list(ctx):
 
 # --- prepare and download
 
-@cli.command()
-def generate_site(config: Configuration, args):
+@cli.group()
+def site():
+    pass
+
+@site.command()
+@click.pass_context
+def generate(ctx):
     import datasets.commands.site as site
-    site.generate()
+    site.generate(ctx.obj)
 
 
 @click.argument("dataset")
