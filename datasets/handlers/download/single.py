@@ -4,7 +4,6 @@ import tarfile
 import io
 import tempfile
 import gzip
-import urllib.request
 import os.path as op, os
 from datasets.utils import rm_rf
 from datasets.handlers.transform import Transform
@@ -31,16 +30,15 @@ class File(DownloadHandler):
         dir = op.dirname(destination)
         os.makedirs(dir, exist_ok=True)
 
-        # Download
-        file = tempfile.NamedTemporaryFile(delete=True)
-        urllib.request.urlretrieve(self.url, file.name)
+        # Download (cache)
+        file = self.context.download(self.url)
 
         # Transform if need be
         if "transforms" in self.definition:
             logging.info("Transforming file")
             transformer = Transform.create(self.repository, self.definition["transforms"])
             tfile = tempfile.NamedTemporaryFile(delete=True, mode="wb")
-            with open(file.name, mode="rb") as r:
+            with file.path.open(mode="rb") as r:
                 stream = transformer(r)
                 while True:
                     b = stream.read(1024)
@@ -80,10 +78,10 @@ class Archive(DownloadHandler):
 
             # Temporary directory
             tmpdir = tempfile.mkdtemp()
-            tmpfile = "%s/file.dl" % tmpdir
-            urllib.request.urlretrieve(self.url, tmpfile)
+            dlfile = self.context.download(self.url)
+
             d = "%s/all" % tmpdir
-            tarfile.open(tmpfile).extractall(path="%s/all" % tmpdir)
+            tarfile.open(dlfile.path).extractall(path="%s/all" % tmpdir)
             outfilename = "%s/qrels" % tmpdir
             
             with open(outfilename, 'wb') as f_out:
@@ -105,6 +103,7 @@ class Archive(DownloadHandler):
                             
             # Move in place
             shutil.move(outfilename, destination)
+            dlfile.discard()
             logging.info("Created file %s" % destination)
         finally:
             if not tmpdir is None:

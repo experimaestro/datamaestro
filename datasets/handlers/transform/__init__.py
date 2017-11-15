@@ -51,18 +51,26 @@ class LineTransformStream(io.RawIOBase):
     def readnext(self):
         # Read next line and transform
         self.offset = 0
-        self.current = self.transform(self.fileobj.readline().decode("utf-8")).encode("utf-8")
+        self.current = None
+        while not self.current:
+            line = self.fileobj.readline().decode("utf-8")
+            if len(line) == 0: 
+                return None
+
+            self.current = self.transform(line).encode("utf-8")
 
     def readinto(self, b):
         """Read bytes into a pre-allocated, writable bytes-like object b and return the number of bytes read"""
-        raise ProblemToBeFixed() # Does not output everything!!!
+        if self.current is None:
+            return 0
+
         offset = 0
         lb = len(b)
         while lb > 0:
-            if self.offset >= len(self.current):
+            while self.offset >= len(self.current):
                 self.readnext()
-                if len(self.current) == 0:
-                    return 0
+                if self.current is None:
+                    return offset
 
             # How many bytes to read from current line
             l = min(lb, len(self.current) - self.offset)
@@ -91,7 +99,7 @@ class Filter(Transform):
         self.re = re.compile(content["pattern"])
        
     def filter(self, line):
-        if self.re.match(line): 
+        if self.re.search(line): 
             return line
         return ""
 

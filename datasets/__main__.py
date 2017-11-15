@@ -10,8 +10,8 @@ import importlib
 import yaml
 from .xpm import ExperimaestroEncoder
 
-from .data import Configuration
-from .handlers.datasets import Dataset
+from .context import Context
+from .data import Dataset
 
 import click
 
@@ -37,7 +37,7 @@ def command_serve(args):
 @click.option("--quiet", is_flag=True, help="Be quiet")
 @click.option("--debug", is_flag=True, help="Be even more verbose (implies traceback)")
 @click.option("--traceback", is_flag=True, help="Display traceback if an exception occurs")
-@click.option("--data", type=click.Path(exists=True), help="Directory containing datasets", default=Configuration.MAINDIR)
+@click.option("--data", type=click.Path(exists=True), help="Directory containing datasets", default=Context.MAINDIR)
 @click.pass_context
 def cli(ctx, quiet, debug, traceback, data):
     if quiet:
@@ -46,7 +46,7 @@ def cli(ctx, quiet, debug, traceback, data):
         logging.getLogger().setLevel(logging.DEBUG)
 
 
-    ctx.obj = Configuration(data)
+    ctx.obj = Context(data)
 
 def main():
     cli(obj=None)
@@ -98,40 +98,50 @@ def download(ctx, dataset):
 
     # Now, do something
     handler = dataset.getHandler()
-    if not handler.download():
+    r = handler.download()
+    if not r:
         logging.error("One or more errors occured while downloading the dataset")
         sys.exit(1)
 
 
-@click.argument("dataset")
+@click.argument("datasetid")
 @cli.command()
 @click.pass_context
-def prepare(ctx, dataset):
-    dataset = Dataset.find(ctx.obj, dataset)
-
-    handler = dataset.getHandler()
-    handler.download()
-    if not handler.download():
+def prepare(ctx, datasetid):
+    dataset = ctx.obj.dataset(datasetid)
+    success = dataset.download()
+    if not success:
         logging.error("One or more errors occured while downloading the dataset")
         sys.exit(1)
-    
-    s = handler.prepare()
-  
+
+    s = dataset.prepare()
     try: 
         print(ExperimaestroEncoder().encode(s))
     except:
         logging.error("Error encoding to JSON: %s", s)
         sys.exit(1)
-
+    
+  
 
 
 # --- Search
 
 @click.argument("regexp")
 @cli.command()
-def search(config: Configuration, args):
+@click.pass_context
+def search(ctx, regexp):
     import re
-    pattern = re.compile(args.regexp)
-    for dataset in config.datasets():
+    pattern = re.compile(regexp)
+    for dataset in ctx.obj.datasets():
         if any([pattern.search(id) is not None for id in dataset.ids]):
             print(dataset)
+
+
+
+@cli.command()
+def test():
+    from datasets.handlers.transform import Filter
+    filter = Filter({ "pattern": "@click"})
+    with open(__file__, "rb") as fp:
+        with filter(fp) as fp2:
+            print(fp2.read().decode("utf-8"))

@@ -2,54 +2,181 @@
 Contains 
 """
 
-import logging
-import os.path as op, os
-import re
-import yaml
-import importlib
-from pathlib import Path
 import sys
+import tempfile
+import urllib
+import shutil
+import logging
+import re
+import urllib.request
+from pathlib import Path
+from itertools import chain
+import importlib
+
+import yaml
 
 YAML_SUFFIX = ".yaml"
 
+class DatasetReference:
+    def __init__(self, value):
+        self.value = value
 
-class Importer(importlib.abc.MetaPathFinder):
-    def find_spec(self, fullname, path, target=None):
-        if fullname.startswith("datasets.r."):
-            names = fullname.split(".")[2:]
-            names.insert(1, "module")
-            path = Path("/Users/bpiwowar/datasets/repositories").joinpath(*names)
-            pypath = path.with_suffix(".py")
-            if pypath.is_file():
-                path = pypath
-            else:
-                path = path.joinpath("__init__.py")
-                if not path.is_file():
-                    logging.warn("Could not find %s", path)
-                    return None
-            loader = importlib.machinery.SourceFileLoader(fullname, str(path))
+    def resolve(self, reference):
+        did = self.value
+        logging.debug("Resolving for %s", did)
 
-            spec = importlib.machinery.ModuleSpec(fullname, loader, is_package=True)
-            return spec
+        pos = did.find("!")
+        if pos > 0:
+            namespace = did[:pos]
+            name = did[pos+1:]
+            did = "%s.%s" % (reference.resolvens(namespace), name)
+        elif did.startswith("."):
+            did = reference.baseid + did
 
-        return None
-sys.meta_path.append(Importer())
+        return Dataset.find(reference.context, did)
+
+def datasetref(loader, node):
+    """A dataset reference"""
+    assert(isinstance(node.value, str))
+    return DatasetReference(node.value)
+
+yaml.SafeLoader.add_constructor('!dataset', datasetref)
+
+def readyaml(path):
+    with open(path) as f:
+        return yaml.safe_load(f)
 
 
-class Context(object):
-    """Context of a configuration file"""
-    def __init__(self, prefix):
-        self.prefix = prefix
+
+class DataFile:
+    """A single dataset definition file"""
+    def __init__(self, repository, prefix: str, path: str):
+        self.repository = repository
+        logging.debug("Reading %s", path)
+        self.content = readyaml(path)
+        self.content = self.content or {}
+        self.datasets = {}
+        self.id = prefix
+
+        for did, d in self.content.get("data", {}).items():
+            fulldid = "%s.%s" % (prefix, did) if did else prefix
+            self.datasets[fulldid] = Dataset(self, fulldid, d)
+
+    def __contains__(self, name):
+        return name in self.datasets
+
+    def __getitem__(self, name):
+        return self.datasets[name]
+
+    def resolvens(self, ns):
+        return self.content["namespaces"][ns]
+
+    def __iter__(self):
+        return self.datasets.values().__iter__()
+
+    @property
+    def context(self):
+        return self.repository.context
+
+    @property
+    def baseid(self):
+        return self.id
+    
+
+class Dataset:
+    """Represents one dataset"""
+
+    def __init__(self, datafile: DataFile, datasetid: str, content):
+        """
+        Construct a new dataset
+
+        :param datafile: the attached definition file
+        :param id: the ID of this dataset
+        :param content: The dataset definition
+        """
+        self.datafile = datafile
+        self.id = datasetid
+        self.content = content
+        self._handler = None
+
+    @property
+    def context(self):
+        """Returns the context"""
+        return self.datafile.context
+
+    @property
+    def ids(self):
+        """Returns all the IDs of this dataset"""
+        return [self.id]
+    
+    @property
+    def repository(self):
+        """Main ID is the first one"""
+        return self.datafile.repository
+
+    @property
+    def baseid(self):
+        """Main ID is the first one"""
+        return self.datafile.id
+
+    def resolvens(self, ns):
+        return self.datafile.resolvens(ns)
+
+    def __repr__(self):
+        return "Dataset(%s)" % (", ".join(self.ids))
+
+    def __getitem__(self, key):
+        if key in self.content:
+            return self.content[key]
+
+        return self.datafile.content[key]
+
+    @property
+    def datadir(self):
+        """Path containing real data"""
+        datapath = self.datafile.repository.context.datapath
+        if "datapath" in self.content:
+            steps = self.id.split(".")
+            steps.extend(self.content["datapath"].split("/"))
+        elif "datapath" in self.datafile.content:
+            steps = self.datafile.id.split(".")
+            steps.extend(self.datafile.content["datapath"].split("/"))
+        else:
+            steps = self.id.split(".")
+        return datapath.joinpath(*steps)
+
+    @staticmethod
+    def find(config: "Context", name: str):
+        """Find a dataset given its name"""
+        logging.debug("Searching dataset %s", name)
+        for repository in config.repositories():
+            logging.debug("Searching dataset %s in %s", name, repository)
+            dataset = repository.search(name)
+            if dataset is not None:
+                return dataset
+        raise Exception("Could not find the dataset %s" % (name))
+
+    @property
+    def handler(self):
+        if not self._handler:
+            name = self["handler"]
+            self._handler = self.repository.findhandler("dataset", name)(self, self.content)
+        return self._handler
+
+    def download(self):
+        return self.handler.download()
+
+    def prepare(self):
+        logging.debug("Preparing %s", self)
+        return self.handler.prepare()
         
-    def id(self, _id):
-        return "%s.%s" % (self.prefix, _id)
 
 class Repository:
     """A repository"""
-    def __init__(self, config, basedir):
+    def __init__(self, context, basedir):
         self.basedir = basedir
-        self.config = config
-        self.etcdir = op.join(basedir, "etc")
+        self.context = context
+        self.etcdir = basedir.joinpath("etc")
         
         with self.basedir.joinpath("index.yaml").open("rb") as fp:
             index = yaml.load(fp)
@@ -61,29 +188,32 @@ class Repository:
 
     def search(self, name: str):
         """Search for a dataset in the definitions"""
-        from .handlers.datasets import DataFile
         logging.debug("Searching for %s in %s", name, self.etcdir)
         components = name.split(".")
         sub = None
         prefix = None
         path = self.etcdir
         for i, c in enumerate(components):
-            path = op.join(path, c)    
-            if op.isfile(path + YAML_SUFFIX):
+            path = path.joinpath(c)
+            if path.with_suffix(YAML_SUFFIX).is_file():
                 prefix = ".".join(components[:i+1])
                 sub = ".".join(components[i+1:])
-                path += YAML_SUFFIX
+                path = path.with_suffix(path.suffix + YAML_SUFFIX)
                 break
-            if not op.isdir(path):
+            if not path.is_dir():
                 logging.error("Could not find %s", path)
                 return None
 
         # Get the dataset
         logging.debug("Found file %s [prefix=%s/id=%s]", path, prefix, sub)
         f = DataFile(self, prefix, path)
-        if not sub in f:
+        if not name in f:
             return None
-        return f[sub]
+
+        dataset = f[name]
+        if isinstance(dataset.content, DatasetReference):
+            dataset = dataset.content.resolve(f)
+        return dataset
 
     def datafiles(self):
         """Iterates over all datafiles in this repository"""
@@ -107,15 +237,15 @@ class Repository:
         """Iterates over all datasets in this repository"""
         for datafile in self.datafiles():
             for dataset in datafile:
-                return dataset
+                yield dataset
 
-    def findhandler(self, handlertype, name):
+    def findhandler(self, handlertype, fullname):
         """
         Find a handler of a given type
         """
-        logging.debug("Searching for handler %s of type %s", name, handlertype)
+        logging.debug("Searching for handler %s of type %s", fullname, handlertype)
         pattern = re.compile(r"^(?:(/)|(?:(\w+):))?(?:([.\w]+)/)?(\w)(\w+)$")
-        m = pattern.match(name)
+        m = pattern.match(fullname)
         if not m:
             raise Exception("Invalid handler specification %s" % name)
 
@@ -133,7 +263,10 @@ class Repository:
             package = "%s.%s" % (package, m.group(3))
         
         logging.debug("Searching for handler: package %s, class %s", package, name)
-        package = importlib.import_module(package)
+        try:
+            package = importlib.import_module(package)
+        except ModuleNotFoundError:
+            raise Exception(f"""Could not find handler "{fullname}" of type {handlertype}: module {package} not found""")
 
         return getattr(package, name)
 
@@ -149,102 +282,4 @@ class Repository:
     def extrapath(self):
         """Path to the directory containing extra configuration files"""
         return self.basedir.joinpath("data")
-
-
-class RegistryEntry:
-    def __init__(self, registry, key):    
-        self.key = key
-        self.dicts = []
-        _key = ""   
-        for subkey in self.key.split("."):
-            _key = "%s.%s" % (_key, subkey) if _key else subkey
-            if _key in registry.content:
-                self.dicts.insert(0, registry.content[_key])
-        
-    def __getitem__(self, key):
-        for d in self.dicts:
-            if key in d:
-                return d[key]
-        raise KeyError(key)
-
-
-class Registry:
-    def __init__(self, path):
-        self.path = path
-        if path.is_file():
-            with open(path, "r") as fp:
-                self.content = yaml.safe_load(fp)
-
-    def __getitem__(self, key):
-        return RegistryEntry(self, key)
-
-
-class Compression:
-    @staticmethod
-    def extension(definition):
-        if not definition: 
-            return ""
-        if definition == "gzip":
-            return ".gz"
-
-        raise Exception("Not handled compression definition: %s" % definition)
-
-
-class Configuration:
-    """
-    Represents the configuration
-    """
-    MAINDIR = Path("~/datasets").expanduser()
-
-    """Main settings"""
-    def __init__(self, path: Path):
-        self._path = path
-        self.registry = Registry(self._path.joinpath("registry.yaml"))
-
-    @property
-    def repositoriespath(self):
-        """Directory containing repositories"""
-        return self._path.joinpath("repositories")
-
-    @property
-    def datapath(self):
-        return self._path.joinpath("data")
-
-    @property
-    def datasetspath(self):
-        return self._path.joinpath("datasets")
-
-    @property
-    def webpath(self) -> Path:
-        return self._path.joinpath("www")
-
-
-    def repositories(self):
-        """Returns an iterator over definitions base directories"""
-        yielded = False
-        for name in os.listdir(self.repositoriespath):
-            path = op.join(self.repositoriespath, name)
-            if op.isdir(path):
-                yield Repository(self, Path(path))
-
-        if not yielded: return []
-
-    def datasets(self):
-        """Returns an iterator over all files"""
-        for definitions in self.repositories():
-            for dataset in definitions:
-                yield dataset
-    
-
-
-class Data:
-    def __init__(self, context, config):
-        self.id = config.id
-        if type(config.id) == list:
-            self.aliases = self.id
-            self.id = self.id[0]
-        
-class Documents:
-    def __init__(self, context, config):
-        pass
 
