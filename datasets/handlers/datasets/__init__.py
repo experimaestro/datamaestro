@@ -35,7 +35,7 @@ class DatasetHandler:
             return [self._resolve(config, "%s.%d" % (prefix, i), v) for i, v in enumerate(content)]
         elif isinstance(content, DatasetReference):
             dataset = content.resolve(self.dataset)
-            self.dependencies[dataset.id] = dataset
+            self.dependencies[path] = dataset
             return dataset
         
         return content

@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-# PYTHON_ARGCOMPLETE_OK
 
 import argparse
 import sys
 import logging
-import http.server
 import os.path as op
-import importlib
 import yaml
 from .xpm import ExperimaestroEncoder
 
@@ -16,20 +13,6 @@ from .data import Dataset
 import click
 
 logging.basicConfig(level=logging.INFO)
-
-# --- Definition of commands
-
-class HTTPHandler(http.server.SimpleHTTPRequestHandler):
-    pass
-
-def command_serve(args):
-    import socketserver
-
-    os.chdir(webpath(args))
-    with socketserver.TCPServer(("", args.port), HTTPHandler) as httpd:
-        print("serving at port", args.port)
-        httpd.serve_forever()
-
 
 # --- Create the argument parser
 
@@ -56,8 +39,7 @@ def main():
 @click.pass_context
 def info(ctx, dataset):
     dataset = Dataset.find(ctx.obj, dataset)
-    handler = dataset.getHandler()
-    print(handler.description())
+    print(dataset.description())
 
 
 # --- Manage repositories
@@ -77,7 +59,7 @@ def list(ctx):
         print(key, info["description"])
 
 
-# --- prepare and download
+# --- Web site
 
 @cli.group()
 def site():
@@ -89,6 +71,14 @@ def generate(ctx):
     import datasets.commands.site as site
     site.generate(ctx.obj)
 
+@site.command()
+@click.pass_context
+def serve(ctx):
+    import datasets.commands.site as site
+    site.serve(ctx.obj)
+
+
+# --- prepare and download
 
 @click.argument("dataset")
 @cli.command()
@@ -137,11 +127,3 @@ def search(ctx, regexp):
             print(dataset)
 
 
-
-@cli.command()
-def test():
-    from datasets.handlers.transform import Filter
-    filter = Filter({ "pattern": "@click"})
-    with open(__file__, "rb") as fp:
-        with filter(fp) as fp2:
-            print(fp2.read().decode("utf-8"))

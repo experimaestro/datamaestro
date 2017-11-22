@@ -3,6 +3,7 @@ Contains
 """
 
 import sys
+import os
 import tempfile
 import urllib
 import shutil
@@ -53,6 +54,7 @@ class DataFile:
     def __init__(self, repository, prefix: str, path: str):
         self.repository = repository
         logging.debug("Reading %s", path)
+        self.path = path
         self.content = readyaml(path)
         self.content = self.content or {}
         self.datasets = {}
@@ -74,6 +76,9 @@ class DataFile:
     def __iter__(self):
         return self.datasets.values().__iter__()
 
+    @property
+    def description(self):
+        return self.content.get("description", "")
     @property
     def context(self):
         return self.repository.context
@@ -98,6 +103,7 @@ class Dataset:
         self.id = datasetid
         self.content = content
         self._handler = None
+        self.isalias = isinstance(content, DatasetReference)
 
     @property
     def context(self):
@@ -126,10 +132,24 @@ class Dataset:
         return "Dataset(%s)" % (", ".join(self.ids))
 
     def __getitem__(self, key):
+        if isinstance(self.content, DatasetReference):
+            self.content = self.content.resolve(self).content
+
         if key in self.content:
             return self.content[key]
 
         return self.datafile.content[key]
+
+    
+
+    def get(self, key, defaultvalue):
+        if isinstance(self.content, DatasetReference):
+            self.content = self.content.resolve(self).content
+            
+        if key in self.content:
+            return self.content.get(key, defaultvalue)
+
+        return self.datafile.content.get(key, defaultvalue)
 
     @property
     def datadir(self):
@@ -166,8 +186,10 @@ class Dataset:
     def download(self):
         return self.handler.download()
 
+    def description(self):
+        return self.handler.description()
+
     def prepare(self):
-        logging.debug("Preparing %s", self)
         return self.handler.prepare()
         
 
@@ -177,6 +199,7 @@ class Repository:
         self.basedir = basedir
         self.context = context
         self.etcdir = basedir.joinpath("etc")
+        self.id = basedir.name
         
         with self.basedir.joinpath("index.yaml").open("rb") as fp:
             index = yaml.load(fp)
@@ -215,23 +238,25 @@ class Repository:
             dataset = dataset.content.resolve(f)
         return dataset
 
+    def datafile(self, did):
+        """Returns a datafile given the its id"""
+        path = self.basedir.joinpath("etc").joinpath(*did.split(".")).with_suffix(YAML_SUFFIX)
+        return DataFile(self, did, path)
+
     def datafiles(self):
         """Iterates over all datafiles in this repository"""
-        from datasets.handlers.datasets import  DataFile
         logging.debug("Looking at definitions in %s", self.etcdir)
-        for root, dirs, files in os.walk(self.etcdir, topdown=False):
-            relroot = Path(root).relative_to(self.etcdir)
-            prefix = ".".join(relroot.parts)
-            for relpath in files:
-                try:
-                    if relpath.endswith(YAML_SUFFIX):
-                        path = op.join(root, relpath)
-                        datafile = DataFile(self, "%s.%s" % (prefix, Path(relpath).stem), path)
-                        yield datafile
-                except Exception as e:
-                    import traceback
-                    traceback.print_exc()
-                    logging.error("Error while reading definitions file %s: %s", relpath, e)
+        for path in self.etcdir.rglob("*%s" % YAML_SUFFIX):
+            try:
+                c = [p.name for p in path.relative_to(self.etcdir).parents][:-1][::-1]
+                c.append(path.stem)
+                fid = ".".join(c)
+                datafile = DataFile(self, fid, path)
+                yield datafile
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logging.error("Error while reading definitions file %s: %s", path, e)
 
     def __iter__(self):
         """Iterates over all datasets in this repository"""

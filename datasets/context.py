@@ -101,8 +101,8 @@ class Context:
     MAINDIR = Path("~/datasets").expanduser()
 
     """Main settings"""
-    def __init__(self, path: Path):
-        self._path = path
+    def __init__(self, path: Path = None):
+        self._path = path or Context.MAINDIR
         self.registry = Registry(self._path.joinpath("registry.yaml"))
 
         # FIXME: use enter/exit semantics
@@ -149,6 +149,9 @@ class Context:
         from .data import Dataset
         return Dataset.find(self, datasetid)
 
+    def repository(self, repositoryid):
+        from .data import Repository
+        return Repository(self, self.repositoriespath.joinpath(repositoryid))
 
     def download(self, url):
         """Downloads an URL"""
