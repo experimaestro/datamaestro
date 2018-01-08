@@ -4,6 +4,7 @@ import sys
 import importlib
 import os
 import hashlib
+import logging
 
 class Importer(importlib.abc.MetaPathFinder):
     def __init__(self, context):

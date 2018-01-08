@@ -180,7 +180,11 @@ class Dataset:
     def handler(self):
         if not self._handler:
             name = self["handler"]
-            self._handler = self.repository.findhandler("dataset", name)(self, self.content)
+            if isinstance(name, dict):
+                (key, value), = name.items()
+                self._handler = self.repository.findhandler("dataset", key)(self, self.content, value)                
+            else:
+                self._handler = self.repository.findhandler("dataset", name)(self, self.content, None)
         return self._handler
 
     def download(self):

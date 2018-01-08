@@ -35,7 +35,7 @@ def main():
     cli(obj=None)
 
 @cli.command()
-@click.argument("dataset", type=str) #, help="The dataset ID")
+@click.argument("dataset", type=str)
 @click.pass_context
 def info(ctx, dataset):
     dataset = Dataset.find(ctx.obj, dataset)

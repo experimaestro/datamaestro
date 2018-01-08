@@ -10,7 +10,7 @@ from datasets.data import Dataset, DatasetReference, Repository
 
 class DatasetHandler:
     """Base class for all dataset handlers"""
-    def __init__(self, dataset: Dataset, content):
+    def __init__(self, dataset: Dataset, content, handleroptions):
         self.context = dataset.repository.context
         self.dataset = dataset
         self.content = content
