@@ -131,6 +131,15 @@ class Dataset:
     def __repr__(self):
         return "Dataset(%s)" % (", ".join(self.ids))
 
+    def __contains__(self, key):
+        if isinstance(self.content, DatasetReference):
+            return key in self.content.resolve(self).content
+        if key in self.content:
+            return True
+        return key in self.datafile.content
+
+    
+
     def __getitem__(self, key):
         if isinstance(self.content, DatasetReference):
             self.content = self.content.resolve(self).content
@@ -179,12 +188,16 @@ class Dataset:
     @property
     def handler(self):
         if not self._handler:
-            name = self["handler"]
-            if isinstance(name, dict):
-                (key, value), = name.items()
-                self._handler = self.repository.findhandler("dataset", key)(self, self.content, value)                
+            if "handler" in self:
+                name = self["handler"]
+                if isinstance(name, dict):
+                    (key, value), = name.items()
+                    self._handler = self.repository.findhandler("dataset", key)(self, self.content, value)                
+                else:
+                    self._handler = self.repository.findhandler("dataset", name)(self, self.content, None)
             else:
-                self._handler = self.repository.findhandler("dataset", name)(self, self.content, None)
+                from datasets.handlers.datasets import DatasetHandler
+                self._handler = DatasetHandler(self, self.content, None)
         return self._handler
 
     def download(self):
@@ -192,6 +205,9 @@ class Dataset:
 
     def description(self):
         return self.handler.description()
+
+    def tags(self):
+        return self.handler.tags()
 
     def prepare(self):
         return self.handler.prepare()
@@ -204,18 +220,16 @@ class Repository:
         self.context = context
         self.etcdir = basedir.joinpath("etc")
         self.id = basedir.name
+        self.name = self.id
         
-        with self.basedir.joinpath("index.yaml").open("rb") as fp:
-            index = yaml.load(fp)
-            self.description = index["description"]
-            self.name = index["name"]
-
     def __repr__(self):
         return "Repository(%s)" % self.basedir
 
     def search(self, name: str):
         """Search for a dataset in the definitions"""
         logging.debug("Searching for %s in %s", name, self.etcdir)
+
+        # Search for the YAML file that might contain the definition
         components = name.split(".")
         sub = None
         prefix = None
@@ -281,12 +295,12 @@ class Repository:
         root = m.group(1)
         repo = m.group(2)
         name = m.group(4).upper() + m.group(5)
-        if root:
-            package = "datasets.handlers.%s" % (handlertype)
-        elif repo:
-            package = "datasets.r.%s.handlers.%s" % (repo, handlertype)
-        else:
-            package = "datasets.r.%s.handlers.%s" % (self.basedir.stem, handlertype)
+        # if root:
+        package = "datasets.handlers.%s" % (handlertype)
+        # elif repo:
+        #     package = "datasets.r.%s.handlers.%s" % (repo, handlertype)
+        # else:
+        #     package = "datasets.r.%s.handlers.%s" % (self.basedir.stem, handlertype)
 
         if m.group(3):
             package = "%s.%s" % (package, m.group(3))

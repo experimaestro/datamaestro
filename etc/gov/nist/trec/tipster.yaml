@@ -1,0 +1,160 @@
+
+# See https://catalog.ldc.upenn.edu/LDC93T3A
+description: |
+  TIPSTER is sometimes also called the Text Research Collection Volume or TREC.
+
+  The TIPSTER project was sponsored by the Software and Intelligent Systems Technology 
+  Office of the Advanced Research Projects Agency (ARPA/SISTO) in an effort to significantly 
+  advance the state of the art in effective document detection (information retrieval) and 
+  data extraction from large, real-world data collections.
+  
+  The detection data is comprised of a test collection built at NIST for the TIPSTER project 
+  and the related TREC project. The TREC project has many other participating information 
+  retrieval research groups, working on the same task as the TIPSTER groups, but meeting 
+  once a year in a workshop to compare results (similar to MUC). The test collection consists 
+  of three CD-ROMs of SGML encoded documents distributed by LDC plus queries and answers 
+  (relevant documents) distributed by NIST.
+
+url: https://catalog.ldc.upenn.edu/LDC93T3A
+datapath: .
+
+data:
+  # Associated Press
+  ap88:
+    description: Associated Press document collection (1988)
+    pattern: ^AP88.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  ap89:
+    description: Associated Press document collection (1989)
+    pattern: ^AP89.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  ap90:
+    description: Associated Press document collection (1990)
+    pattern: ^AP90.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+
+  # Department of Energy
+  doe1:
+    description: Department of Energy
+    pattern: ^DOE1.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+
+  # Wall Street Journal
+  wsj87:
+    description: Wall Street Journal (1987)
+    pattern: ^WSJ87.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  wsj88:
+    description: Wall Street Journal (1988)
+    pattern: ^WSJ88.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  wsj89:
+    description: Wall Street Journal (1989)
+    pattern: ^WSJ89.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  wsj90:
+    description: Wall Street Journal (1990)
+    pattern: ^WSJ90.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  wsj91:
+    description: Wall Street Journal (1991)
+    pattern: ^WSJ91.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  wsj92:
+    description: Wall Street Journal (1992)
+    pattern: ^WSJ92.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+
+  # Federal Register (1988-89)
+  fr88:
+    description: Federal Register (1988)
+    pattern: ^FR88.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  fr89:
+    description: Federal Register (1989)
+    pattern: ^FR89.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  fr94:
+    description: Federal Register (1994)
+    pattern: ^FR94.*$
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+
+
+  # Ziff/Davis (1988-92)
+  ziff1:
+    description: Ziff/Davis document collection (1988-89)
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  ziff2:
+    description:  Ziff/Davis document collection (1989-90)
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  ziff3:
+    description:  Ziff/Davis document collection (1991-92)
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+
+  # SJM1
+  sjm1:
+    description: San Jose Mercury News (1991)
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+
+  # CR1
+  cr1:
+    description: TODO
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+
+  # FT1
+  ft1:
+    description: Financial Times
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  
+  # FBIS1
+  fbis1:
+    description: TODO
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  
+  # FBIS1
+  la8990:
+    description: Los Angeles Times (1989-90)
+    handler: 
+      documents/list: {type: ds.gov.nist.tipster}
+
+  

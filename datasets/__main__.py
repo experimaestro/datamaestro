@@ -5,6 +5,8 @@ import sys
 import logging
 import os.path as op
 import yaml
+from functools import update_wrapper
+
 from .xpm import ExperimaestroEncoder
 
 from .context import Context
@@ -13,6 +15,14 @@ from .data import Dataset
 import click
 
 logging.basicConfig(level=logging.INFO)
+
+
+def pass_cfg(f):
+    """Pass configuration information"""
+    @click.pass_context
+    def new_func(ctx, *args, **kwargs):
+        return ctx.invoke(f, ctx.obj, *args, **kwargs)
+    return update_wrapper(new_func, f)
 
 # --- Create the argument parser
 
@@ -34,29 +44,14 @@ def cli(ctx, quiet, debug, traceback, data):
 def main():
     cli(obj=None)
 
-@cli.command()
+@cli.command(help="Prints the full information about a dataset")
 @click.argument("dataset", type=str)
-@click.pass_context
-def info(ctx, dataset):
-    dataset = Dataset.find(ctx.obj, dataset)
+@pass_cfg
+def info(cfg, dataset):
+    dataset = Dataset.find(cfg, dataset)
     print(dataset.description())
+    print(dataset.tags())
 
-
-# --- Manage repositories
-
-@cli.group(help="Manage repositories")
-@click.pass_context
-def repositories(ctx):
-    pass
-
-@repositories.command()
-@click.pass_context
-def list(ctx):
-    import pkgutil
-    data = pkgutil.get_data('datasets', 'repositories.yaml')
-    repositories = yaml.load(data)
-    for key, info in repositories.items():
-        print(key, info["description"])
 
 
 # --- Web site
@@ -66,25 +61,25 @@ def site():
     pass
 
 @site.command()
-@click.pass_context
-def generate(ctx):
+@pass_cfg
+def generate(cfg):
     import datasets.commands.site as site
-    site.generate(ctx.obj)
+    site.generate(cfg)
 
 @site.command()
-@click.pass_context
-def serve(ctx):
+@pass_cfg
+def serve(cfg):
     import datasets.commands.site as site
-    site.serve(ctx.obj)
+    site.serve(cfg)
 
 
 # --- prepare and download
 
 @click.argument("dataset")
 @cli.command()
-@click.pass_context
-def download(ctx, dataset):
-    dataset = Dataset.find(ctx.obj, dataset)
+@pass_cfg
+def download(cfg, dataset):
+    dataset = Dataset.find(cfg, dataset)
 
     # Now, do something
     handler = dataset.getHandler()
@@ -95,10 +90,10 @@ def download(ctx, dataset):
 
 
 @click.argument("datasetid")
-@cli.command()
-@click.pass_context
-def prepare(ctx, datasetid):
-    dataset = ctx.obj.dataset(datasetid)
+@cli.command(help="Downloads a dataset (if freely available)")
+@pass_cfg
+def prepare(cfg, datasetid):
+    dataset = cfg.dataset(datasetid)
     success = dataset.download()
     if not success:
         logging.error("One or more errors occured while downloading the dataset")
@@ -117,12 +112,12 @@ def prepare(ctx, datasetid):
 # --- Search
 
 @click.argument("regexp")
-@cli.command()
-@click.pass_context
-def search(ctx, regexp):
+@cli.command(help="Search for a dataset")
+@pass_cfg
+def search(cfg, regexp):
     import re
     pattern = re.compile(regexp)
-    for dataset in ctx.obj.datasets():
+    for dataset in cfg.datasets():
         if any([pattern.search(id) is not None for id in dataset.ids]):
             print(dataset)
 

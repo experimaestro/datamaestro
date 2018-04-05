@@ -4,8 +4,25 @@ site_name: Datasets
 site_description: datasets A dataset manager
 theme: readthedocs
 
-# Pages
+# Main pages
 pages:
   - Home: index.md
   - Configuration: configuration.md
   - Developping: developping.md
+
+# Automatic page generation for datasets
+plugins:
+  - datasets
+  - search
+  
+# Theme
+theme:
+    name: material
+    feature:
+        tabs: true
+    palette:
+        primary: 'indigo'
+        accent: 'indigo'
+    font:
+        text: 'Roboto'
+        code: 'Roboto Mono'

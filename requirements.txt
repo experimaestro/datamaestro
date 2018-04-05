@@ -3,3 +3,7 @@ click
 
 # YAML support
 pyyaml
+
+# Documentation generation
+mkdocs-material
+mkdocs

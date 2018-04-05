@@ -1,0 +1,14 @@
+website: http://trec.nist.gov
+description: |
+    The Text REtrieval Conference (TREC), co-sponsored by the National Institute of Standards and Technology (NIST) and U.S. Department of Defense, was started in 1992 as part of the TIPSTER Text program. Its purpose was to support research within the information retrieval community by providing the infrastructure necessary for large-scale evaluation of text retrieval methodologies. In particular, the TREC workshop series has the following goals:
+
+    - to encourage research in information retrieval based on large test collections;
+    - to increase communication among industry, academia, and government by creating an open forum for the exchange of research ideas;
+    - to speed the transfer of technology from research labs into commercial products by demonstrating substantial improvements in retrieval methodologies on real-world problems; and
+    - to increase the availability of appropriate evaluation techniques for use by industry and academia, including development of new evaluation techniques more applicable to current systems.
+
+    TREC is overseen by a program committee consisting of representatives from government, industry, and academia. For each TREC, NIST provides a test set of documents and questions. Participants run their own retrieval systems on the data, and return to NIST a list of the retrieved top-ranked documents. NIST pools the individual results, judges the retrieved documents for correctness, and evaluates the results. The TREC cycle ends with a workshop that is a forum for participants to share their experiences.
+
+    This evaluation effort has grown in both the number of participating systems and the number of tasks each year. Ninety-three groups representing 22 countries participated in TREC 2003. The TREC test collections and evaluation software are available to the retrieval research community at large, so organizations can evaluate their own retrieval systems at any time. TREC has successfully met its dual goals of improving the state-of-the-art in information retrieval and of facilitating technology transfer. Retrieval system effectiveness approximately doubled in the first six years of TREC.
+
+    TREC has also sponsored the first large-scale evaluations of the retrieval of non-English (Spanish and Chinese) documents, retrieval of recordings of speech, and retrieval across multiple languages. TREC has also introduced evaluations for open-domain question answering and content-based retrieval of digital video. The TREC test collections are large enough so that they realistically model operational settings. Most of today's commercial search engines include technology first developed in TREC.

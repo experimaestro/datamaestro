@@ -5,33 +5,9 @@ import importlib
 import os
 import hashlib
 import logging
-
-class Importer(importlib.abc.MetaPathFinder):
-    def __init__(self, context):
-        self.context = context
-
-    def find_spec(self, fullname, path, target=None):
-        if fullname.startswith("datasets.r."):
-            names = fullname.split(".")[2:]
-            names.insert(1, "module")
-            path = Path(self.context.repositoriespath).joinpath(*names)
-            pypath = path.with_suffix(".py")
-            if pypath.is_file():
-                ispackage = False
-                path = pypath
-            else:
-                ispackage = True
-                path = path.joinpath("__init__.py")
-                if not path.is_file():
-                    logging.warn("Could not find %s", path)
-                    return None
-            loader = importlib.machinery.SourceFileLoader(fullname, str(path))
-
-            spec = importlib.machinery.ModuleSpec(fullname, loader, is_package=ispackage)
-            return spec
-
-        return None
-
+import urllib
+import shutil
+from itertools import chain
 
 class Compression:
     @staticmethod
@@ -97,17 +73,16 @@ class CachedFile():
 
 class Context:
     """
-    Represents the configuration
+    Represents the application context
     """
     MAINDIR = Path("~/datasets").expanduser()
 
     """Main settings"""
     def __init__(self, path: Path = None):
         self._path = path or Context.MAINDIR
+        self._dpath = Path(__file__).parents[1]
         self.registry = Registry(self._path.joinpath("registry.yaml"))
-
-        # FIXME: use enter/exit semantics
-        sys.meta_path.append(Importer(self))
+        self._repository = None
 
     @property
     def repositoriespath(self):
@@ -130,15 +105,23 @@ class Context:
     def cachepath(self) -> Path:
         return self._path.joinpath("cache")
 
-    def repositories(self):
-        """Returns an iterator over definitions base directories"""
+    @property
+    def mainrepository(self):
         from .data import Repository
-        yielded = False
-        for path in self.repositoriespath.iterdir():
-            if path.is_dir():
-                yield Repository(self, path)
+        if not self._repository:
+            self._repository = Repository(self, self._dpath)
+        return self._repository
 
-        if not yielded: return []
+    def repositories(self):
+        """Returns the repository"""
+        from .data import Repository
+        return [self.mainrepository]
+
+    def repository(self, repositoryid):
+        if repositoryid == "main":
+            return self.mainrepository
+                    
+        return Repository(self, self.repositoriespath.joinpath(repositoryid))
 
     def datasets(self):
         """Returns an iterator over all files"""
@@ -150,9 +133,6 @@ class Context:
         from .data import Dataset
         return Dataset.find(self, datasetid)
 
-    def repository(self, repositoryid):
-        from .data import Repository
-        return Repository(self, self.repositoriespath.joinpath(repositoryid))
 
     def download(self, url):
         """Downloads an URL"""

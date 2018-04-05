@@ -6,56 +6,57 @@ import io
 import yaml
 import re
 import mkdocs.plugins
+from ..context import Context
 
 RE_DATAFILE = re.compile(r"^datasets/([^/]*)/(.*)\.md$")
 
 class DatasetGenerator(mkdocs.plugins.BasePlugin):
     CONF = None
+    
+    @staticmethod
+    def configuration():
+        if DatasetGenerator.CONF is None:
+            DatasetGenerator.CONF = Context()
+        return DatasetGenerator.CONF
+
+
+    def on_config(self, config):
+        pages = []
+        config["pages"].append({"Datasets": pages})
+        for repository in DatasetGenerator.configuration().repositories():
+            for datafile in repository.datafiles():
+                pages.append({ datafile.id  : "datasets/%s/%s.md" % (datafile.repository.id, datafile.id) })
+
+        return config
+
+
     def on_page_read_source(self, _page, config, **kwargs):
         page = kwargs["page"]       
         path = page.input_path
 
         m = RE_DATAFILE.match(path)
-        if m:
-            repository = DatasetGenerator.CONF.repository(m.group(1))
-            df = repository.datafile(m.group(2))
-            r = io.StringIO()
-            r.write("# Description\n")
-            r.write(df.description)
-            r.write("\n\n")
-            for ds in df:
-                if not ds.isalias:
-                    r.write("- %s [%s]\n" % (ds.get("name", ds.id), ds.get("handler", None)))
+        if not m:
+            return None
 
-            return r.getvalue()
-        return "Unhandled path : %s" % (page.input_path)
+        repository = DatasetGenerator.configuration().repository(m.group(1))
+        df = repository.datafile(m.group(2))
+        r = io.StringIO()
+        r.write("# Description\n")
+        r.write(df.description)
+        r.write("\n\n")
+        for ds in df:
+            if not ds.isalias:
+                r.write("- %s [%s]\n" % (ds.get("name", ds.id), ds.get("handler", None)))
 
-def configfile(config):
-    DatasetGenerator.CONF = config
-    pages = [{ 'Home': 'index.md' }]
-    for repository in config.repositories():
-        print(str(repository.name), pages)
-        subpages = []
-        pages.append({ str(repository.name) : subpages })
-        for datafile in repository.datafiles():
-            subpages.append({ datafile.id  : "datasets/%s/%s.md" % (datafile.repository.id, datafile.id) })
-    
-    configuration = {
-        'site_name': 'Datasets',
-        'pages': pages,
-        'theme': 'readthedocs',
-        'plugins': ['datasets']
-    }
-    configstring = yaml.dump(configuration)
-    cfgfile = io.StringIO(configstring)
-    return cfgfile
-    
+        return r.getvalue()
+
+
 def serve(config):
-    cfgfile = configfile(config)
-    mkserve.serve(cfgfile)
-
+    DatasetGenerator.CONF = config
+    mkserve.serve()
 
 def generate(config):
+    DatasetGenerator.CONF = config
     cfgfile = configfile(config)
-    cfg = mkdocs.config.load_config(cfgfile, pages=pages)
+    cfg = mkdocs.config.load_config() #cfgfile, pages=pages)
     build.build(cfg, dirty=False, live_server=True)

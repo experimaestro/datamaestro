@@ -1,0 +1,23 @@
+data:
+  apt:
+    description: Associated Press Worldstream News
+    handler: 
+      documents/list: {type: gov.nist.tipster.sgml}
+
+  nyt:
+    description: New York Times News
+    handler: 
+      documents/list: {type: gov.nist.tipster.sgml}
+
+  xie:
+    description: Xinhua News Service (People's Republic of China)
+    handler: 
+      documents/list: {type: gov.nist.tipster.sgml}
+
+  "":
+    url: https://catalog.ldc.upenn.edu/LDC2002T31
+    description: |
+      The AQUAINT Corpus, Linguistic Data Consortium (LDC) catalog number LDC2002T31 and ISBN 1-58563-240-6 consists of newswire text data in English, drawn from three sources: the Xinhua News Service (People's Republic of China), the New York Times News Service, and the Associated Press Worldstream News Service. It was prepared by the LDC for the AQUAINT Project, and will be used in official benchmark evaluations conducted by National Institute of Standards and Technology (NIST). 
+    handler: documents/collection
+    references: [!dataset apt, !dataset nyt, !dataset xie]
+    

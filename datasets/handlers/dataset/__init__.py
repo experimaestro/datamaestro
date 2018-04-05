@@ -71,7 +71,11 @@ class DatasetHandler:
 
     def description(self):
         """Returns the description of the dataset"""
-        return self.content["description"]
+        return self.content.get("description", "No description")
+
+    def tags(self):
+        """Returns the description of the dataset"""
+        return self.content.get("tags", [])
 
     @property
     def repository(self):
