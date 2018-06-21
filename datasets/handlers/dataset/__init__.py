@@ -66,6 +66,8 @@ class DatasetHandler:
         for key, dependency in self.dependencies.items():
             p[key] = dependency.prepare()
 
+        p["id"] = self.dataset.id
+        p["path"] = self.destpath
         return p
 
     def description(self):
@@ -92,5 +94,5 @@ class DatasetHandler:
 
     @property
     def generatedpath(self):
-        """Returns the destination path for downloads"""
+        """Returns the destination path for generated files"""
         return self.repository.generatedpath.joinpath(*self.dataset.id.split("."))
