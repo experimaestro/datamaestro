@@ -71,6 +71,28 @@ class CachedFile():
     def path(self):
         return self.path()
 
+
+import progressbar
+
+class DownloadReportHook:
+    def __init__(self):
+        self.pbar = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.pbar:
+            self.pbar.__exit__(exc_type, exc_val, exc_tb)
+
+    def __call__(self, block_num, block_size, total_size):
+        if not self.pbar:
+            self.pbar = progressbar.ProgressBar(maxval=total_size).__enter__()
+
+        downloaded = block_num * block_size
+        if downloaded < total_size:
+            self.pbar.update(downloaded)
+        
 class Context:
     """
     Represents the application context
@@ -152,10 +174,12 @@ class Context:
         if dlpath.is_file():
             logging.debug("Using cached file %s for %s", dlpath, url)
         else:
+
             logging.info("Downloading %s", url)
             tmppath = dlpath.with_suffix(".tmp")
             try:
-                urllib.request.urlretrieve(url, tmppath)
+                with DownloadReportHook() as reporthook:
+                    urllib.request.urlretrieve(url, tmppath, reporthook)
                 shutil.move(tmppath, dlpath)
             except:
                 tmppath.unlink()

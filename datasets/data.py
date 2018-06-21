@@ -24,7 +24,7 @@ class DatasetReference:
 
     def resolve(self, reference):
         did = self.value
-        logging.debug("Resolving for %s", did)
+        logging.debug("Resolving dataset reference %s", did)
 
         pos = did.find("!")
         if pos > 0:
@@ -41,11 +41,11 @@ def datasetref(loader, node):
     assert(isinstance(node.value, str))
     return DatasetReference(node.value)
 
-yaml.SafeLoader.add_constructor('!dataset', datasetref)
+yaml.Loader.add_constructor('!dataset', datasetref)
 
 def readyaml(path):
     with open(path) as f:
-        return yaml.safe_load(f)
+        return yaml.load(f)
 
 
 
@@ -60,7 +60,9 @@ class DataFile:
         self.datasets = {}
         self.id = prefix
 
-        for did, d in self.content.get("data", {}).items():
+        # A dataset can either be nested within data, or not
+        data = self.content.get("data", {None: self.content})
+        for did, d in data.items():
             fulldid = "%s.%s" % (prefix, did) if did else prefix
             self.datasets[fulldid] = Dataset(self, fulldid, d)
 
@@ -196,7 +198,7 @@ class Dataset:
                 else:
                     self._handler = self.repository.findhandler("dataset", name)(self, self.content, None)
             else:
-                from datasets.handlers.datasets import DatasetHandler
+                from datasets.handlers.dataset import DatasetHandler
                 self._handler = DatasetHandler(self, self.content, None)
         return self._handler
 

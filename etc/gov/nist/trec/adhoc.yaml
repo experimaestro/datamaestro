@@ -343,7 +343,7 @@ data:
   robust.2005:
     handler: trec.adhoc/task
     name: "Ad-hoc task of TREC Robust (2005)"
-    documents: !dataset "aquaint.documents"
+    documents: !dataset "edu.upenn.ldc.aquaint"
     topics: !dataset ".robust.2005.topics"
     qrels: !dataset ".robust.2005.qrels"
 

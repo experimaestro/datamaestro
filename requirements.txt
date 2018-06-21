@@ -4,6 +4,9 @@ click
 # YAML support
 pyyaml
 
+# Progress report
+progressbar
+
 # Documentation generation
 mkdocs-material
 mkdocs

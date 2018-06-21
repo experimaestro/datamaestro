@@ -13,11 +13,10 @@ class DatasetHandler:
     def __init__(self, dataset: Dataset, content, handleroptions):
         self.context = dataset.repository.context
         self.dataset = dataset
-        self.content = content
 
         # Search for dependencies
         self.dependencies = {}
-        self.content = self._resolve(self.context, "", self.content)
+        self.content = self._resolve(self.context, "", content)
 
     def _resolve(self, config, path, content):
         """
@@ -43,7 +42,7 @@ class DatasetHandler:
     def download(self, force=False):
         """Download all the resources (if available)"""
         from datasets.handlers.download import DownloadHandler
-        logging.info("Downloading %s", self.content.get("description", self.dataset))
+        logging.info("Downloading %s", self.content.get("name", self.dataset))
 
         # Download direct resources
         if "download" in self.content:

@@ -13,15 +13,16 @@ description: |
   The data was collected through crowdsourcing, and requires reasoning about sets of objects, 
   quantities, comparisons, and spatial relations.
 data:
-  download: https://github.com/clic-lab/nlvr.git
-  splits:
-    train: 
-      images: train/images/*.png
-      labels: train/train.json
-    dev: 
-      images: dev/images/*.png
-      labels: dev/dev.json
-    test:
-      images: test/images/*.png
-      labels: test/test.json
+  "":
+    download: https://github.com/clic-lab/nlvr.git
+    splits:
+      train: 
+        images: train/images/*.png
+        labels: train/train.json
+      dev: 
+        images: dev/images/*.png
+        labels: dev/dev.json
+      test:
+        images: test/images/*.png
+        labels: test/test.json
   

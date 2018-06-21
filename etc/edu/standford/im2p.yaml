@@ -45,8 +45,9 @@ description: |
     ![https://cs.stanford.edu/people/ranjaykrishna/im2p/examples.png]
 
 data:
-  files:
-    - http://visualgenome.org/static/data/dataset/paragraphs_v1.json.zip
-    - https://cs.stanford.edu/people/ranjaykrishna/im2p/train_split.json
-    - https://cs.stanford.edu/people/ranjaykrishna/im2p/val_split.json
-    - https://cs.stanford.edu/people/ranjaykrishna/im2p/test_split.json
+  "":
+    files:
+      - http://visualgenome.org/static/data/dataset/paragraphs_v1.json.zip
+      - https://cs.stanford.edu/people/ranjaykrishna/im2p/train_split.json
+      - https://cs.stanford.edu/people/ranjaykrishna/im2p/val_split.json
+      - https://cs.stanford.edu/people/ranjaykrishna/im2p/test_split.json

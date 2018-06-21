@@ -1,8 +1,10 @@
+from datasets.data import Repository
+
 class DownloadHandler:
     """
     Base class for all download handlers
     """
-    def __init__(self, repository, definition):
+    def __init__(self, repository: Repository, definition):
         self.context = repository.context
         self.repository = repository
         self.definition = definition

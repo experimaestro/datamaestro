@@ -7,7 +7,6 @@ data:
   09:
     description: The ClueWeb09 dataset
     url: https://lemurproject.org/clueweb09/
-    handler: web/warc
     statistics:
       documents: 1040809705
       links: 4780950903 

@@ -1,0 +1,37 @@
+name: QAngaroo
+title: Reading Comprehension with Multiple Hops
+tags:
+  - language comprehension
+  - natural language inference
+  - multi-hop
+licence: CC BY-SA 3.0
+links:
+  website: http://qangaroo.cs.ucl.ac.uk/
+  paper: https://arxiv.org/abs/1710.06481
+  readme: https://github.com/clic-lab/nlvr/blob/master/README.md
+
+description: |
+      We have created two new Reading Comprehension datasets focussing on
+      multi-hop (alias multi-step) inference.
+
+      Several pieces of information often jointly imply another fact. In multi-hop
+      inference, a new fact is derived by combining facts via a chain of multiple
+      steps.
+
+      Our aim is to build Reading Comprehension methods that perform multi-hop
+      inference on text, where individual facts are spread out across different
+      documents.
+
+      The two QAngaroo datasets provide a training and evaluation resource for such
+      methods. 
+
+download:
+  handler: [/googledrive, /archive/zip]
+  url: http://bit.ly/2m0W32k
+splits:
+  train: 
+    images: train/images/*.png
+    labels: train/train.json
+  dev: 
+    images: dev/images/*.png
+    labels: dev/dev.json

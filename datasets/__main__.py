@@ -80,11 +80,8 @@ def serve(cfg):
 @pass_cfg
 def download(cfg, dataset):
     dataset = Dataset.find(cfg, dataset)
-
-    # Now, do something
-    handler = dataset.getHandler()
-    r = handler.download()
-    if not r:
+    success = dataset.download()
+    if not success:
         logging.error("One or more errors occured while downloading the dataset")
         sys.exit(1)
 
@@ -111,14 +108,18 @@ def prepare(cfg, datasetid):
 
 # --- Search
 
-@click.argument("regexp")
+@click.argument("searchterms",  nargs=-1) #, description="Search terms (e.g. tag:XXX)")
 @cli.command(help="Search for a dataset")
 @pass_cfg
-def search(cfg, regexp):
-    import re
-    pattern = re.compile(regexp)
+def search(cfg, searchterms):
+    from .search import Condition, AndCondition
+
+    condition = AndCondition()
+    for searchterm in searchterms:
+        condition.append(Condition.parse(searchterm))
+
     for dataset in cfg.datasets():
-        if any([pattern.search(id) is not None for id in dataset.ids]):
+        if condition.match(dataset):
             print(dataset)
 
 
