@@ -14,7 +14,7 @@ setup(name='datasets',
     package_data={'datasets': ['LICENSE', 'datasets/repositories.yaml']},
     data_files = [
         
-    ]
+    ],
     entry_points = {
         'console_scripts': [
             'datasets = datasets.__main__:main',                  

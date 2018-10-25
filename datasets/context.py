@@ -68,10 +68,6 @@ class CachedFile():
             except Exception as e:
                 logging.warn("Could not delete cached file %s", p)
 
-    def path(self):
-        return self.path()
-
-
 import progressbar
 
 class DownloadReportHook:

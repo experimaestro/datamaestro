@@ -5,6 +5,8 @@ import io
 import tempfile
 import gzip
 import os.path as op, os
+import urllib3
+from pathlib import Path
 from datasets.utils import rm_rf
 from datasets.handlers.transform import Transform
 from datasets.handlers.download import DownloadHandler
@@ -22,6 +24,12 @@ class File(DownloadHandler):
     def __init__(self, repository, definition):
         super().__init__(repository, definition)
         self.url = self.definition["url"]
+
+    
+    def resolve(self, path: Path) -> Path:
+        """Returns the destination path"""
+        p = urllib3.util.parse_url(self.url)
+        return path.joinpath(Path(p.path).name)
 
     def download(self, destination):
         logging.info("Downloading %s into %s", self.url, destination)
@@ -50,7 +58,7 @@ class File(DownloadHandler):
 
         # Move
         file.delete = False
-        shutil.move(file.name, destination)
+        shutil.move(file.path, destination)
         logging.info("Created file %s" % destination)
         try:
             file.close()

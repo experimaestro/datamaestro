@@ -68,6 +68,7 @@ class DatasetHandler:
 
         p["id"] = self.dataset.id
         p["path"] = self.destpath
+        
         return p
 
     def description(self):

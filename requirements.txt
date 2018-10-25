@@ -5,8 +5,10 @@ click
 pyyaml
 
 # Progress report
-progressbar
+progressbar2
 
 # Documentation generation
 mkdocs-material
 mkdocs
+  v2:
+pykwalify
