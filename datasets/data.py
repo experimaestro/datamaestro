@@ -9,6 +9,8 @@ import urllib
 import shutil
 import logging
 import re
+import inspect
+from .context import Context
 import urllib.request
 from pathlib import Path
 from itertools import chain
@@ -217,11 +219,20 @@ class Dataset:
 
 class Repository:
     """A repository"""
-    def __init__(self, context, basedir):
-        self.basedir = basedir
+    def __init__(self, context: Context, basedir:Path= None):
+        """Initialize a new repository
+
+        :param context: The dataset main context
+        :param basedir: The base directory of the repository
+            (by default, the same as the repository class)
+        """
         self.context = context
-        self.etcdir = basedir.joinpath("etc")
-        self.id = basedir.name
+        self.basedir = basedir 
+        if not self.basedir:
+            p = inspect.getabsfile(self.__class__)
+            self.basedir = Path(p).parent
+        self.configdir = self.basedir.joinpath("config")
+        self.id = self.__class__.NAMESPACE
         self.name = self.id
         
     def __repr__(self):
@@ -229,13 +240,13 @@ class Repository:
 
     def search(self, name: str):
         """Search for a dataset in the definitions"""
-        logging.debug("Searching for %s in %s", name, self.etcdir)
+        logging.debug("Searching for %s in %s", name, self.configdir)
 
         # Search for the YAML file that might contain the definition
         components = name.split(".")
         sub = None
         prefix = None
-        path = self.etcdir
+        path = self.configdir
         for i, c in enumerate(components):
             path = path.joinpath(c)
             if path.with_suffix(YAML_SUFFIX).is_file():
@@ -265,10 +276,10 @@ class Repository:
 
     def datafiles(self):
         """Iterates over all datafiles in this repository"""
-        logging.debug("Looking at definitions in %s", self.etcdir)
-        for path in self.etcdir.rglob("*%s" % YAML_SUFFIX):
+        logging.debug("Looking at definitions in %s", self.configdir)
+        for path in self.configdir.rglob("*%s" % YAML_SUFFIX):
             try:
-                c = [p.name for p in path.relative_to(self.etcdir).parents][:-1][::-1]
+                c = [p.name for p in path.relative_to(self.configdir).parents][:-1][::-1]
                 c.append(path.stem)
                 fid = ".".join(c)
                 datafile = DataFile(self, fid, path)
@@ -321,7 +332,7 @@ class Repository:
 
     @property
     def downloadpath(self):
-        return self.basedir.joinpath("downloads")
+        return self.context.datapath.joinpath(self.id)
 
     @property
     def extrapath(self):

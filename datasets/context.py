@@ -103,42 +103,20 @@ class Context:
         self._repository = None
 
     @property
-    def repositoriespath(self):
-        """Directory containing repositories"""
-        return self._path.joinpath("repositories")
-
-    @property
     def datapath(self):
         return self._path.joinpath("data")
-
-    @property
-    def datasetspath(self):
-        return self._path.joinpath("datasets")
-
-    @property
-    def webpath(self) -> Path:
-        return self._path.joinpath("www")
-
+        
     @property
     def cachepath(self) -> Path:
         return self._path.joinpath("cache")
 
-    @property
-    def mainrepository(self):
-        from .data import Repository
-        if not self._repository:
-            self._repository = Repository(self, self._dpath)
-        return self._repository
-
     def repositories(self):
         """Returns the repository"""
-        from .data import Repository
-        return [self.mainrepository]
+        import pkg_resources
+        for entry_point in pkg_resources.iter_entry_points('datasets.repositories'):
+            yield entry_point.load()(self)
 
     def repository(self, repositoryid):
-        if repositoryid == "main":
-            return self.mainrepository
-                    
         return Repository(self, self.repositoriespath.joinpath(repositoryid))
 
     def datasets(self):
@@ -148,6 +126,7 @@ class Context:
                 yield dataset
 
     def dataset(self, datasetid):
+        """Get a dataset by ID"""
         from .data import Dataset
         return Dataset.find(self, datasetid)
 

@@ -1,6 +1,7 @@
 __pycache__
 share/datasets
-datasets.egg-info
+*.egg-info
 .vscode
 dist
 downloads
+requirements.txt

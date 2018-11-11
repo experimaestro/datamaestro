@@ -1,8 +1,0 @@
-data:
-  "":
-    url: https://catalog.ldc.upenn.edu/ldc2008t19
-    description: |
-      The New York Times Annotated Corpus contains over 1.8 million articles written and published by the New York Times between January 1, 1987 and June 19, 2007 with article metadata provided by the New York Times Newsroom, the New York Times Indexing Service and the online production staff at nytimes.com
-    handler: 
-      documents/list: {type: org.iptc.nift}
-    
