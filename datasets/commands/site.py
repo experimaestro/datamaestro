@@ -6,31 +6,41 @@ import io
 import yaml
 import re
 import mkdocs.plugins
+from mkdocs.structure.files import File as MkdocFile
 from ..context import Context
 
 RE_DATAFILE = re.compile(r"^datasets/([^/]*)/(.*)\.md$")
 
 class DatasetGenerator(mkdocs.plugins.BasePlugin):
     CONF = None
-    
+    config_scheme = (
+        ('repository', mkdocs.config.config_options.Type(mkdocs.utils.text_type)),
+    )
+
     @staticmethod
-    def configuration():
+    def configuration() -> Context:
         if DatasetGenerator.CONF is None:
             DatasetGenerator.CONF = Context()
         return DatasetGenerator.CONF
 
+    def on_pre_build(self, config):
+        pass
 
     def on_config(self, config):
-        pages = []
-        config["pages"].append({"Datasets": pages})
-        for repository in DatasetGenerator.configuration().repositories():
-            for datafile in repository.datafiles():
-                pages.append({ datafile.id  : "datasets/%s/%s.md" % (datafile.repository.id, datafile.id) })
+        self.repository_id = self.config['repository']
 
-        return config
+    def on_files(self, files, config):
+        repository = DatasetGenerator.configuration().repository(self.repository_id)
+        for datafile in repository.datafiles():
+            files.append(MkdocFile("datasets/%s/%s.md" % (datafile.repository.id, datafile.id), "/datasets/", "", False))
+            #{ datafile.id  :  })
+
+        return files
 
 
     def on_page_read_source(self, _page, config, **kwargs):
+        print(_page)
+        return
         page = kwargs["page"]       
         path = page.input_path
 

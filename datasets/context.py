@@ -8,6 +8,7 @@ import logging
 import urllib
 import shutil
 from itertools import chain
+import pkg_resources
 
 class Compression:
     @staticmethod
@@ -112,12 +113,16 @@ class Context:
 
     def repositories(self):
         """Returns the repository"""
-        import pkg_resources
         for entry_point in pkg_resources.iter_entry_points('datasets.repositories'):
             yield entry_point.load()(self)
 
     def repository(self, repositoryid):
-        return Repository(self, self.repositoriespath.joinpath(repositoryid))
+        l = [x for x in pkg_resources.iter_entry_points('datasets.repositories', repositoryid)]
+        if not l:
+            raise Exception("No datasets repository named %s", repositoryid)
+        if len(l) > 1:
+            raise Exception("Too many datasets repository named %s", repositoryid)
+        return l[0].load()(self)
 
     def datasets(self):
         """Returns an iterator over all files"""

@@ -8,9 +8,6 @@ at being
 
 Each datasets is uniquely identified by a qualified name such as `nist.trec.2009.web.adhoc`. A dataset can reference other datasets.
 
-The list of available datasets and usage instruction can be found in the [documentation](http://bpiwowar.github.io/datasets/).
-
-This software integrates with the [experimaestro](https://github.com/bpiwowar/experimaestro) experiment manager.
 
 # YAML syntax
 
