@@ -3,6 +3,7 @@
 site_name: Datamaestro
 site_description: datamaestro A dataset manager
 theme: readthedocs
+repo_url: https://github.com/bpiwowar/datamaestro
 
 # Main pages
 pages:
