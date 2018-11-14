@@ -4,7 +4,6 @@ import argparse
 import sys
 import logging
 import os.path as op
-import yaml
 from functools import update_wrapper
 
 from .xpm import ExperimaestroEncoder

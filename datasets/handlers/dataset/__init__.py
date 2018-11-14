@@ -4,7 +4,7 @@ Datasets handler
 
 import logging
 import yaml
-import os.path as op
+from pathlib import Path
 from datasets.context import Context
 from datasets.data import Dataset, DatasetReference, Repository
 
@@ -17,6 +17,7 @@ class DatasetHandler:
         # Search for dependencies
         self.dependencies = {}
         self.content = self._resolve(self.context, "", content)
+        self.version = self.content.get("version", self.dataset)
 
     def _resolve(self, config, path, content):
         """
@@ -47,7 +48,7 @@ class DatasetHandler:
         # Download direct resources
         if "download" in self.content:
             handler = DownloadHandler.find(self.repository, self.content["download"])
-            if op.exists(self.destpath) and not force:
+            if self.destpath.exists() and not force:
                 logging.info("File already downloaded [%s]", self.destpath)
             else:
                 handler.download(self.destpath)
@@ -68,7 +69,13 @@ class DatasetHandler:
 
         p["id"] = self.dataset.id
         p["path"] = self.destpath
-        
+
+        r = { "path": self.path }
+        if self.version:
+            r["version"] = self.version
+            
+        self.context.registry[self.dataset.id] = r
+        self.context.registry.save()
         return p
 
     def description(self):
@@ -84,16 +91,23 @@ class DatasetHandler:
         return self.dataset.repository
 
     @property
+    def path(self) -> Path:
+        path = Path(*self.dataset.id.split("."))
+        if self.version:
+            path = path.joinpath("v%s" % self.version)
+        return path
+
+    @property
     def extrapath(self):
         """Returns the path containing extra configuration files"""
-        return self.repository.extrapath.joinpath(*self.dataset.id.split("."))
+        return self.repository.extrapath.joinpath(self.path)
 
     @property
     def destpath(self):
         """Returns the destination path for downloads"""
-        return self.repository.downloadpath.joinpath(*self.dataset.id.split("."))
+        return self.repository.downloadpath.joinpath(self.path)
 
     @property
     def generatedpath(self):
         """Returns the destination path for generated files"""
-        return self.repository.generatedpath.joinpath(*self.dataset.id.split("."))
+        return self.repository.generatedpath.joinpath(self.path)

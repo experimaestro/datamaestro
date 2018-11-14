@@ -1,4 +1,5 @@
 from datasets.handlers.download import DownloadHandler
+import logging
 
 class Simple(DownloadHandler):
     """Download multiple files or directories"""
@@ -10,7 +11,7 @@ class Simple(DownloadHandler):
         for key, value in self.list.items():
             handler = DownloadHandler.find(self.repository, value)
             destpath = handler.resolve(destination)
-            if destpath.exists() and not force:
+            if destpath.exists():
                 logging.info("File already downloaded [%s]", destpath)
             else:
                 handler.download(destpath)

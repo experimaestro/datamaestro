@@ -77,6 +77,11 @@ class Archive(DownloadHandler):
         self.url = self.definition["url"]
         self.gzip = self.url.endswith(".gz")
 
+    def resolve(self, path: Path) -> Path:
+        """Returns the destination path"""
+        p = urllib3.util.parse_url(self.url)
+        return path.joinpath(Path(p.path).name)
+
     def download(self, destination):
         tmpdir = None
         try:

@@ -1,0 +1,20 @@
+name: Visual Question Answering v2
+url: http://visualqa.org/download.html
+
+data:
+  real:
+    name: Balanced Real Images
+    download:
+      handler: /multiple/simple
+      list:
+        train/annotation:
+          handler: /single/archive
+          url: http://visualqa.org/data/mscoco/vqa/v2_Annotations_Train_mscoco.zip
+        train/question:
+          handler: /single/archive
+          url: http://visualqa.org/data/mscoco/vqa/v2_Questions_Train_mscoco.zip
+        validation/annotation:
+          handler: /single/archive
+          url: http://visualqa.org/data/mscoco/vqa/v2_Annotations_Val_mscoco.zip
+  abstract:
+    name: Balanced Abstract Images

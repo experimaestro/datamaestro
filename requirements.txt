@@ -10,5 +10,6 @@ progressbar2
 # Documentation generation
 mkdocs-material
 mkdocs
-  v2:
+
+# Validation
 pykwalify

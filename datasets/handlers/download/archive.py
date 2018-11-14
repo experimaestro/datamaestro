@@ -3,12 +3,18 @@ from datasets.handlers.download import DownloadHandler
 from pathlib import Path
 import zipfile
 import shutil
+import urllib3
 
 class Zip(DownloadHandler):
     """Single file"""
     def __init__(self, repository, definition):
         super().__init__(repository, definition)
         self.url = self.definition["url"]
+
+    def resolve(self, path: Path) -> Path:
+        """Returns the destination path"""
+        p = urllib3.util.parse_url(self.url)
+        return path.joinpath(Path(p.path).name)
 
     def download(self, destination: Path):
         logging.info("Downloading %s into %s", self.url, destination)

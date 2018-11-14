@@ -7,6 +7,7 @@ import hashlib
 import logging
 import urllib
 import shutil
+from .registry import Registry
 from itertools import chain
 
 class Compression:
@@ -18,40 +19,6 @@ class Compression:
             return ".gz"
 
         raise Exception("Not handled compression definition: %s" % definition)
-
-class RegistryEntry:
-    def __init__(self, registry, key):    
-        self.key = key
-        self.dicts = []
-        _key = ""   
-        for subkey in self.key.split("."):
-            _key = "%s.%s" % (_key, subkey) if _key else subkey
-            if _key in registry.content:
-                self.dicts.insert(0, registry.content[_key])
-        
-    def get(self, key, default):
-        for d in self.dicts:
-            if key in d:
-                return d[key]
-        return default
-        
-    def __getitem__(self, key):
-        for d in self.dicts:
-            if key in d:
-                return d[key]
-        raise KeyError(key)
-
-
-class Registry:
-    def __init__(self, path):
-        self.path = path
-        if path.is_file():
-            with open(path, "r") as fp:
-                self.content = yaml.safe_load(fp)
-
-    def __getitem__(self, key):
-        return RegistryEntry(self, key)
-
 
 
 class CachedFile():
@@ -99,8 +66,8 @@ class Context:
     def __init__(self, path: Path = None):
         self._path = path or Context.MAINDIR
         self._dpath = Path(__file__).parents[1]
-        self.registry = Registry(self._path.joinpath("registry.yaml"))
         self._repository = None
+        self.registry = Registry(self.mainrepository.downloadpath.joinpath("registry.yaml"))
 
     @property
     def repositoriespath(self):
