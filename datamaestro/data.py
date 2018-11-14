@@ -61,6 +61,7 @@ class DataFile:
         self.content = self.content or {}
         self.datasets = {}
         self.id = prefix
+        self.name = self.content.get("name", self.id)
 
         # A dataset can either be nested within data, or not
         data = self.content.get("data", {None: self.content})
@@ -271,7 +272,7 @@ class Repository:
 
     def datafile(self, did):
         """Returns a datafile given the its id"""
-        path = self.basedir.joinpath("etc").joinpath(*did.split(".")).with_suffix(YAML_SUFFIX)
+        path = self.basedir.joinpath("config").joinpath(*did.split(".")).with_suffix(YAML_SUFFIX)
         return DataFile(self, did, path)
 
     def datafiles(self):
