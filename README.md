@@ -12,4 +12,4 @@ Each datasets is uniquely identified by a qualified name such as `nist.trec.2009
 # YAML syntax
 
 Each dataset (or a set of related datasets) is described by a YAML file. Its syntax is
-described in the [documentation](http://bpiwowar.github.io/datasets/).
+described in the [documentation](http://bpiwowar.github.io/datamaestro/).
