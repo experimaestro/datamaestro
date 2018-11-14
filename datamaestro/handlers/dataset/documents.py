@@ -1,7 +1,7 @@
 import logging
 from itertools import chain
-from datasets.handlers.dataset import DatasetHandler
-from datasets.context import Compression
+from datamaestro.handlers.dataset import DatasetHandler
+from datamaestro.context import Compression
 
 class Collection(DatasetHandler):
     """Just a set of document collections"""

@@ -7,6 +7,6 @@ at being
 1. A tool to automatically download and/or process resources, when this is possible
 
 Each dataset is uniquely identified by a qualified name such as `nist.trec.2009.web.adhoc`. A dataset can reference other
-datasets.
+datamaestro.
 
 This software integrates with the [experimaestro](http://experimaestro.sf.net) experiment manager.

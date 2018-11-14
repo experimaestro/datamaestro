@@ -5,8 +5,8 @@ Datasets handler
 import logging
 import yaml
 from pathlib import Path
-from datasets.context import Context
-from datasets.data import Dataset, DatasetReference, Repository
+from datamaestro.context import Context
+from datamaestro.data import Dataset, DatasetReference, Repository
 
 class DatasetHandler:
     """Base class for all dataset handlers"""
@@ -42,7 +42,7 @@ class DatasetHandler:
 
     def download(self, force=False):
         """Download all the resources (if available)"""
-        from datasets.handlers.download import DownloadHandler
+        from datamaestro.handlers.download import DownloadHandler
         logging.info("Downloading %s", self.content.get("name", self.dataset))
 
         # Download direct resources

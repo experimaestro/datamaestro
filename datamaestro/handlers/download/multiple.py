@@ -1,4 +1,4 @@
-from datasets.handlers.download import DownloadHandler
+from datamaestro.handlers.download import DownloadHandler
 import logging
 
 class Simple(DownloadHandler):

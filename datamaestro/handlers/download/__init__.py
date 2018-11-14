@@ -1,4 +1,4 @@
-from datasets.data import Repository
+from datamaestro.data import Repository
 
 
 class DownloadHandler:

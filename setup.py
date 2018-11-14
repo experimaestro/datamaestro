@@ -2,25 +2,25 @@
 
 from distutils.core import setup
 
-setup(name='datasets',
+setup(name='datamaestro',
     version='0.1',
-    description='Datasets utilities',
+    description='Dataset management',
     author='Benjamin Piwowarski',
-    author_email='benjamin@bpiwowar.net',
-    url='https://github.com/bpiwowar/datasets',
-    packages=['datasets'],
-    package_dir={'datasets': 'datasets'},
+    author_email='benjamin@piwowarski.fr',
+    url='https://github.com/bpiwowar/datamaestro',
+    packages=['datamaestro'],
+    package_dir={'datamaestro': 'datamaestro'},
     install_requires = [ 'Click' ],
-    package_data={'datasets': ['LICENSE', 'datasets/repositories.yaml']},
+    package_data={'datamaestro': ['LICENSE', 'datamaestro/repositories.yaml']},
     data_files = [
         
     ],
     entry_points = {
         'console_scripts': [
-            'datasets = datasets.__main__:main',                  
+            'datamaestro = datamaestro.__main__:main',                  
         ],         
         'mkdocs.plugins': [
-                'datasets = datasets.commands.site:DatasetGenerator',
+                'datamaestro = datamaestro.commands.site:DatasetGenerator',
         ]
     },
 )

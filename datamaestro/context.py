@@ -68,7 +68,7 @@ class Context:
         self._path = path or Context.MAINDIR
         self._dpath = Path(__file__).parents[1]
         self._repository = None
-        self.registry = Registry(self.mainrepository.downloadpath.joinpath("registry.yaml"))
+        self.registry = Registry(self.datapath / "registry.yaml")
 
     @property
     def datapath(self):
@@ -80,11 +80,11 @@ class Context:
 
     def repositories(self):
         """Returns the repository"""
-        for entry_point in pkg_resources.iter_entry_points('datasets.repositories'):
+        for entry_point in pkg_resources.iter_entry_points('datamaestro.repositories'):
             yield entry_point.load()(self)
 
     def repository(self, repositoryid):
-        l = [x for x in pkg_resources.iter_entry_points('datasets.repositories', repositoryid)]
+        l = [x for x in pkg_resources.iter_entry_points('datamaestro.repositories', repositoryid)]
         if not l:
             raise Exception("No datasets repository named %s", repositoryid)
         if len(l) > 1:

@@ -7,9 +7,9 @@ import gzip
 import os.path as op, os
 import urllib3
 from pathlib import Path
-from datasets.utils import rm_rf
-from datasets.handlers.transform import Transform
-from datasets.handlers.download import DownloadHandler
+from datamaestro.utils import rm_rf
+from datamaestro.handlers.transform import Transform
+from datamaestro.handlers.download import DownloadHandler
 
 
 def open_ext(*args, **kwargs):

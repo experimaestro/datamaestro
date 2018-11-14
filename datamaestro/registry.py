@@ -32,7 +32,6 @@ class Registry:
         self.path = path
         self.dirty = False
         self.data = {}
-        print(path)
         if path.is_file():
             with path.open("r") as fp:
                 for key, value in yaml.load(fp).items():

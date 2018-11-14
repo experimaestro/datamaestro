@@ -56,7 +56,7 @@ def info(cfg, dataset):
 @cli.command(help="List available repositories")
 def repositories():
     import pkg_resources
-    for entry_point in pkg_resources.iter_entry_points('datasets.repositories'):
+    for entry_point in pkg_resources.iter_entry_points('datamaestro.repositories'):
         repo_class = entry_point.load()
         print("%s: %s" % (entry_point.name, repo_class.DESCRIPTION))
 
@@ -70,13 +70,13 @@ def site():
 @site.command()
 @pass_cfg
 def generate(cfg):
-    import datasets.commands.site as site
+    import datamaestro.commands.site as site
     site.generate(cfg)
 
 @site.command()
 @pass_cfg
 def serve(cfg):
-    import datasets.commands.site as site
+    import datamaestro.commands.site as site
     site.serve(cfg)
 
 

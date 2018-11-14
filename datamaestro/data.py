@@ -200,7 +200,7 @@ class Dataset:
                 else:
                     self._handler = self.repository.findhandler("dataset", name)(self, self.content, None)
             else:
-                from datasets.handlers.dataset import DatasetHandler
+                from datamaestro.handlers.dataset import DatasetHandler
                 self._handler = DatasetHandler(self, self.content, None)
         return self._handler
 
@@ -309,11 +309,11 @@ class Repository:
         repo = m.group(2)
         name = m.group(4).upper() + m.group(5)
         # if root:
-        package = "datasets.handlers.%s" % (handlertype)
+        package = "datamaestro.handlers.%s" % (handlertype)
         # elif repo:
-        #     package = "datasets.r.%s.handlers.%s" % (repo, handlertype)
+        #     package = "datamaestro.r.%s.handlers.%s" % (repo, handlertype)
         # else:
-        #     package = "datasets.r.%s.handlers.%s" % (self.basedir.stem, handlertype)
+        #     package = "datamaestro.r.%s.handlers.%s" % (self.basedir.stem, handlertype)
 
         if m.group(3):
             package = "%s.%s" % (package, m.group(3))

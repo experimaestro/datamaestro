@@ -1,5 +1,5 @@
 import logging
-from datasets.handlers.dataset import DatasetHandler
+from datamaestro.handlers.dataset import DatasetHandler
 
 class Assessments(DatasetHandler):
     """TREC standard topics - one file in SGML format"""
