@@ -9,6 +9,7 @@ import urllib
 import shutil
 from .registry import Registry
 from itertools import chain
+import pkg_resources
 
 class Compression:
     @staticmethod
@@ -70,43 +71,25 @@ class Context:
         self.registry = Registry(self.mainrepository.downloadpath.joinpath("registry.yaml"))
 
     @property
-    def repositoriespath(self):
-        """Directory containing repositories"""
-        return self._path.joinpath("repositories")
-
-    @property
     def datapath(self):
         return self._path.joinpath("data")
-
-    @property
-    def datasetspath(self):
-        return self._path.joinpath("datasets")
-
-    @property
-    def webpath(self) -> Path:
-        return self._path.joinpath("www")
-
+        
     @property
     def cachepath(self) -> Path:
         return self._path.joinpath("cache")
 
-    @property
-    def mainrepository(self):
-        from .data import Repository
-        if not self._repository:
-            self._repository = Repository(self, self._dpath)
-        return self._repository
-
     def repositories(self):
         """Returns the repository"""
-        from .data import Repository
-        return [self.mainrepository]
+        for entry_point in pkg_resources.iter_entry_points('datasets.repositories'):
+            yield entry_point.load()(self)
 
     def repository(self, repositoryid):
-        if repositoryid == "main":
-            return self.mainrepository
-                    
-        return Repository(self, self.repositoriespath.joinpath(repositoryid))
+        l = [x for x in pkg_resources.iter_entry_points('datasets.repositories', repositoryid)]
+        if not l:
+            raise Exception("No datasets repository named %s", repositoryid)
+        if len(l) > 1:
+            raise Exception("Too many datasets repository named %s", repositoryid)
+        return l[0].load()(self)
 
     def datasets(self):
         """Returns an iterator over all files"""
@@ -115,6 +98,7 @@ class Context:
                 yield dataset
 
     def dataset(self, datasetid):
+        """Get a dataset by ID"""
         from .data import Dataset
         return Dataset.find(self, datasetid)
 

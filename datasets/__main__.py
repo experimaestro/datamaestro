@@ -51,6 +51,14 @@ def info(cfg, dataset):
     print(dataset.description())
     print(dataset.tags())
 
+# --- General information
+
+@cli.command(help="List available repositories")
+def repositories():
+    import pkg_resources
+    for entry_point in pkg_resources.iter_entry_points('datasets.repositories'):
+        repo_class = entry_point.load()
+        print("%s: %s" % (entry_point.name, repo_class.DESCRIPTION))
 
 
 # --- Web site
@@ -110,7 +118,7 @@ def prepare(cfg, datasetid):
 @click.argument("searchterms",  nargs=-1) #, description="Search terms (e.g. tag:XXX)")
 @cli.command(help="Search for a dataset")
 @pass_cfg
-def search(cfg, searchterms):
+def search(cfg: Context, searchterms):
     from .search import Condition, AndCondition
 
     condition = AndCondition()
