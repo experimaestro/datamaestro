@@ -67,14 +67,14 @@ class DataFile:
         self.datasets = {}
         self.id = prefix
 
-        first = None
+        self.main = None
         for doc in readyamls(path):
             fulldid = "%s.%s" % (prefix, doc["id"])  if "id" in doc else self.id
-            ds = Dataset(self, fulldid, doc, first)
+            ds = Dataset(self, fulldid, doc, self.main)
             self.datasets[fulldid] = ds
 
-            if not first:
-                first = ds
+            if not self.main:
+                self.main = ds
                 self.name = doc.get("name", self.id)
 
 
@@ -86,14 +86,14 @@ class DataFile:
         return self.datasets[name]
 
     def resolvens(self, ns):
-        return self.content["namespaces"][ns]
+        return self.main["namespaces"][ns]
 
     def __iter__(self):
         return self.datasets.values().__iter__()
 
     @property
     def description(self):
-        return self.content.get("description", "")
+        return self.main.get("description", "")
 
     @property
     def context(self):
@@ -169,7 +169,7 @@ class Dataset:
         raise IndexError()
     
 
-    def get(self, key, defaultvalue):
+    def get(self, key, defaultValue):
         try:
             return self[key]
         except IndexError:

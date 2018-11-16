@@ -29,7 +29,7 @@ class DatasetHandler:
         prefix = path + "." if path else ""
 
         if isinstance(content, dict):
-            return {k: self._resolve(config, prefix + k, v) for k, v in content.items()}
+            return {str(k): self._resolve(config, prefix + str(k), v) for k, v in content.items()}
 
         elif isinstance(content, list):
             return [self._resolve(config, "%s.%d" % (prefix, i), v) for i, v in enumerate(content)]
