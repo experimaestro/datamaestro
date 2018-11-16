@@ -7,6 +7,7 @@ import os
 import tempfile
 import urllib
 import shutil
+from functools import lru_cache
 import logging
 import re
 import inspect
@@ -53,6 +54,7 @@ def readyaml(path):
 
 class DataFile:
     """A single dataset definition file"""
+    @lru_cache()
     def __init__(self, repository, prefix: str, path: str):
         self.repository = repository
         logging.debug("Reading %s", path)
@@ -109,6 +111,10 @@ class Dataset:
         self.content = content
         self._handler = None
         self.isalias = isinstance(content, DatasetReference)
+
+    def parent(self):
+        pos = self.id.rfind(".")
+        return self.datafile.repository.search(self.id[:pos])
 
     @property
     def context(self):
@@ -168,7 +174,7 @@ class Dataset:
     @property
     def datadir(self):
         """Path containing real data"""
-        datapath = self.datafile.repository.context.datapath
+        datapath = self.datafile.repository.datapath
         if "datapath" in self.content:
             steps = self.id.split(".")
             steps.extend(self.content["datapath"].split("/"))
@@ -235,6 +241,7 @@ class Repository:
         self.configdir = self.basedir.joinpath("config")
         self.id = self.__class__.NAMESPACE
         self.name = self.id
+        self.module = self.__class__.__module__
         
     def __repr__(self):
         return "Repository(%s)" % self.basedir
@@ -299,25 +306,39 @@ class Repository:
     def findhandler(self, handlertype, fullname):
         """
         Find a handler of a given type
+
+        A handle can be specified using
+
+        `module/subpackage:class`
+
+        will map to class <class> in <module>.handlers.<handlertype>.subpackage
+
+        Two shortcuts can be used:
+        - `/subpackage:class`: module = datamaestro
+        - `subpackage:class`: module = repository module
+
+
+
         """
         logging.debug("Searching for handler %s of type %s", fullname, handlertype)
-        pattern = re.compile(r"^(?:(/)|(?:(\w+):))?(?:([.\w]+)/)?(\w)(\w+)$")
+        pattern = re.compile(r"^((?P<module>[\w_]+)?(?P<slash>/))?(?P<path>[\w_]+):(?P<name>[\w_]+)$")
         m = pattern.match(fullname)
         if not m:
             raise Exception("Invalid handler specification %s" % name)
 
-        root = m.group(1)
-        repo = m.group(2)
-        name = m.group(4).upper() + m.group(5)
-        # if root:
-        package = "datamaestro.handlers.%s" % (handlertype)
-        # elif repo:
-        #     package = "datamaestro.r.%s.handlers.%s" % (repo, handlertype)
-        # else:
-        #     package = "datamaestro.r.%s.handlers.%s" % (self.basedir.stem, handlertype)
+        name = m.group('name')
+        if m.group('slash') is None:
+            # relative path
+            module = self.module
+        else:
+            # absolute path
+            if m.group('module'):
+                module = m.group('module')
+            else:
+                module = "datamaestro"
+        
 
-        if m.group(3):
-            package = "%s.%s" % (package, m.group(3))
+        package = "%s.handlers.%s.%s" % (module, handlertype, m.group("path"))
         
         logging.debug("Searching for handler: package %s, class %s", package, name)
         try:
@@ -333,6 +354,10 @@ class Repository:
 
     @property
     def downloadpath(self):
+        return self.context.datapath.joinpath(self.id)
+        
+    @property
+    def datapath(self):
         return self.context.datapath.joinpath(self.id)
 
     @property

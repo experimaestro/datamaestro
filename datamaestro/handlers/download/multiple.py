@@ -1,15 +1,16 @@
 from datamaestro.handlers.download import DownloadHandler
+from datamaestro import Dataset
 import logging
 
 class Simple(DownloadHandler):
     """Download multiple files or directories"""
-    def __init__(self, repository, definition):
+    def __init__(self, dataset: Dataset, definition):
         super().__init__(repository, definition)
         self.list = self.definition["list"]
 
     def download(self, destination):
         for key, value in self.list.items():
-            handler = DownloadHandler.find(self.repository, value)
+            handler = DownloadHandler.find(self.dataset, value)
             destpath = handler.resolve(destination)
             if destpath.exists():
                 logging.info("File already downloaded [%s]", destpath)

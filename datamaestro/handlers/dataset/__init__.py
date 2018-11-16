@@ -17,7 +17,7 @@ class DatasetHandler:
         # Search for dependencies
         self.dependencies = {}
         self.content = self._resolve(self.context, "", content)
-        self.version = self.content.get("version", self.dataset)
+        self.version = self.content.get("version", None)
 
     def _resolve(self, config, path, content):
         """
@@ -47,8 +47,8 @@ class DatasetHandler:
 
         # Download direct resources
         if "download" in self.content:
-            handler = DownloadHandler.find(self.repository, self.content["download"])
-            if self.destpath.exists() and not force:
+            handler = DownloadHandler.find(self.dataset, self.content["download"])
+            if handler.path(self.destpath).exists() and not force:
                 logging.info("File already downloaded [%s]", self.destpath)
             else:
                 handler.download(self.destpath)

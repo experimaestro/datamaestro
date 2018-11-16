@@ -10,6 +10,7 @@ import shutil
 from .registry import Registry
 from itertools import chain
 import pkg_resources
+import progressbar
 
 class Compression:
     @staticmethod
@@ -36,7 +37,6 @@ class CachedFile():
             except Exception as e:
                 logging.warn("Could not delete cached file %s", p)
 
-import progressbar
 
 class DownloadReportHook:
     def __init__(self):
@@ -57,6 +57,15 @@ class DownloadReportHook:
         if downloaded < total_size:
             self.pbar.update(downloaded)
         
+
+def flatten_settings(settings, content, prefix=""):
+    for key, value in content.items():
+        key = "%s.%s" % (prefix, key) if prefix else key
+        if isinstance(value, dict):
+            flatten_settings(settings, value, key)
+        else:
+            settings[key] = value
+
 class Context:
     """
     Represents the application context
@@ -69,6 +78,15 @@ class Context:
         self._dpath = Path(__file__).parents[1]
         self._repository = None
         self.registry = Registry(self.datapath / "registry.yaml")
+
+        # Read preferences
+        self.settings = {}
+        settingsPath = self._path / "settings.yaml"
+        if settingsPath.is_file():
+            with settingsPath.open("r") as fp:
+                flatten_settings(self.settings, yaml.load(fp))
+                
+
 
     @property
     def datapath(self):
@@ -101,6 +119,9 @@ class Context:
         """Get a dataset by ID"""
         from .data import Dataset
         return Dataset.find(self, datasetid)
+
+    def preference(self, key, default=None):
+        return self.settings.get(key, default)
 
 
     def download(self, url):

@@ -1,0 +1,10 @@
+type:       map
+mapping:
+ name:
+    type:      str
+    required:  yes
+ tags:
+    type:      seq
+    sequence:
+      - type: str
+      

@@ -6,8 +6,6 @@ import logging
 import os.path as op
 from functools import update_wrapper
 
-from .xpm import ExperimaestroEncoder
-
 from .context import Context
 from .data import Dataset
 
@@ -105,7 +103,8 @@ def prepare(cfg, datasetid):
 
     s = dataset.prepare()
     try: 
-        print(ExperimaestroEncoder().encode(s))
+        from .utils import JsonEncoder
+        print(JsonEncoder().encode(s))
     except:
         logging.error("Error encoding to JSON: %s", s)
         sys.exit(1)
