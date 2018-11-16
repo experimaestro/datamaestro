@@ -50,28 +50,36 @@ def readyaml(path):
     with open(path) as f:
         return yaml.load(f)
 
+def readyamls(path):
+    with open(path) as f:
+        for p in yaml.load_all(f):
+            yield p
+
 
 
 class DataFile:
-    """A single dataset definition file"""
+    """A data configuration file"""
     @lru_cache()
     def __init__(self, repository, prefix: str, path: str):
         self.repository = repository
         logging.debug("Reading %s", path)
         self.path = path
-        self.content = readyaml(path)
-        self.content = self.content or {}
         self.datasets = {}
         self.id = prefix
-        self.name = self.content.get("name", self.id)
 
-        # A dataset can either be nested within data, or not
-        data = self.content.get("data", {None: self.content})
-        for did, d in data.items():
-            fulldid = "%s.%s" % (prefix, did) if did else prefix
-            self.datasets[fulldid] = Dataset(self, fulldid, d)
+        first = None
+        for doc in readyamls(path):
+            fulldid = "%s.%s" % (prefix, doc["id"])  if "id" in doc else self.id
+            ds = Dataset(self, fulldid, doc, first)
+            self.datasets[fulldid] = ds
+
+            if not first:
+                first = ds
+                self.name = doc.get("name", self.id)
+
 
     def __contains__(self, name):
+        """Returns true if the dataset belongs to this datafile"""
         return name in self.datasets
 
     def __getitem__(self, name):
@@ -86,6 +94,7 @@ class DataFile:
     @property
     def description(self):
         return self.content.get("description", "")
+
     @property
     def context(self):
         return self.repository.context
@@ -98,7 +107,7 @@ class DataFile:
 class Dataset:
     """Represents one dataset"""
 
-    def __init__(self, datafile: DataFile, datasetid: str, content):
+    def __init__(self, datafile: DataFile, datasetid: str, content: object, parent: "Dataset"):
         """
         Construct a new dataset
 
@@ -110,6 +119,7 @@ class Dataset:
         self.id = datasetid
         self.content = content
         self._handler = None
+        self.parent = parent
         self.isalias = isinstance(content, DatasetReference)
 
     def parent(self):
@@ -142,45 +152,36 @@ class Dataset:
     def __repr__(self):
         return "Dataset(%s)" % (", ".join(self.ids))
 
-    def __contains__(self, key):
-        if isinstance(self.content, DatasetReference):
-            return key in self.content.resolve(self).content
-        if key in self.content:
-            return True
-        return key in self.datafile.content
-
-    
 
     def __getitem__(self, key):
+        """Get the item"""
+
+        # If content is a dataset reference, then resolve it
         if isinstance(self.content, DatasetReference):
             self.content = self.content.resolve(self).content
 
+        # Tries first ourselves, then go upward
         if key in self.content:
             return self.content[key]
+        if self.parent:
+            return self.parent[key]
 
-        return self.datafile.content[key]
-
+        raise IndexError()
     
 
     def get(self, key, defaultvalue):
-        if isinstance(self.content, DatasetReference):
-            self.content = self.content.resolve(self).content
-            
-        if key in self.content:
-            return self.content.get(key, defaultvalue)
-
-        return self.datafile.content.get(key, defaultvalue)
+        try:
+            return self[key]
+        except IndexError:
+            return defaultValue
 
     @property
     def datadir(self):
         """Path containing real data"""
         datapath = self.datafile.repository.datapath
-        if "datapath" in self.content:
+        if "datapath" in self:
             steps = self.id.split(".")
-            steps.extend(self.content["datapath"].split("/"))
-        elif "datapath" in self.datafile.content:
-            steps = self.datafile.id.split(".")
-            steps.extend(self.datafile.content["datapath"].split("/"))
+            steps.extend(self["datapath"].split("/"))
         else:
             steps = self.id.split(".")
         return datapath.joinpath(*steps)

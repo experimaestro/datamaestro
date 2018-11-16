@@ -4,8 +4,8 @@ import logging
 
 class Simple(DownloadHandler):
     """Download multiple files or directories"""
-    def __init__(self, dataset: Dataset, definition):
-        super().__init__(repository, definition)
+    def __init__(self, dataset: Dataset, definition: object):
+        super().__init__(dataset, definition)
         self.list = self.definition["list"]
 
     def download(self, destination):

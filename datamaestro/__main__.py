@@ -58,32 +58,13 @@ def repositories():
         repo_class = entry_point.load()
         print("%s: %s" % (entry_point.name, repo_class.DESCRIPTION))
 
-
-# --- Web site
-
-@cli.group()
-def site():
-    pass
-
-@site.command()
-@pass_cfg
-def generate(cfg):
-    import datamaestro.commands.site as site
-    site.generate(cfg)
-
-@site.command()
-@pass_cfg
-def serve(cfg):
-    import datamaestro.commands.site as site
-    site.serve(cfg)
-
-
 # --- prepare and download
 
 @click.argument("dataset")
 @cli.command()
 @pass_cfg
 def download(cfg, dataset):
+    """Download a dataset"""
     dataset = Dataset.find(cfg, dataset)
     success = dataset.download()
     if not success:
@@ -95,6 +76,7 @@ def download(cfg, dataset):
 @cli.command(help="Downloads a dataset (if freely available)")
 @pass_cfg
 def prepare(cfg, datasetid):
+    """Download a dataset and returns information in json format"""
     dataset = cfg.dataset(datasetid)
     success = dataset.download()
     if not success:
