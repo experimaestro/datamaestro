@@ -10,7 +10,7 @@ setup(name='datamaestro',
     url='https://github.com/bpiwowar/datamaestro',
     packages=['datamaestro'],
     package_dir={'datamaestro': 'datamaestro'},
-    install_requires = [ 'Click' ],
+    install_requires = [ 'Click', 'progressbar2', 'pyyaml' ],
     package_data={'datamaestro': ['LICENSE', 'datamaestro/repositories.yaml']},
     data_files = [
         
