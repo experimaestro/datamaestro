@@ -51,7 +51,7 @@ class DownloadReportHook:
 
     def __call__(self, block_num, block_size, total_size):
         if not self.pbar:
-            self.pbar = progressbar.ProgressBar(maxval=total_size).__enter__()
+            self.pbar = progressbar.bar.DataTransferBar(max_value=total_size if total_size > 0 else None).__enter__()
 
         downloaded = block_num * block_size
         if downloaded < total_size:
@@ -70,7 +70,7 @@ class Context:
     """
     Represents the application context
     """
-    MAINDIR = Path("~/datasets").expanduser()
+    MAINDIR = Path("~/datamaestro").expanduser()
 
     """Main settings"""
     def __init__(self, path: Path = None):

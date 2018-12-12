@@ -13,7 +13,7 @@ class DownloadHandler:
         self.definition = definition
 
     def path(self, destination: Path):
-        """Returns the destination - by default, a folder with the same name"""
+        """Returns the destination - by default, a preserves the name"""
         return destination
 
     @staticmethod

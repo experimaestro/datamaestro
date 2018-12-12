@@ -9,6 +9,7 @@ class Simple(DownloadHandler):
         self.list = self.definition["list"]
 
     def download(self, destination):
+        logging.info("Downloading %d items", len(self.list))
         for key, value in self.list.items():
             handler = DownloadHandler.find(self.dataset, value)
             destpath = handler.resolve(destination)

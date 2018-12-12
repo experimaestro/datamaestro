@@ -29,7 +29,10 @@ class File(DownloadHandler):
     def resolve(self, path: Path) -> Path:
         """Returns the destination path"""
         p = urllib3.util.parse_url(self.url)
-        return path.joinpath(Path(p.path).name)
+        name = self.definition.get("name", None)
+        if not name:
+            name = Path(p.path).name
+        return path.joinpath(name)
 
     def download(self, destination):
         logging.info("Downloading %s into %s", self.url, destination)
@@ -95,7 +98,7 @@ class Archive(DownloadHandler):
 
             d = "%s/all" % tmpdir
             tarfile.open(dlfile.path).extractall(path="%s/all" % tmpdir)
-            outfilename = "%s/qrels" % tmpdir
+            outfilename = "%s/qrels" % tmpdir #FIXME: seems specific to a dataset
             
             with open(outfilename, 'wb') as f_out:
                 for aPath in (os.path.join(d, f) for f in os.listdir(d)):
