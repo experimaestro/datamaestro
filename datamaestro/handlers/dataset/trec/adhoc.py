@@ -1,6 +1,7 @@
 import logging
 from datamaestro.handlers.dataset import DatasetHandler
 
+# FIXME: Move to text
 class Assessments(DatasetHandler):
     """TREC standard topics - one file in SGML format"""
     @property

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup, find_namespace_packages
 
 setup(name='datamaestro',
     version='0.1',
@@ -8,8 +8,7 @@ setup(name='datamaestro',
     author='Benjamin Piwowarski',
     author_email='benjamin@piwowarski.fr',
     url='https://github.com/bpiwowar/datamaestro',
-    packages=['datamaestro'],
-    package_dir={'datamaestro': 'datamaestro'},
+    packages=find_namespace_packages(),
     install_requires = [ 'Click', 'progressbar2', 'pyyaml' ],
     package_data={'datamaestro': ['LICENSE', 'datamaestro/repositories.yaml']},
     data_files = [
