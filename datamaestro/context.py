@@ -118,7 +118,7 @@ class Context:
     def dataset(self, datasetid):
         """Get a dataset by ID"""
         from .data import Dataset
-        return Dataset.find(self, datasetid)
+        return Dataset.find(datasetid, context=self)
 
     def preference(self, key, default=None):
         return self.settings.get(key, default)

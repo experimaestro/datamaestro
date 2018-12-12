@@ -187,10 +187,10 @@ class Dataset:
         return datapath.joinpath(*steps)
 
     @staticmethod
-    def find(config: "Context", name: str):
+    def find(name: str, *, context: "Context" = None):
         """Find a dataset given its name"""
         logging.debug("Searching dataset %s", name)
-        for repository in config.repositories():
+        for repository in context.repositories():
             logging.debug("Searching dataset %s in %s", name, repository)
             dataset = repository.search(name)
             if dataset is not None:
