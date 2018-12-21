@@ -42,7 +42,7 @@ class File(DownloadHandler):
         os.makedirs(dir, exist_ok=True)
 
         # Download (cache)
-        file = self.context.download(self.url)
+        file = self.dataset.downloadURL(self.url)
 
         # Transform if need be
         if "transforms" in self.definition:
@@ -94,7 +94,7 @@ class Archive(DownloadHandler):
 
             # Temporary directory
             tmpdir = tempfile.mkdtemp()
-            dlfile = self.context.download(self.url)
+            dlfile = self.dataset.downloadURL(self.url)
 
             d = "%s/all" % tmpdir
             tarfile.open(dlfile.path).extractall(path="%s/all" % tmpdir)

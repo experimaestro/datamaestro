@@ -9,7 +9,7 @@ setup(name='datamaestro',
     author_email='benjamin@piwowarski.fr',
     url='https://github.com/bpiwowar/datamaestro',
     packages=find_namespace_packages(include="datamaestro.*"),
-    install_requires = [ 'Click', 'progressbar2', 'pyyaml' ],
+    install_requires = [ 'Click', 'tqdm', 'pyyaml' ],
     package_data={'datamaestro': ['LICENSE', 'datamaestro/repositories.yaml']},
     data_files = [
         

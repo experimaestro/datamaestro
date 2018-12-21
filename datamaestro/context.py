@@ -10,7 +10,7 @@ import shutil
 from .registry import Registry
 from itertools import chain
 import pkg_resources
-import progressbar
+from tqdm import tqdm
 
 class Compression:
     @staticmethod
@@ -23,39 +23,17 @@ class Compression:
         raise Exception("Not handled compression definition: %s" % definition)
 
 
-class CachedFile():
-    """Represents a downloaded file that has been cached"""
-    def __init__(self, path, *paths):
-        self.path = path
-        self.paths = paths
-    
-    def discard(self):
-        """Delete all cached files"""
-        for p in chain([self.path], self.paths):
-            try:
-                p.unlink()
-            except Exception as e:
-                logging.warn("Could not delete cached file %s", p)
 
-
-class DownloadReportHook:
-    def __init__(self):
-        self.pbar = None
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.pbar:
-            self.pbar.__exit__(exc_type, exc_val, exc_tb)
-
-    def __call__(self, block_num, block_size, total_size):
-        if not self.pbar:
-            self.pbar = progressbar.bar.DataTransferBar(max_value=total_size if total_size > 0 else None).__enter__()
-
-        downloaded = block_num * block_size
-        if downloaded < total_size:
-            self.pbar.update(downloaded)
+class DownloadReportHook(tqdm):
+    def __init__(self, **kwargs):
+        kwargs.setdefault("unit", "B")
+        kwargs.setdefault("unit_scale", True)
+        kwargs.setdefault("miniters", 1)
+        super().__init__(**kwargs)
+    def __call__(self, b=1, bsize=1, tsize=None):
+        if tsize is not None:
+            self.total = tsize
+        self.update(b * bsize - self.n)  # will also set self.n = b * bsize
         
 
 def flatten_settings(settings, content, prefix=""):
@@ -86,7 +64,9 @@ class Context:
             with settingsPath.open("r") as fp:
                 flatten_settings(self.settings, yaml.load(fp))
                 
-
+    @staticmethod
+    def instance():
+        return Context()
 
     @property
     def datapath(self):
@@ -123,36 +103,3 @@ class Context:
     def preference(self, key, default=None):
         return self.settings.get(key, default)
 
-
-    def download(self, url):
-        """Downloads an URL"""
-        hasher = hashlib.sha256(url.encode("utf-8"))
-
-        self.cachepath.mkdir(exist_ok=True)
-        path = self.cachepath.joinpath(hasher.hexdigest())
-        urlpath = path.with_suffix(".url")
-        dlpath = path.with_suffix(".dl")
-    
-        if urlpath.is_file():
-            if urlpath.read_text() != url:
-                # TODO: do something better
-                raise Exception("Cached URL hash does not match. Clear cache to resolve")
-
-        urlpath.write_text(url)
-        if dlpath.is_file():
-            logging.debug("Using cached file %s for %s", dlpath, url)
-        else:
-
-            logging.info("Downloading %s", url)
-            tmppath = dlpath.with_suffix(".tmp")
-            try:
-                with DownloadReportHook() as reporthook:
-                    urllib.request.urlretrieve(url, tmppath, reporthook)
-                shutil.move(tmppath, dlpath)
-            except:
-                tmppath.unlink()
-                raise
-
-
-        return CachedFile(dlpath, urlpath)
-        

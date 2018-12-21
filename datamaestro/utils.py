@@ -34,3 +34,18 @@ class JsonEncoder(BaseJSONEncoder):
         if isinstance(o, PosixPath):
             return str(o.resolve())
         return o.__dict__    
+
+
+class CachedFile():
+    """Represents a downloaded file that has been cached"""
+    def __init__(self, path, *paths):
+        self.path = path
+        self.paths = paths
+    
+    def discard(self):
+        """Delete all cached files"""
+        for p in chain([self.path], self.paths):
+            try:
+                p.unlink()
+            except Exception as e:
+                logging.warn("Could not delete cached file %s", p)

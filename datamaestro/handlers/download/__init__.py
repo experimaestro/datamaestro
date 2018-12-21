@@ -16,6 +16,10 @@ class DownloadHandler:
         """Returns the destination - by default, a preserves the name"""
         return destination
 
+    def download(self, destination: Path):
+        """Downloads the content and place it in the specified destination"""
+        raise NotImplementedError()
+
     @staticmethod
     def find(dataset, definition):
         return dataset.repository.findhandler("download", definition["handler"])(dataset, definition)

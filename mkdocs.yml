@@ -10,6 +10,8 @@ pages:
   - Home: index.md
   - Configuration: configuration.md
   - Developping: developping.md
+  - Handlers:
+    - Download: download.md
 
 # Automatic page generation for datasets
 plugins:

@@ -45,7 +45,7 @@ def main():
 @click.argument("dataset", type=str)
 @pass_cfg
 def info(cfg, dataset):
-    dataset = Dataset.find(cfg, dataset)
+    dataset = Dataset.find(dataset, context=cfg)
     print(dataset.description())
     print(dataset.tags())
 
@@ -65,7 +65,7 @@ def repositories():
 @pass_cfg
 def download(cfg, dataset):
     """Download a dataset"""
-    dataset = Dataset.find(cfg, dataset)
+    dataset = Dataset.find(dataset, context=cfg)
     success = dataset.download()
     if not success:
         logging.error("One or more errors occured while downloading the dataset")

@@ -4,6 +4,7 @@ Contains
 
 import sys
 import os
+import hashlib
 import tempfile
 import urllib
 import shutil
@@ -12,11 +13,12 @@ import logging
 import re
 import inspect
 from .context import Context
+from .utils import CachedFile
 import urllib.request
 from pathlib import Path
 from itertools import chain
 import importlib
-
+import json
 import yaml
 
 YAML_SUFFIX = ".yaml"
@@ -190,6 +192,7 @@ class Dataset:
     def find(name: str, *, context: "Context" = None):
         """Find a dataset given its name"""
         logging.debug("Searching dataset %s", name)
+        context = context if context else Context.instance()
         for repository in context.repositories():
             logging.debug("Searching dataset %s in %s", name, repository)
             dataset = repository.search(name)
@@ -223,6 +226,52 @@ class Dataset:
 
     def prepare(self):
         return self.handler.prepare()
+
+    def downloadURL(self, url):
+        """Downloads an URL"""
+
+        self.context.cachepath.mkdir(exist_ok=True)
+
+        def getPaths(hasher):
+            path = self.context.cachepath.joinpath(hasher.hexdigest())
+            urlpath = path.with_suffix(".url")
+            dlpath = path.with_suffix(".dl")
+        
+            if urlpath.is_file():
+                if urlpath.read_text() != url:
+                    # TODO: do something better
+                    raise Exception("Cached URL hash does not match. Clear cache to resolve")
+            return urlpath, dlpath
+
+        if isinstance(url, dict):
+            logging.info("Needs to download file %s", url["name"])
+            hasher = hashlib.sha256(json.dumps(url).encode("utf-8"))
+            handler = self.repository.findhandler("download", url["handler"])(self, url)
+            urlpath, dlpath = getPaths(hasher)
+            handler.download(dlpath)
+            return CachedFile(dlpath, urlpath)
+
+
+        hasher = hashlib.sha256(url.encode("utf-8"))
+
+        urlpath.write_text(url)
+        if dlpath.is_file():
+            logging.debug("Using cached file %s for %s", dlpath, url)
+        else:
+
+            logging.info("Downloading %s", url)
+            tmppath = dlpath.with_suffix(".tmp")
+            try:
+                with DownloadReportHook(desc="Downloading %s" % url) as reporthook:
+                    urllib.request.urlretrieve(url, tmppath, reporthook.__call__)
+                shutil.move(tmppath, dlpath)
+            except:
+                tmppath.unlink()
+                raise
+
+
+        return CachedFile(dlpath, urlpath)
+        
         
 
 class Repository:

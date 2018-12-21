@@ -1,0 +1,30 @@
+# Example of a dataset
+
+name: UltiSet
+title: The Ultimate Dataset
+tags:
+  - question anwering
+  - text
+tasks:
+  - information access
+licence: MIT
+links:
+  website: https://ultimate.dataset.com
+  paper: http://arxiv.org/abs/1806.03822
+
+description: |
+ Blah blah blah
+ blah blah
+
+download:
+  # Instruction for downloading
+  handler: /package/Name
+  
+
+...
+---
+
+# Other version or subdataset
+version: 2
+
+# Then, any field can be overriden
