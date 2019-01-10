@@ -12,7 +12,7 @@ from functools import lru_cache
 import logging
 import re
 import inspect
-from .context import Context
+from .context import Context, DownloadReportHook
 from .utils import CachedFile
 import urllib.request
 from pathlib import Path
@@ -224,7 +224,9 @@ class Dataset:
     def tags(self):
         return self.handler.tags()
 
-    def prepare(self):
+    def prepare(self, download=False):
+        if download:
+            self.handler.download()
         return self.handler.prepare()
 
     def downloadURL(self, url):
@@ -233,6 +235,7 @@ class Dataset:
         self.context.cachepath.mkdir(exist_ok=True)
 
         def getPaths(hasher):
+            """Returns a cache file path"""
             path = self.context.cachepath.joinpath(hasher.hexdigest())
             urlpath = path.with_suffix(".url")
             dlpath = path.with_suffix(".dl")
@@ -243,17 +246,17 @@ class Dataset:
                     raise Exception("Cached URL hash does not match. Clear cache to resolve")
             return urlpath, dlpath
 
+        hasher = hashlib.sha256(json.dumps(url).encode("utf-8"))
+
         if isinstance(url, dict):
             logging.info("Needs to download file %s", url["name"])
-            hasher = hashlib.sha256(json.dumps(url).encode("utf-8"))
             handler = self.repository.findhandler("download", url["handler"])(self, url)
             urlpath, dlpath = getPaths(hasher)
             handler.download(dlpath)
             return CachedFile(dlpath, urlpath)
 
 
-        hasher = hashlib.sha256(url.encode("utf-8"))
-
+        urlpath, dlpath = getPaths(hasher)
         urlpath.write_text(url)
         if dlpath.is_file():
             logging.debug("Using cached file %s for %s", dlpath, url)

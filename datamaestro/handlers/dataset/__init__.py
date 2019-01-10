@@ -7,6 +7,7 @@ import yaml
 from pathlib import Path
 from datamaestro.context import Context
 from datamaestro.data import Dataset, DatasetReference, Repository
+from datamaestro.handlers.download import DownloadHandler
 
 class DatasetHandler:
     """Base class for all dataset handlers"""
@@ -42,14 +43,13 @@ class DatasetHandler:
 
     def download(self, force=False):
         """Download all the resources (if available)"""
-        from datamaestro.handlers.download import DownloadHandler
         logging.info("Downloading %s", self.content.get("name", self.dataset))
 
         # Download direct resources
         if "download" in self.content:
             handler = DownloadHandler.find(self.dataset, self.content["download"])
             if handler.path(self.destpath).exists() and not force:
-                logging.info("File already downloaded [%s]", self.destpath)
+                logging.info("File already downloaded [%s]", handler.path(self.destpath))
             else:
                 handler.download(self.destpath)
 
@@ -68,9 +68,12 @@ class DatasetHandler:
             p[key] = dependency.prepare()
 
         p["id"] = self.dataset.id
-        p["path"] = self.destpath
 
-        r = { "path": self.path }
+        if "download" in self.content:
+            handler = DownloadHandler.find(self.dataset, self.content["download"])
+            p["path"] = handler.path(self.destpath)
+
+        r = { "path": p["path"] }
         if self.version:
             r["version"] = self.version
             
