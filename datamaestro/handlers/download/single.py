@@ -19,6 +19,22 @@ def open_ext(*args, **kwargs):
         return gzip.open(*args, *kwargs)
     return io.open(*args, **kwargs)
 
+class DatasetPath(DownloadHandler):
+    def __init__(self, repository, definition):
+        super().__init__(repository, definition)
+        self.reference = self.definition["reference"]
+        self._path = self.definition.get("path", None)
+    
+    def path(self, path: Path) -> Path:
+        dshandler = self.reference.handler
+        rpath = dshandler.destpath
+        rpath = dshandler.downloadHandler.path(rpath)    
+        if self._path:
+            rpath /= self._path
+        return rpath 
+        
+    def download(self, destination):
+        pass
 class File(DownloadHandler):
     """Single file"""
     def __init__(self, repository, definition):
@@ -26,7 +42,7 @@ class File(DownloadHandler):
         self.url = self.definition["url"]
 
     
-    def resolve(self, path: Path) -> Path:
+    def path(self, path: Path) -> Path:
         """Returns the destination path"""
         p = urllib3.util.parse_url(self.url)
         name = self.definition.get("name", None)
@@ -80,7 +96,7 @@ class Archive(DownloadHandler):
         self.url = self.definition["url"]
         self.gzip = self.url.endswith(".gz")
 
-    def resolve(self, path: Path) -> Path:
+    def path(self, path: Path) -> Path:
         """Returns the destination path"""
         p = urllib3.util.parse_url(self.url)
         return path.joinpath(Path(p.path).name)

@@ -30,11 +30,21 @@ class TemporaryDirectory:
             rm_rf(self.path)
 
 class JsonEncoder(BaseJSONEncoder):
+    """Default JSON encoder"""
     def default(self, o):
         if isinstance(o, PosixPath):
             return str(o.resolve())
         return o.__dict__    
 
+class XPMEncoder(BaseJSONEncoder):
+    """Experimaestro encoder"""
+    def default(self, o):
+        if isinstance(o, PosixPath):
+            return {
+                "$type": "path",
+                "$value": str(o.resolve())
+            }
+        return o.__dict__    
 
 class CachedFile():
     """Represents a downloaded file that has been cached"""

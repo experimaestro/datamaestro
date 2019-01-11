@@ -73,9 +73,10 @@ def download(cfg, dataset):
 
 
 @click.argument("datasetid")
+@click.option("--encoder", help="Encoder", default="normal", type=click.Choice(['normal', 'xpm']))
 @cli.command(help="Downloads a dataset (if freely available)")
 @pass_cfg
-def prepare(cfg, datasetid):
+def prepare(cfg, datasetid, encoder):
     """Download a dataset and returns information in json format"""
     dataset = cfg.dataset(datasetid)
     success = dataset.download()
@@ -85,8 +86,14 @@ def prepare(cfg, datasetid):
 
     s = dataset.prepare()
     try: 
-        from .utils import JsonEncoder
-        print(JsonEncoder().encode(s))
+        if encoder == "normal":
+            from .utils import JsonEncoder
+            print(JsonEncoder().encode(s))
+        elif encoder == "xpm":
+            from .utils import XPMEncoder
+            print(XPMEncoder().encode(s))
+        else:
+            raise Exception("Unhandled encoder: {encoder}")
     except:
         logging.error("Error encoding to JSON: %s", s)
         sys.exit(1)

@@ -41,13 +41,17 @@ class DatasetHandler:
         
         return content
 
+    @property
+    def downloadHandler(self):
+        return DownloadHandler.find(self.dataset, self.content["download"])
+
     def download(self, force=False):
         """Download all the resources (if available)"""
         logging.info("Downloading %s", self.content.get("name", self.dataset))
 
         # Download direct resources
         if "download" in self.content:
-            handler = DownloadHandler.find(self.dataset, self.content["download"])
+            handler = self.downloadHandler
             if handler.path(self.destpath).exists() and not force:
                 logging.info("File already downloaded [%s]", handler.path(self.destpath))
             else:
@@ -62,20 +66,30 @@ class DatasetHandler:
         return success
 
     def prepare(self):
-        """Prepare the dataset"""
+        """Prepare the dataset
+        
+        Performs (basic) post-processing after the dataset has been downloaded
+        """
+
+        # Returned information
         p = {}
+        
+        # Will be used for updating the dataset registry
+        r = {}
+
+        # Update all dependencies
         for key, dependency in self.dependencies.items():
-            p[key] = dependency.prepare()
+            dependency.prepare()
 
         p["id"] = self.dataset.id
 
         if "download" in self.content:
-            handler = DownloadHandler.find(self.dataset, self.content["download"])
-            p["path"] = handler.path(self.destpath)
+            handler = self.downloadHandler
+            r["path"] = p["path"] = handler.path(self.destpath)
+            handler.updateDatasetInformation(self.destpath, p)
 
-        r = { "path": p["path"] }
         if self.version:
-            r["version"] = self.version
+            p["version"] = r["version"] = self.version
             
         self.context.registry[self.dataset.id] = r
         self.context.registry.save()
@@ -97,7 +111,7 @@ class DatasetHandler:
     def path(self) -> Path:
         path = Path(*self.dataset.id.split("."))
         if self.version:
-            path = path.joinpath("v%s" % self.version)
+            path = path.with_suffix(".v%s" % self.version)
         return path
 
     @property

@@ -39,7 +39,7 @@ class DatasetReference:
         elif did.startswith("."):
             did = reference.baseid + did
 
-        return Dataset.find(reference.context, did)
+        return Dataset.find(did, context=reference.context)
 
 def datasetref(loader, node):
     """A dataset reference"""
@@ -61,7 +61,12 @@ def readyamls(path):
 
 class DataFile:
     """A data configuration file"""
+
+    @staticmethod
     @lru_cache()
+    def create(repository, prefix: str, path: str):
+        return DataFile(repository, prefix, path)
+
     def __init__(self, repository, prefix: str, path: str):
         self.repository = repository
         logging.debug("Reading %s", path)
@@ -321,7 +326,7 @@ class Repository:
 
         # Get the dataset
         logging.debug("Found file %s [prefix=%s/id=%s]", path, prefix, sub)
-        f = DataFile(self, prefix, path)
+        f = DataFile.create(self, prefix, path)
         if not name in f:
             return None
 
@@ -333,7 +338,7 @@ class Repository:
     def datafile(self, did):
         """Returns a datafile given the its id"""
         path = self.basedir.joinpath("config").joinpath(*did.split(".")).with_suffix(YAML_SUFFIX)
-        return DataFile(self, did, path)
+        return DataFile.create(self, did, path)
 
     def datafiles(self):
         """Iterates over all datafiles in this repository"""
@@ -343,7 +348,7 @@ class Repository:
                 c = [p.name for p in path.relative_to(self.configdir).parents][:-1][::-1]
                 c.append(path.stem)
                 fid = ".".join(c)
-                datafile = DataFile(self, fid, path)
+                datafile = DataFile.create(self, fid, path)
                 yield datafile
             except Exception as e:
                 import traceback
