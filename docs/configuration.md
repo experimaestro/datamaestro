@@ -73,25 +73,27 @@ statistics:
 
 ### General information
 
+- `abstract` flag used to mark an abstract dataset (sub-datasets have to be defined)
 - `name` gives a short name of the dataset
 - `description` gives a longer description of the dataset
 - `tags` is a list of tags (free vocabulary)
-- `tasks` is a list of tasks
+- `tasks` is a list of tasks (free vocabulary)
 - `date` is the dataset release date 
-- `abstract` flag used to mark an abstract dataset (sub-datasets have to be defined)
-- `links` give a set of 
+- `version` is the version of the dataset
+- [`links`](#links) give links to the main website or other related resources (e.g. paper)
 
-### Documents
 
-`documents` is a dictionary that associates a name to some fields like
+### Links
 
-- `url` The URL of the paper (or download page)
-- `bibtex` A bibtex
+`links` is a dictionary that associates a name with some fields like
+
+- `url` The URL of the link
+- `type` Gives the type of resource: either `website` or `paper`
 
 ### Nested datasets
 
-Some datasets are variations of the same dataset. In that case, `sub` gives a list 
-of sub-datasets. Fields are inherited by default.
+Sub-datasets can be defined by defining several documents within the `yaml` file. The first document
+will be the main dataset, and the others will be subdatasets.
 
 ### Download and data
 

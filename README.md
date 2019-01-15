@@ -3,10 +3,12 @@
 This projects aims at grouping utilities to deal with the numerous and heterogenous datasets present on the Web. It aims
 at being
 
-1. a reference for available resources
-1. a tool to automatically download and/or process resources
+1. a reference for available resources, listing datasets and giving the possibility to search among those
+1. a tool to automatically download and process resources
 
-Each datasets is uniquely identified by a qualified name such as `nist.trec.2009.web.adhoc`. A dataset can reference other datamaestro.
+Each datasets is uniquely identified by a qualified name such as `edu.standford.glove.6b`, which is usually the inversed path to the domain name of the website associated with the dataset.
+
+The main repository only deals with very generic processing (downloading and basic pre-processing). Plugins can then be registered that provide access to domain specific datasets. At the moment, an [nlp/information access related dataset](https://github.com/bpiwowar/datamaestro_text) is available.
 
 
 # YAML syntax

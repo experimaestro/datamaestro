@@ -35,6 +35,7 @@ class DatasetPath(DownloadHandler):
         
     def download(self, destination):
         pass
+
 class File(DownloadHandler):
     """Single file"""
     def __init__(self, repository, definition):

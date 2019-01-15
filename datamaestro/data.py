@@ -228,6 +228,8 @@ class Dataset:
 
     def tags(self):
         return self.handler.tags()
+    def tasks(self):
+        return self.handler.tasks()
 
     def prepare(self, download=False):
         if download:

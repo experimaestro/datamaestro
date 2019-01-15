@@ -14,8 +14,10 @@ from mkdocs.structure.nav import Navigation as MkdocNavigation
 from ..context import Context
 from ..data import Repository
 
+# Custom URIs for tags and datafiles
 RE_DATAFILE = re.compile(r"^datamaestro/df/([^/]*)/(.*)\.md$")
 RE_TAG = re.compile(r"^datamaestro/tag/([^/]*)\.md$")
+RE_TASK = re.compile(r"^datamaestro/task/([^/]*)\.md$")
 
 class Matcher:
     def __init__(self):
@@ -66,26 +68,52 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         self.repository_id = self.config['repository']
         self.datafiles = {}
         self.tags = {}
+        self.tasks = {}
+
+        # Navigation
         nav = config["nav"]
+
+        navtags = []
+        nav.append({"Tags": navtags})
+        navtasks = []
+        nav.append({"Tasks": navtasks})
+        navdf = []
+        nav.append({"Datasets": navdf})
 
         for datafile in self.repository.datafiles():
             self.datafiles[datafile.id] = datafile
             for dataset in datafile:
                 for tag in dataset.tags():
                     self.tags.setdefault(tag, set()).add(dataset)
+                for task in dataset.tasks():
+                    self.tasks.setdefault(task, set()).add(dataset)
+
+        for tag in sorted(self.tags.keys()):
+            navtags.append({ tag: "datamaestro/tag/%s.md" % tag.lower() })
+
+        for task in sorted(self.tasks.keys()):
+            navtasks.append({ task: "datamaestro/task/%s.md" % task.lower() })
         
         for datafile in self.datafiles.values():
             path = "datamaestro/df/%s/%s.md" % (datafile.repository.id, datafile.id)
-            nav.append({datafile.name: path})
-        
+            navdf.append({datafile.name: path})
+
+        print(nav)
         return config
 
     def on_files(self, files, config):
         for value in self.parse_nav(config["nav"]):
             if MATCHER(RE_TAG, value):
+                # Add a file for each tag
                 f = MkdocFile("datamaestro/tag/%s.md" % (MATCHER.group(1)), "", config["site_dir"], False)
                 files.append(f)
+            elif MATCHER(RE_TASK, value):
+                # Add a file for each tag
+                f = MkdocFile("datamaestro/task/%s.md" % (MATCHER.group(1)), "", config["site_dir"], False)
+                files.append(f)
+        
         for datafile in self.repository.datafiles():
+            # Add a file for each dataset
             f = MkdocFile("datamaestro/df/%s/%s.md" % (datafile.repository.id, datafile.id), "", config["site_dir"], False)
             files.append(f)
 
@@ -93,14 +121,26 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
 
 
     def on_page_read_source(self, item, config, page: MkdocPage, **kwargs):
+        """Generate pages for tags or resourceas"""
         path = page.file.src_path
 
         if MATCHER(RE_TAG, path):
+            # Case of a tag
             r = io.StringIO()
             tag = MATCHER.group(1)
             r.write("# %s\n\n" %tag)
             for ds in self.tags.get(tag, set()):
-                r.write("- [%s](/datamaestro/df/%s/%s.html)" % (ds.id, ds.datafile.repository.id, ds.datafile.id))
+                r.write("- [%s](/datamaestro/df/%s/%s.html)\n" % (ds.get("name", ds.id), ds.datafile.repository.id, ds.datafile.id))
+
+            return r.getvalue()
+
+        if MATCHER(RE_TASK, path):
+            # Case of a tag
+            r = io.StringIO()
+            task = MATCHER.group(1)
+            r.write("# %s\n\n" % task)
+            for ds in self.tasks.get(task, set()):
+                r.write("- [%s](/datamaestro/df/%s/%s.html)\n" % (ds.get("name", ds.id), ds.datafile.repository.id, ds.datafile.id))
 
             return r.getvalue()
 

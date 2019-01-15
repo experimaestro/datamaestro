@@ -52,10 +52,11 @@ class DatasetHandler:
         # Download direct resources
         if "download" in self.content:
             handler = self.downloadHandler
-            if handler.path(self.destpath).exists() and not force:
-                logging.info("File already downloaded [%s]", handler.path(self.destpath))
+            destpath = handler.path(self.destpath)
+            if destpath.exists() and not force:
+                logging.info("File already downloaded [%s]", destpath)
             else:
-                handler.download(self.destpath)
+                handler.download(destpath)
 
         # Download dependencies
         success = True
@@ -102,6 +103,10 @@ class DatasetHandler:
     def tags(self):
         """Returns the description of the dataset"""
         return self.content.get("tags", [])
+        
+    def tasks(self):
+        """Returns the description of the dataset"""
+        return self.content.get("tasks", [])
 
     @property
     def repository(self):
