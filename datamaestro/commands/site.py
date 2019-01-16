@@ -63,7 +63,7 @@ class Classification:
             r = io.StringIO()
             r.write("# List of %s\n\n" % self.name)
             for key, value in sorted(self.map.items(), key=lambda kv: kv[0]):
-                r.write("- [%s](/datamaestro/%s/%s.html)\n" % (value.name, self.id, key))
+                r.write("- [%s](%s/%s.html)\n" % (value.name, self.id, key))
             return r.getvalue()
 
         if MATCHER(self.re, path):
@@ -74,7 +74,7 @@ class Classification:
             r.write("# %s\n\n" % item.name)
 
             for ds in item.values:
-                r.write("- [%s](/datamaestro/df/%s/%s.html)\n" % (ds.get("name", ds.id), ds.datafile.repository.id, ds.datafile.id))
+                r.write("- [%s](../df/%s/%s.html)\n" % (ds.get("name", ds.id), ds.datafile.repository.id, ds.datafile.id))
 
             return r.getvalue()
             
@@ -146,7 +146,6 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         for c in self.classifications:
             nav.append({c.name: c.nav})
 
-        print(nav)
         return config
 
     def on_files(self, files, config):
