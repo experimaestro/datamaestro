@@ -16,7 +16,6 @@ from ..data import Repository
 
 # Custom URIs for tags and datafiles
 RE_DATAFILE = re.compile(r"^datamaestro/df/([^/]*)/(.*)\.md$")
-RE_TAG = re.compile(r"^datamaestro/tag/([^/]*)\.md$")
 RE_TASK = re.compile(r"^datamaestro/task/([^/]*)\.md$")
 
 class Matcher:
@@ -31,6 +30,61 @@ class Matcher:
         return self.match.group(*args)
 
 MATCHER = Matcher()
+
+class ClassificationItem:
+    def __init__(self, name):
+        self.values = []
+        self.name = name
+
+class Classification:
+    def __init__(self, name):
+        self.id = name.lower()
+        self.name = name
+        # Maps keys to couple 
+        self.map = {}
+
+        self.re = re.compile(r"^datamaestro/%s/([^/]*)\.md$" % (self.id))
+
+
+    def add(self, name, value):
+        key = name.lower()
+        if not key in self.map:
+            self.map[key] = ClassificationItem(name)
+        self.map[key].values.append(value)
+
+    def addFiles(self, files, config):
+        files.append(MkdocFile("datamaestro/%s.md" % self.id, "", config["site_dir"], False))
+        for key in self.map.keys():
+            files.append(MkdocFile("datamaestro/%s/%s.md" % (self.id, key), "", config["site_dir"], False))
+
+    def match(self, path):
+
+        if path == "datamaestro/%s.md" % self.id:
+            r = io.StringIO()
+            r.write("# List of %s\n\n" % self.name)
+            for key, value in sorted(self.map.items(), key=lambda kv: kv[0]):
+                r.write("- [%s](/datamaestro/%s/%s.html)\n" % (value.name, self.id, key))
+            return r.getvalue()
+
+        if MATCHER(self.re, path):
+            # Case of a tag
+            r = io.StringIO()
+            key = MATCHER.group(1)
+            item = self.map[key]
+            r.write("# %s\n\n" % item.name)
+
+            for ds in item.values:
+                r.write("- [%s](/datamaestro/df/%s/%s.html)\n" % (ds.get("name", ds.id), ds.datafile.repository.id, ds.datafile.id))
+
+            return r.getvalue()
+            
+    @property
+    def nav(self):
+        nav = [{ "List of %s" % self.id : "datamaestro/%s.md" % self.id }]
+        for key, item in self.map.items():
+            nav.append({ item.name: "datamaestro/%s/%s.md" % (self.id, key) })
+        return nav
+
 
 class DatasetGenerator(mkdocs.plugins.BasePlugin):
     CONF = None
@@ -67,50 +121,39 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
     def on_config(self, config):
         self.repository_id = self.config['repository']
         self.datafiles = {}
-        self.tags = {}
-        self.tasks = {}
 
         # Navigation
         nav = config["nav"]
 
-        navtags = []
-        nav.append({"Tags": navtags})
-        navtasks = []
-        nav.append({"Tasks": navtasks})
+        self.tags = Classification("Tags")
+        self.tasks = Classification("Tasks")
+        self.classifications = [self.tags, self.tasks]
+
+        
         navdf = []
         nav.append({"Datasets": navdf})
 
         for datafile in self.repository.datafiles():
+            path = "datamaestro/df/%s/%s.md" % (datafile.repository.id, datafile.id)
+            navdf.append({datafile.name: path})
             self.datafiles[datafile.id] = datafile
             for dataset in datafile:
                 for tag in dataset.tags():
-                    self.tags.setdefault(tag, set()).add(dataset)
+                    self.tags.add(tag, dataset)
                 for task in dataset.tasks():
-                    self.tasks.setdefault(task, set()).add(dataset)
-
-        for tag in sorted(self.tags.keys()):
-            navtags.append({ tag: "datamaestro/tag/%s.md" % tag.lower() })
-
-        for task in sorted(self.tasks.keys()):
-            navtasks.append({ task: "datamaestro/task/%s.md" % task.lower() })
+                    self.tasks.add(task, dataset)
         
-        for datafile in self.datafiles.values():
-            path = "datamaestro/df/%s/%s.md" % (datafile.repository.id, datafile.id)
-            navdf.append({datafile.name: path})
+        for c in self.classifications:
+            nav.append({c.name: c.nav})
 
         print(nav)
         return config
 
     def on_files(self, files, config):
-        for value in self.parse_nav(config["nav"]):
-            if MATCHER(RE_TAG, value):
-                # Add a file for each tag
-                f = MkdocFile("datamaestro/tag/%s.md" % (MATCHER.group(1)), "", config["site_dir"], False)
-                files.append(f)
-            elif MATCHER(RE_TASK, value):
-                # Add a file for each tag
-                f = MkdocFile("datamaestro/task/%s.md" % (MATCHER.group(1)), "", config["site_dir"], False)
-                files.append(f)
+        files.append(MkdocFile("datamaestro/tasks.md", "", config["site_dir"], False))
+
+        for c in self.classifications:
+            c.addFiles(files, config)
         
         for datafile in self.repository.datafiles():
             # Add a file for each dataset
@@ -121,28 +164,16 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
 
 
     def on_page_read_source(self, item, config, page: MkdocPage, **kwargs):
-        """Generate pages for tags or resourceas"""
+        """Generate pages"""
         path = page.file.src_path
 
-        if MATCHER(RE_TAG, path):
-            # Case of a tag
-            r = io.StringIO()
-            tag = MATCHER.group(1)
-            r.write("# %s\n\n" %tag)
-            for ds in self.tags.get(tag, set()):
-                r.write("- [%s](/datamaestro/df/%s/%s.html)\n" % (ds.get("name", ds.id), ds.datafile.repository.id, ds.datafile.id))
+        # --- Classifications
+        for c in self.classifications:
+            r = c.match(path)
+            if r: 
+                return r
 
-            return r.getvalue()
-
-        if MATCHER(RE_TASK, path):
-            # Case of a tag
-            r = io.StringIO()
-            task = MATCHER.group(1)
-            r.write("# %s\n\n" % task)
-            for ds in self.tasks.get(task, set()):
-                r.write("- [%s](/datamaestro/df/%s/%s.html)\n" % (ds.get("name", ds.id), ds.datafile.repository.id, ds.datafile.id))
-
-            return r.getvalue()
+        # --- Dataset file documentation generation
 
         m = RE_DATAFILE.match(path)
         if not m:
@@ -153,10 +184,15 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
     
         r.write("# %s\n" % df.name)
         r.write(df.description)
+        
+
         r.write("\n\n")
+        if len(df) > 1: r.write("## List of datasets\n\n")
         for ds in df:
             if not ds.isalias:
-                r.write("- %s [%s]\n" % (ds.get("name", ds.id), ds.get("handler", None)))
+                if len(df) > 1: r.write("### %s\n\n" % (ds.get("name", ds.id)))
+                if ds.tags(): r.write("**Tags**: %s \n" % ", ".join(ds.tags()))
+                if ds.tasks(): r.write("**Tasks**: %s \n" % ", ".join(ds.tasks()))
 
         return r.getvalue()
 

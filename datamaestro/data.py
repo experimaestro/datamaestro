@@ -95,6 +95,9 @@ class DataFile:
     def resolvens(self, ns):
         return self.main["namespaces"][ns]
 
+    def __len__(self):
+        return len(self.datasets)
+
     def __iter__(self):
         return self.datasets.values().__iter__()
 
