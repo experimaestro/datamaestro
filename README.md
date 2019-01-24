@@ -8,7 +8,13 @@ at being
 
 Each datasets is uniquely identified by a qualified name such as `edu.standford.glove.6b`, which is usually the inversed path to the domain name of the website associated with the dataset.
 
-The main repository only deals with very generic processing (downloading and basic pre-processing). Plugins can then be registered that provide access to domain specific datasets. At the moment, an [nlp/information access related dataset](https://github.com/bpiwowar/datamaestro_text) is available.
+The main repository only deals with very generic processing (downloading and basic pre-processing). Plugins can then be registered that provide access to domain specific datasets.
+
+
+## List of repositories
+ 
+- [nlp/information access related dataset](https://github.com/bpiwowar/datamaestro_text) is available.
+- [image-related dataset](https://github.com/bpiwowar/datamaestro_text) is available.
 
 
 # YAML syntax
