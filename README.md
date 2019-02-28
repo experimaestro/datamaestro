@@ -20,7 +20,7 @@ The main repository only deals with very generic processing (downloading and bas
 # YAML syntax
 
 Each dataset (or a set of related datasets) is described by a YAML file. Its syntax is
-described in the [documentation](http://bpiwowar.github.io/datamaestro/).
+described in the [documentation](http://experimaestro.github.io/datamaestro/).
 
 # Example
 
