@@ -46,7 +46,15 @@ def datasetref(loader, node):
     assert(isinstance(node.value, str))
     return DatasetReference(node.value)
 
+
+def handlertag(loader: yaml.Loader, tag_suffix, node):
+    """A handler tag"""
+    v = loader.construct_mapping(node)
+    v["handler"] = tag_suffix
+    return v
+
 yaml.Loader.add_constructor('!dataset', datasetref)
+yaml.Loader.add_multi_constructor('!@', handlertag)
 
 def readyaml(path):
     with open(path) as f:
