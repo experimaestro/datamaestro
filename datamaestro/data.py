@@ -50,7 +50,7 @@ def datasetref(loader, node):
 def handlertag(loader: yaml.Loader, tag_suffix, node):
     """A handler tag"""
     v = loader.construct_mapping(node)
-    v["handler"] = tag_suffix
+    v["__handler__"] = tag_suffix
     return v
 
 yaml.Loader.add_constructor('!dataset', datasetref)

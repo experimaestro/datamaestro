@@ -26,4 +26,7 @@ class DownloadHandler:
 
     @staticmethod
     def find(dataset, definition):
-        return dataset.repository.findhandler("download", definition["handler"])(dataset, definition)
+        handler = definition.get("__handler__", definition.get("handler", None))
+        if handler is None:
+            raise Exception("No handler defined for %s" % definition)
+        return dataset.repository.findhandler("download", handler)(dataset, definition)

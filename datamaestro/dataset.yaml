@@ -2,11 +2,10 @@
 
 name: UltiSet
 title: The Ultimate Dataset
-tags:
-  - question anwering
-  - text
 tasks:
-  - information access
+  - question anwering
+content:
+  - documents
 licence: MIT
 links:
   website: https://ultimate.dataset.com
@@ -16,11 +15,10 @@ description: |
  Blah blah blah
  blah blah
 
-download:
-  # Instruction for downloading
-  handler: /package/Name
+# How to download data
+download: @!/package/Name
   # Other fields dependant on the handle  
-
+  HANDLER_CONFIG
 ...
 ---
 

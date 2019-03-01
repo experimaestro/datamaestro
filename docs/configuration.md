@@ -26,8 +26,7 @@ description: |
 # A variation of the dataset
 id: 6b
 description: Trained on Wikipedia 2014 + Gigaword 5
-download: 
-  handler: /archive:Zip
+download: !@/archive:Zip
   url: http://nlp.stanford.edu/data/glove.6B.zip
 size: 822M
 statistics:
@@ -44,8 +43,7 @@ files:
 ---
 id: 42b
 description: Trained on Common Crawl
-download: 
-  handler: /single:File
+download: !@/single:File
   url: http://nlp.stanford.edu/data/glove.42B.300d.zip
 size: 2.03G
 statistics:
@@ -57,8 +55,7 @@ statistics:
 ---
 id: 840b
 description: Trained on Common Crawl
-download: 
-  handler: /single:File
+download: !@/single:File
   url: http://nlp.stanford.edu/data/glove.840B.300d.zip
 size: 2.03G
 statistics:

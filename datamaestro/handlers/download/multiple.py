@@ -9,7 +9,7 @@ class List(DownloadHandler):
     """Download multiple files or directories given by a list"""
     def __init__(self, dataset: Dataset, definition: object):
         super().__init__(dataset, definition)
-        self.list = self.definition["list"]
+        self.list = self.definition
 
     def download(self, destination):
         logging.info("Downloading %d items", len(self.list))
