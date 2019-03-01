@@ -13,6 +13,14 @@ pages:
   - Handlers:
     - Download: download.md
 
+markdown_extensions: 
+  - pymdownx.details
+  - pymdownx.superfences
+  - footnotes
+  - admonition
+  - toc:
+      baselevel: 1
+
 # Automatic page generation for datasets
 plugins:
   - search

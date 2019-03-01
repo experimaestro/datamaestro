@@ -3,6 +3,8 @@
 Configuration is provided by sets of `yaml` files organized hierarchically by organization name. For example,
 `nist.trec.documents.clueweb09` can be found in the file `nist/trec/documents.yaml`. The path `nist/trec` defines the organization.
 
+Each `yaml` file contains one or more documents. The first one is the main dataset, the others (optionals) are derivatives. This is useful when various versions of a dataset exists (or various view on the dataset exist).
+
 ## Format
 
 ### Example
@@ -13,7 +15,7 @@ The following is a complete example that describes the Glove dataset
 name: GloVe word embeddings
 website: http://nlp.stanford.edu/projects/glove/
 license: Public Domain Dedication and License
-tags:
+data:
   - word embeddings
 papers:
   technical description: http://nlp.stanford.edu/pubs/glove.pdf
@@ -73,8 +75,7 @@ statistics:
 - `abstract` flag used to mark an abstract dataset (sub-datasets have to be defined)
 - `name` gives a short name of the dataset
 - `description` gives a longer description of the dataset
-- `tags` is a list of tags (free vocabulary)
-- `tasks` is a list of tasks (free vocabulary)
+- `data`, `tasks`, and `tags` is a list of tags (free vocabulary) that are respectively considered as data (e.g. "image", "caption"), tasks (e.g. "collaborative filtering"), or free (all the other tags that can describe the dataset)
 - `date` is the dataset release date 
 - `version` is the version of the dataset
 - [`links`](#links) give links to the main website or other related resources (e.g. paper)
@@ -86,11 +87,6 @@ statistics:
 
 - `url` The URL of the link
 - `type` Gives the type of resource: either `website` or `paper`
-
-### Nested datasets
-
-Sub-datasets can be defined by defining several documents within the `yaml` file. The first document
-will be the main dataset, and the others will be subdatasets.
 
 ### Download and data
 

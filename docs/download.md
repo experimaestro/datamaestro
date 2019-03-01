@@ -2,9 +2,35 @@
 
 ## Single file
 
-## Archives
+### /single:File
+
+Parameters:
+
+- `url` The URL to download
+
+## Set of files
+
+### /multiple:List
+
+A set of files or folders, each being handled by its own download handler.
+
+??? example "Usage"
+    This shows how to specify three files
+    
+    ``` yaml
+    download: !@/multiple:List
+    train: !@/single:File
+        url: https://s3.amazonaws.com/my89public/quac/train_v0.2.json
+    test: !@/single:File
+        url: https://s3.amazonaws.com/my89public/quac/val_v0.2.json
+    scorer: !@/single:File
+        description: Evaluation script 
+        url: https://s3.amazonaws.com/my89public/quac/scorer.py
+    ```
 
 ### /archive:Zip
+
+Parameters:
 
 - `url`: link to the ZIP archive
 
