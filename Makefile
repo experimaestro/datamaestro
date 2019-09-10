@@ -22,5 +22,6 @@ package:
 	python setup.py sdist
 
 test:
-	coverage run -m unittest discover
-	coverage html
+	@echo "No test to run"
+#	coverage run -m unittest discover
+#	coverage html
