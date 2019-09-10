@@ -4,10 +4,6 @@ workflows:
     jobs:
       - build
       - test-python-install:
-          version: "3.5"
-          requires:
-            - build
-      - test-python-install:
           version: "3.6"
           requires:
             - build
