@@ -23,5 +23,6 @@ class List(DownloadHandler):
 
     def updateDatasetInformation(self, destpath: Path, info: dict):
         for key, value in self.list.items():
-            handler = DownloadHandler.find(self.dataset, value)
-            info[key] = handler.path(destpath)
+            if key != "__handler__":
+                handler = DownloadHandler.find(self.dataset, value)
+                info[key] = handler.path(destpath)
