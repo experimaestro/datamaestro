@@ -4,10 +4,6 @@ workflows:
     jobs:
       - build
       - test-python-install:
-          version: "3.4"
-          requires:
-            - build
-      - test-python-install:
           version: "3.5"
           requires:
             - build
@@ -51,9 +47,6 @@ jobs:
             . venv/bin/activate
             make test
             
-      - store_artifacts:
-          path: htmlcov/
-          
   test-python-install:
     parameters:
       version:
@@ -80,21 +73,6 @@ jobs:
           command: |
             . venv/bin/activate
             make test
-            
-      - store_artifacts:
-          path: htmlcov/
-      - run:
-          name: Smoke Test Install 
-          command: |
-            python --version
-            sudo pip3 install circleci
-  
-  integration:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - run: echo "It works!"
-      - run: echo $RUN_EXTRA_TESTS
 
   deploy:
     docker:
