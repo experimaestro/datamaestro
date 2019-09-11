@@ -4,7 +4,7 @@ from setuptools import setup, find_namespace_packages
 from setuptools.command.install import install
 import re
 
-VERSION='0.2'
+VERSION='0.2.1'
 
 RE_BLANCK=re.compile(r"^\s*#?")
 with open('requirements.txt') as f:
