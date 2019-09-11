@@ -53,16 +53,19 @@ def handlertag(loader: yaml.Loader, tag_suffix, node):
     v["__handler__"] = tag_suffix
     return v
 
-yaml.Loader.add_constructor('!dataset', datasetref)
-yaml.Loader.add_multi_constructor('!@', handlertag)
+class YAMLLoader(yaml.FullLoader):
+    pass
+
+YAMLLoader.add_constructor('!dataset', datasetref)
+YAMLLoader.add_multi_constructor('!@', handlertag)
 
 def readyaml(path):
     with open(path) as f:
-        return yaml.load(f)
+        return yaml.load(f, Loader=YAMLLoader)
 
 def readyamls(path):
     with open(path) as f:
-        for p in yaml.load_all(f):
+        for p in yaml.load_all(f, Loader=YAMLLoader):
             yield p
 
 

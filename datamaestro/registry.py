@@ -34,7 +34,7 @@ class Registry:
         self.data = {}
         if path.is_file():
             with path.open("r") as fp:
-                for key, value in yaml.load(fp).items():
+                for key, value in yaml.load(fp, Loader=yaml.BaseLoader).items():
                     self.data[key] = value
         
     def __getitem__(self, key):

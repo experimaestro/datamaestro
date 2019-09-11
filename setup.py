@@ -31,14 +31,12 @@ setup(name='datamaestro',
     url='https://github.com/bpiwowar/datamaestro',
     packages=find_namespace_packages(include="datamaestro.*"),
     install_requires = requirements,
-    package_data={'datamaestro': ['LICENSE', 'datamaestro/repositories.yaml']},
+    package_data={'datamaestro': ['LICENSE',  'datamaestro/repositories.yaml']},
+    data_files=[('config', ['requirements.txt'])],
     cmdclass={
         'verify': VerifyVersionCommand,
     },
     python_requires='>=3',
-    data_files = [
-        
-    ],
     entry_points = {
         'console_scripts': [
             'datamaestro = datamaestro.__main__:main',                  
