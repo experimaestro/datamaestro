@@ -49,7 +49,7 @@ class DatasetHandler:
         """Download all the resources (if available)"""
         logging.info("Downloading %s", self.content.get("name", self.dataset))
 
-        # Download direct resources
+        # (1) Download direct resources
         if "download" in self.content:
             handler = self.downloadHandler
             destpath = handler.path(self.destpath)
@@ -58,7 +58,7 @@ class DatasetHandler:
             else:
                 handler.download(destpath)
 
-        # Download dependencies
+        # (2) Download dependencies
         success = True
         for dependency in self.dependencies.values():
             logging.debug("Downloading dependency %s", dependency)
@@ -87,14 +87,13 @@ class DatasetHandler:
         if "download" in self.content:
             handler = self.downloadHandler
             r["path"] = p["path"] = handler.path(self.destpath)
-            handler.updateDatasetInformation(self.destpath, p)
+            self.dataset.files = handler.files(self.destpath)
 
         if self.version:
             p["version"] = r["version"] = self.version
             
         self.context.registry[self.dataset.id] = r
         self.context.registry.save()
-        return p
 
     def description(self):
         """Returns the description of the dataset"""

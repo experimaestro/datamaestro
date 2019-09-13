@@ -12,8 +12,8 @@ from functools import lru_cache
 import logging
 import re
 import inspect
-from .context import Context, DownloadReportHook
-from .utils import CachedFile
+from ..context import Context, DownloadReportHook
+from ..utils import CachedFile
 import urllib.request
 from pathlib import Path
 from itertools import chain
@@ -142,6 +142,7 @@ class Dataset:
         self._handler = None
         self.parent = parent
         self.isalias = isinstance(content, DatasetReference)
+        self.files = None
 
     def parent(self):
         pos = self.id.rfind(".")
@@ -207,18 +208,6 @@ class Dataset:
             steps = self.id.split(".")
         return datapath.joinpath(*steps)
 
-    @staticmethod
-    def find(name: str, *, context: "Context" = None):
-        """Find a dataset given its name"""
-        logging.debug("Searching dataset %s", name)
-        context = context if context else Context.instance()
-        for repository in context.repositories():
-            logging.debug("Searching dataset %s in %s", name, repository)
-            dataset = repository.search(name)
-            if dataset is not None:
-                return dataset
-        raise Exception("Could not find the dataset %s" % (name))
-
     @property
     def handler(self):
         if not self._handler:
@@ -237,18 +226,31 @@ class Dataset:
     def download(self):
         return self.handler.download()
 
+    @property
     def description(self):
         return self.handler.description()
 
+    @property
     def tags(self):
         return self.handler.tags()
+
+    @property
     def tasks(self):
         return self.handler.tasks()
 
     def prepare(self, download=False):
         if download:
             self.handler.download()
-        return self.handler.prepare()
+        self.handler.prepare()
+        return self
+
+
+    def __jsondict__(self, context: "datamaestro.utils.Context"):
+        """Returns a pre-JSON representation"""
+        return {
+            "id": self.id,
+            "files": self.files
+        }
 
     def downloadURL(self, url):
         """Downloads an URL"""
@@ -297,6 +299,28 @@ class Dataset:
         return CachedFile(dlpath, urlpath)
         
         
+    @staticmethod
+    def find(name: str, *, context: "Context" = None):
+        """Find a dataset given its name"""
+        logging.debug("Searching dataset %s", name)
+        context = context if context else Context.instance()
+        for repository in context.repositories():
+            logging.debug("Searching dataset %s in %s", name, repository)
+            dataset = repository.search(name)
+            if dataset is not None:
+                return dataset
+        raise Exception("Could not find the dataset %s" % (name))
+
+
+def find_dataset(dataset_id: str):
+    """Find a dataset given its id"""
+    return Dataset.find(dataset_id)
+
+def prepare_dataset(dataset_id: str):
+    """Find a dataset given its id"""
+    ds = Dataset.find(dataset_id)
+    return ds.prepare(download=True)
+
 
 class Repository:
     """A repository"""
@@ -337,7 +361,7 @@ class Repository:
                 path = path.with_suffix(path.suffix + YAML_SUFFIX)
                 break
             if not path.is_dir():
-                logging.error("Could not find %s", path)
+                logging.debug("Could not find %s", path)
                 return None
 
         # Get the dataset

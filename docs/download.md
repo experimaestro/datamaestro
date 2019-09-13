@@ -19,6 +19,8 @@ Two shortcuts can be used:
 Parameters:
 
 - `url` The URL to download
+- `name` (*optional*): name of the file
+- `transforms`: list of transformations
 
 ## Set of files
 

@@ -25,6 +25,7 @@ class Compression:
 
 
 class DownloadReportHook(tqdm):
+    """Report hook for tqdm when downloading from the Web"""
     def __init__(self, **kwargs):
         kwargs.setdefault("unit", "B")
         kwargs.setdefault("unit_scale", True)
@@ -62,7 +63,7 @@ class Context:
         settingsPath = self._path / "settings.yaml"
         if settingsPath.is_file():
             with settingsPath.open("r") as fp:
-                flatten_settings(self.settings, yaml.load(fp))
+                flatten_settings(self.settings, yaml.load(fp, Loader=yaml.SafeLoader))
                 
     @staticmethod
     def instance():
@@ -95,7 +96,7 @@ class Context:
             for dataset in repository:
                 yield dataset
 
-    def dataset(self, datasetid):
+    def dataset(self, datasetid) -> ".data.Dataset":
         """Get a dataset by ID"""
         from .data import Dataset
         return Dataset.find(datasetid, context=self)

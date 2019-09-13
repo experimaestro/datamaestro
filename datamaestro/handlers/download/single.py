@@ -42,8 +42,14 @@ class File(DownloadHandler):
         super().__init__(repository, definition)
         self.url = self.definition["url"]
 
-    
-    def path(self, path: Path) -> Path:
+    def files(self, destpath, hint: str=None):
+        filetype = self.definition.get("type")
+        
+        if filetype:
+            return self.repository.findhandler("files", filetype["__handler__"])(self.path(destpath), filetype)
+        return destpath
+
+    def path(self, path: Path, hint: str=None) -> Path:
         """Returns the destination path"""
         p = urllib3.util.parse_url(self.url)
         name = self.definition.get("name", None)
@@ -82,10 +88,6 @@ class File(DownloadHandler):
         logging.info("Created file %s" % destination)
         try:
             file.close()
-        except:
-            pass
-        try:
-            gzfile.close()
         except:
             pass
 

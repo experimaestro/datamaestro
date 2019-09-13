@@ -12,20 +12,22 @@ class DownloadHandler:
         self.context = self.repository.context
         self.definition = definition
 
-    def path(self, destination: Path):
-        """Returns the destination - by default, a preserves the path"""
+    def path(self, destination: Path, hint: str=None):
+        """Returns the destination - by default, preserves the path"""
+        if hint:
+            return destination / hint
         return destination
 
     def download(self, destination: Path):
         """Downloads the content and place it in the specified destination"""
         raise NotImplementedError()
 
-    def updateDatasetInformation(self, destpath: Path, info: dict):
-        """Update the dataset information dictionary with file-based information"""
-        pass
+    def files(self, destpath):
+        """Get the list of files"""
+        return None
 
     @staticmethod
-    def find(dataset, definition):
+    def find(dataset, definition) -> "DownloadHandler":
         handler = definition.get("__handler__", definition.get("handler", None))
         if handler is None:
             raise Exception("No handler defined for %s" % definition)

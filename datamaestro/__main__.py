@@ -5,6 +5,7 @@ import sys
 import logging
 import os.path as op
 from functools import update_wrapper
+import traceback as tb
 
 from .context import Context
 from .data import Dataset
@@ -12,6 +13,10 @@ from .data import Dataset
 import click
 
 logging.basicConfig(level=logging.INFO)
+
+class Config: 
+    def __init__(self, context: Context):
+        self.context = context
 
 
 def pass_cfg(f):
@@ -35,8 +40,9 @@ def cli(ctx, quiet, debug, traceback, data):
     elif debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-
-    ctx.obj = Context(data)
+    ctx.obj = Config(Context(data))
+    ctx.obj.traceback = traceback
+    ctx.obj.debug = debug
 
 def main():
     cli(obj=None)
@@ -44,10 +50,10 @@ def main():
 @cli.command(help="Prints the full information about a dataset")
 @click.argument("dataset", type=str)
 @pass_cfg
-def info(cfg, dataset):
-    dataset = Dataset.find(dataset, context=cfg)
-    print(dataset.description())
-    print(dataset.tags())
+def info(config: Config, dataset):
+    dataset = Dataset.find(dataset, context=config.context)
+    print(dataset.description)
+    print(dataset.tags)
 
 # --- General information
 
@@ -63,9 +69,9 @@ def repositories():
 @click.argument("dataset")
 @cli.command()
 @pass_cfg
-def download(cfg, dataset):
+def download(config: Config, dataset):
     """Download a dataset"""
-    dataset = Dataset.find(dataset, context=cfg)
+    dataset = Dataset.find(dataset, context=config.context)
     success = dataset.download()
     if not success:
         logging.error("One or more errors occured while downloading the dataset")
@@ -76,9 +82,9 @@ def download(cfg, dataset):
 @click.option("--encoder", help="Encoder", default="normal", type=click.Choice(['normal', 'xpm']))
 @cli.command(help="Downloads a dataset (if freely available)")
 @pass_cfg
-def prepare(cfg, datasetid, encoder):
+def prepare(config: Config, datasetid, encoder):
     """Download a dataset and returns information in json format"""
-    dataset = cfg.dataset(datasetid)
+    dataset = config.context.dataset(datasetid)
     success = dataset.download()
     if not success:
         logging.error("One or more errors occured while downloading the dataset")
@@ -95,6 +101,8 @@ def prepare(cfg, datasetid, encoder):
         else:
             raise Exception("Unhandled encoder: {encoder}")
     except:
+        if config.traceback:
+            tb.print_exc()     
         logging.error("Error encoding to JSON: %s", s)
         sys.exit(1)
     
@@ -106,14 +114,14 @@ def prepare(cfg, datasetid, encoder):
 @click.argument("searchterms",  nargs=-1) #, description="Search terms (e.g. tag:XXX)")
 @cli.command(help="Search for a dataset")
 @pass_cfg
-def search(cfg: Context, searchterms):
+def search(config: Config, searchterms):
     from .search import Condition, AndCondition
 
     condition = AndCondition()
     for searchterm in searchterms:
         condition.append(Condition.parse(searchterm))
 
-    for dataset in cfg.datasets():
+    for dataset in config.context.datasets():
         if condition.match(dataset):
             print(dataset)
 

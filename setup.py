@@ -2,12 +2,13 @@
 
 from setuptools import setup, find_namespace_packages
 from setuptools.command.install import install
+from pathlib import Path
 import re
 
-VERSION='0.2.1'
+VERSION='0.2.2'
 
 RE_BLANCK=re.compile(r"^\s*#?")
-with open('requirements.txt') as f:
+with open(Path(__file__).parent / 'requirements.txt') as f:
     requirements = [x for x in f.read().splitlines() if not RE_BLANCK.match(x)]
 
 class VerifyVersionCommand(install):

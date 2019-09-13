@@ -58,7 +58,7 @@ class Tar(DownloadHandler):
 
     def download(self, destination: Path):
         logging.info("Downloading %s into %s", self.url, destination)
-
+        
         destination.parent.mkdir(parents=True, exist_ok=True)
         tmpdestination = destination.with_suffix(".tmp")
         if tmpdestination.exists():

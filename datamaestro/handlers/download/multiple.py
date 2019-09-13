@@ -15,14 +15,17 @@ class List(DownloadHandler):
         logging.info("Downloading %d items", len(self.list))
         for key, value in self.list.items():
             handler = DownloadHandler.find(self.dataset, value)
-            destpath = handler.path(destination)
+            destpath = handler.path(destination, key)
             if destpath.exists():
                 logging.info("File already downloaded [%s]", destpath)
             else:
                 handler.download(destpath)
 
-    def updateDatasetInformation(self, destpath: Path, info: dict):
+    def files(self, destpath):
+        """Set the list of files"""
+        r =  {}
         for key, value in self.list.items():
             if key != "__handler__":
                 handler = DownloadHandler.find(self.dataset, value)
-                info[key] = handler.path(destpath)
+                r[key] = handler.files(destpath)
+        return r

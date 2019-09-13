@@ -34,7 +34,7 @@ class ReCondition(Condition):
 
 class TagCondition(ReCondition):
     def match(self, dataset: Dataset):
-        for tag in dataset.tags():
+        for tag in dataset.tags:
             if self.regex.search(tag):
                 return True
         return False

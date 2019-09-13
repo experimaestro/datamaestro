@@ -1,8 +1,7 @@
 import logging
 import os
 import os.path as op
-
-from json import JSONEncoder as BaseJSONEncoder
+import json
 from pathlib import PosixPath, Path
 
 
@@ -29,22 +28,6 @@ class TemporaryDirectory:
         if self.delete:
             rm_rf(self.path)
 
-class JsonEncoder(BaseJSONEncoder):
-    """Default JSON encoder"""
-    def default(self, o):
-        if isinstance(o, PosixPath):
-            return str(o.resolve())
-        return o.__dict__    
-
-class XPMEncoder(BaseJSONEncoder):
-    """Experimaestro encoder"""
-    def default(self, o):
-        if isinstance(o, PosixPath):
-            return {
-                "$type": "path",
-                "$value": str(o.resolve())
-            }
-        return o.__dict__    
 
 class CachedFile():
     """Represents a downloaded file that has been cached"""
@@ -59,3 +42,37 @@ class CachedFile():
                 p.unlink()
             except Exception as e:
                 logging.warn("Could not delete cached file %s", p)
+
+# --- JSON
+
+class JsonContext:
+    pass
+
+class BaseJSONEncoder(json.JSONEncoder):
+    def __init__(self):
+        super().__init__()
+        self.context = JsonContext()
+
+    def default(self, o):
+        from .data import Dataset
+        if isinstance(o, Dataset):
+            return o.__jsondict__(self.context)
+        return {key: value for key, value in o.__dict__.items() if not key.startswith("__")}
+
+class JsonEncoder(BaseJSONEncoder):
+    """Default JSON encoder"""
+    def default(self, o):
+        if isinstance(o, PosixPath):
+            return str(o.resolve())
+        return super().default(o)
+
+class XPMEncoder(BaseJSONEncoder):
+    """Experimaestro encoder"""
+    def default(self, o):
+        if isinstance(o, PosixPath):
+            return {
+                "$type": "path",
+                "$value": str(o.resolve())
+            }
+        return super().default(o)
+
