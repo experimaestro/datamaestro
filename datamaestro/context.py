@@ -49,7 +49,7 @@ class Context:
     """
     Represents the application context
     """
-    MAINDIR = os.environ.get("DATAMAESTRO_DIR", Path("~/datamaestro").expanduser())
+    MAINDIR = Path(os.environ.get("DATAMAESTRO_DIR", "~/datamaestro")).expanduser()
 
     """Main settings"""
     def __init__(self, path: Path = None):
