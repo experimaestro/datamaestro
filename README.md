@@ -13,8 +13,9 @@ The main repository only deals with very generic processing (downloading and bas
 
 ## List of repositories
  
-- [nlp/information access related dataset](https://github.com/experimaestro/datamaestro_text) is available.
-- [image-related dataset](https://github.com/experimaestro/datamaestro_image) is available.
+- [NLP and information access related dataset](https://github.com/experimaestro/datamaestro_text)
+- [image-related dataset](https://github.com/experimaestro/datamaestro_image)
+- [machine learning](https://github.com/experimaestro/datamaestro_ml) contains standard ML datasets
 
 
 # YAML syntax
