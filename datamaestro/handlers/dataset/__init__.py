@@ -86,14 +86,14 @@ class DatasetHandler:
 
         if "download" in self.content:
             handler = self.downloadHandler
-            r["path"] = p["path"] = handler.path(self.destpath)
+            # r["path"] = p["path"] = handler.path(self.destpath)
             self.dataset.files = handler.files(self.destpath)
 
-        if self.version:
-            p["version"] = r["version"] = self.version
+        # if self.version:
+        #     p["version"] = r["version"] = self.version
             
-        self.context.registry[self.dataset.id] = r
-        self.context.registry.save()
+        # self.context.registry[self.dataset.id] = r
+        # self.context.registry.save()
 
     def description(self):
         """Returns the description of the dataset"""
