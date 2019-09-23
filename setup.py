@@ -1,14 +1,21 @@
 #!/usr/bin/env python
 
-from setuptools import setup, find_namespace_packages
+import sys
+
+try:
+    from setuptools import setup, find_namespace_packages
+except ImportError:
+    print("Please upgrade pip: find_namesspace_packages not found")
+    sys.exit(1)
+
 from setuptools.command.install import install
 from pathlib import Path
 import re
 
-VERSION='0.2.4'
+VERSION='0.2.5'
 
 RE_BLANCK=re.compile(r"^\s*#?")
-with open(Path(__file__).parent / 'requirements.txt') as f:
+with (Path(__file__).parent / 'requirements.txt').open() as f:
     requirements = [x for x in f.read().splitlines() if not RE_BLANCK.match(x)]
 
 class VerifyVersionCommand(install):
