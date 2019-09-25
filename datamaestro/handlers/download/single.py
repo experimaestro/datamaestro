@@ -46,7 +46,7 @@ class File(DownloadHandler):
         filetype = self.definition.get("type")
         
         if filetype:
-            return self.repository.findhandler("files", filetype["__handler__"])(self.path(destpath), filetype)
+            return self.repository.findhandler_of("files", filetype)(self.path(destpath), filetype)
         return destpath
 
     def path(self, path: Path, hint: str=None) -> Path:

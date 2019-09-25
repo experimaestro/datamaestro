@@ -401,6 +401,11 @@ class Repository:
             for dataset in datafile:
                 yield dataset
 
+    def findhandler_of(self, handlerdef, fullname):
+        if isinstance(handlerdef, str):
+            return self.findhandler(handlerdef, fullname)
+        return self.findhandler(handlerdef["__handler__"], fullname)
+
     def findhandler(self, handlertype, fullname):
         """
         Find a handler of a given type
@@ -442,7 +447,7 @@ class Repository:
         try:
             package = importlib.import_module(package)
         except ModuleNotFoundError:
-            raise Exception(f"""Could not find handler "{fullname}" of type {handlertype}: module {package} not found""")
+            raise Exception("""Could not find handler "{}" of type {}: module {} not found""".format(fullname, handlertype, package))
 
         return getattr(package, name)
 

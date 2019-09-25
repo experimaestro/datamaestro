@@ -12,4 +12,4 @@ class DownloadPath(DownloadHandler):
             path = Path(input("Path to %s: " % self.definition["name"]))
 
         logging.debug("Linking %s to %s", path, destination)
-        os.link(path, destination)        
+        os.link(path, destination)

@@ -4,7 +4,7 @@ from . import File
 
 class Matrix(File): 
     def __init__(self, path: Path, definition: dict):
-        self.path = path
+        super().__init__(self, path, definition)
         self.target = definition.get("target", None)
         self.size_row = definition.get("size-row", -1)
         self.names_row = definition.get("names-row", -1)

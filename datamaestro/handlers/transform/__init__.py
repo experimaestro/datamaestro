@@ -1,10 +1,17 @@
 import io
 import logging
+from pathlib import Path
 
 class Transform:
     def __init__(self, definition):
         self.definition = definition
        
+    @staticmethod
+    def createFromPath(path: Path):
+        if path.suffix == ".gz":
+            return Gunzip({})
+        return Identity
+
     @staticmethod
     def create(repository, definition):
         t = TransformerList()
@@ -18,6 +25,11 @@ class Transform:
 
     def __call__(self, input):
         raise NotImplementedError("__call__ should be implemented in subclass %s" % type(self))
+
+
+class Identity(Transform):
+    def __call__(self, fileobj):
+        return fileobj
 
 class Gunzip(Transform):
     def __call__(self, fileobj):
