@@ -38,9 +38,7 @@ class IDX(File):
     def data(self):
         """Returns the tensor"""
         import numpy as np
-
-        print(self.path)
-        
+       
         with self.open("rb") as fp:
             zero, magic, size = IDX.MAGIC_NUMBER.unpack_from(fp.read(IDX.MAGIC_NUMBER.size))
             if zero != 0: 
