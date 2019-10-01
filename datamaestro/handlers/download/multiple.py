@@ -14,6 +14,7 @@ class List(DownloadHandler):
     def download(self, destination):
         logging.info("Downloading %d items", len(self.list))
         for key, value in self.list.items():
+            if key == "__handler__": continue
             handler = DownloadHandler.find(self.dataset, value)
             destpath = handler.path(destination, key)
             if destpath.exists():

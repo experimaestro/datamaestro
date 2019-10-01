@@ -123,7 +123,7 @@ class DataFile:
     @property
     def baseid(self):
         return self.id
-    
+
 
 class Dataset:
     """Represents one dataset"""
@@ -276,11 +276,12 @@ class Dataset:
             handler = self.repository.findhandler("download", url["handler"])(self, url)
             urlpath, dlpath = getPaths(hasher)
             handler.download(dlpath)
-            return CachedFile(dlpath, urlpath)
+            return CachedFile(dlpath, keep=self.context.keep_downloads)
 
 
         urlpath, dlpath = getPaths(hasher)
         urlpath.write_text(url)
+
         if dlpath.is_file():
             logging.debug("Using cached file %s for %s", dlpath, url)
         else:
@@ -296,14 +297,13 @@ class Dataset:
                 raise
 
 
-        return CachedFile(dlpath, urlpath)
+        return CachedFile(dlpath, keep=self.context.keep_downloads)
         
         
     @staticmethod
-    def find(name: str, *, context: "Context" = None):
+    def find(name: str, *, context: "Context" = Context.default_context()) -> "Dataset":
         """Find a dataset given its name"""
         logging.debug("Searching dataset %s", name)
-        context = context if context else Context.instance()
         for repository in context.repositories():
             logging.debug("Searching dataset %s in %s", name, repository)
             dataset = repository.search(name)
@@ -316,9 +316,9 @@ def find_dataset(dataset_id: str):
     """Find a dataset given its id"""
     return Dataset.find(dataset_id)
 
-def prepare_dataset(dataset_id: str):
+def prepare_dataset(dataset_id: str, context=Context.default_context()):
     """Find a dataset given its id"""
-    ds = Dataset.find(dataset_id)
+    ds = Dataset.find(dataset_id, context=context)
     return ds.prepare(download=True)
 
 

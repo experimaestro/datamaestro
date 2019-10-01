@@ -30,6 +30,7 @@ def pass_cfg(f):
 
 @click.group()
 @click.option("--quiet", is_flag=True, help="Be quiet")
+@click.option("--keep-downloads", is_flag=True, help="Keep downloads")
 @click.option("--debug", is_flag=True, help="Be even more verbose (implies traceback)")
 @click.option("--traceback", is_flag=True, help="Display traceback if an exception occurs")
 @click.option("--data", type=click.Path(exists=True), help="Directory containing datasets", default=Context.MAINDIR)
@@ -40,9 +41,11 @@ def cli(ctx, quiet, debug, traceback, data):
     elif debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    ctx.obj = Config(Context(data))
+    context = Context(data)
+    ctx.obj = Config(context)
     ctx.obj.traceback = traceback
     ctx.obj.debug = debug
+    context.keep_downloads = keep_downloads
 
 def main():
     cli(obj=None)
@@ -79,7 +82,7 @@ def download(config: Config, dataset):
 
 
 @click.argument("datasetid")
-@click.option("--encoder", help="Encoder", default="normal", type=click.Choice(['normal', 'xpm']))
+@click.option("--encoder", help="Encoder used for output", default="normal", type=click.Choice(['normal', 'xpm']))
 @cli.command(help="Downloads a dataset (if freely available)")
 @pass_cfg
 def prepare(config: Config, datasetid, encoder):

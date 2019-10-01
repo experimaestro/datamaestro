@@ -31,17 +31,19 @@ class TemporaryDirectory:
 
 class CachedFile():
     """Represents a downloaded file that has been cached"""
-    def __init__(self, path, *paths):
+    def __init__(self, path, keep=False):
         self.path = path
-        self.paths = paths
+        self.keep = keep
     
-    def discard(self):
-        """Delete all cached files"""
-        for p in chain([self.path], self.paths):
-            try:
-                p.unlink()
-            except Exception as e:
-                logging.warn("Could not delete cached file %s", p)
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            if not self.keep:
+                self.path.unlink()
+        except Exception as e:
+            logging.warn("Could not delete cached file %s", self.path)
 
 # --- JSON
 

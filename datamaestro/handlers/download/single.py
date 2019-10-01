@@ -65,31 +65,19 @@ class File(DownloadHandler):
         os.makedirs(dir, exist_ok=True)
 
         # Download (cache)
-        file = self.dataset.downloadURL(self.url)
+        with self.dataset.downloadURL(self.url) as file:
+            # Transform if need be
+            if "transforms" in self.definition:
+                logging.info("Transforming file")
+                transformer = Transform.create(self.repository, self.definition["transforms"])
+                with file.open("rb") as fp, transformer(fp) as stream, destination.open("wb") as out:
+                    shutil.copyfileobj(stream, out)
+            else:
+                logging.info("Keeping original downloaded file %s", file.path)
+                (shutil.copy if file.keep else shutil.move)(file.path, destination)
 
-        # Transform if need be
-        if "transforms" in self.definition:
-            logging.info("Transforming file")
-            transformer = Transform.create(self.repository, self.definition["transforms"])
-            tfile = tempfile.NamedTemporaryFile(delete=True, mode="wb")
-            with file.path.open(mode="rb") as r:
-                stream = transformer(r)
-                while True:
-                    b = stream.read(1024)
-                    if not b:
-                        break
-                    tfile.write(b)
-            file.delete = True
-            file = tfile
 
-        # Move
-        file.delete = False
-        shutil.move(file.path, destination)
         logging.info("Created file %s" % destination)
-        try:
-            file.close()
-        except:
-            pass
 
 
 class Archive(DownloadHandler):

@@ -26,22 +26,21 @@ class Zip(DownloadHandler):
             logging.warn("Removing temporary directory %s", tmpdestination)
             shutil.rmtree(tmpdestination)
 
-        file = self.dataset.downloadURL(self.url)
-        
-        logging.info("Unzipping file")
-        with zipfile.ZipFile(file.path) as zip:
-            zip.extractall(tmpdestination)
+        with self.dataset.downloadURL(self.url) as file:
+            logging.info("Unzipping file")
+            with zipfile.ZipFile(file.path) as zip:
+                zip.extractall(tmpdestination)
 
-        for ix, path in enumerate(tmpdestination.iterdir()):
-            if ix > 1: break
-        
-        # Just one file/folder: move
-        if ix == 0 and path.is_dir():
-            logging.info("Moving single directory into destination")
-            shutil.move(path, destination)
-            shutil.rmtree(tmpdestination)
-        else:
-            shutil.move(tmpdestination, destination)
+            for ix, path in enumerate(tmpdestination.iterdir()):
+                if ix > 1: break
+            
+            # Just one file/folder: move
+            if ix == 0 and path.is_dir():
+                logging.info("Moving single directory into destination")
+                shutil.move(path, destination)
+                shutil.rmtree(tmpdestination)
+            else:
+                shutil.move(tmpdestination, destination)
 
 
 

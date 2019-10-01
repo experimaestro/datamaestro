@@ -51,12 +51,15 @@ class Context:
     """
     MAINDIR = Path(os.environ.get("DATAMAESTRO_DIR", "~/datamaestro")).expanduser()
 
+    DEFAULT=None
+
     """Main settings"""
     def __init__(self, path: Path = None):
         self._path = path or Context.MAINDIR
         self._dpath = Path(__file__).parents[1]
         self._repository = None
         self.registry = Registry(self.datapath / "registry.yaml")
+        self.keep_downloads = False
 
         # Read preferences
         self.settings = {}
@@ -64,7 +67,13 @@ class Context:
         if settingsPath.is_file():
             with settingsPath.open("r") as fp:
                 flatten_settings(self.settings, yaml.load(fp, Loader=yaml.SafeLoader))
-                
+                   
+    @staticmethod
+    def default_context():
+        if Context.DEFAULT is None:
+            Context.DEFAULT = Context()
+        return Context.DEFAULT
+        
     @staticmethod
     def instance():
         return Context()
@@ -103,4 +112,3 @@ class Context:
 
     def preference(self, key, default=None):
         return self.settings.get(key, default)
-
