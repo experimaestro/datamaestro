@@ -53,10 +53,7 @@ class DatasetHandler:
         if "download" in self.content:
             handler = self.downloadHandler
             destpath = handler.path(self.destpath)
-            if destpath.exists() and not force:
-                logging.info("File already downloaded [%s]", destpath)
-            else:
-                handler.download(destpath)
+            handler.download(destpath)
 
         # (2) Download dependencies
         success = True

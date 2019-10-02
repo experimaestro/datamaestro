@@ -35,7 +35,7 @@ def pass_cfg(f):
 @click.option("--traceback", is_flag=True, help="Display traceback if an exception occurs")
 @click.option("--data", type=click.Path(exists=True), help="Directory containing datasets", default=Context.MAINDIR)
 @click.pass_context
-def cli(ctx, quiet, debug, traceback, data):
+def cli(ctx, quiet, debug, traceback, data, keep_downloads):
     if quiet:
         logging.getLogger().setLevel(logging.WARN)
     elif debug:
