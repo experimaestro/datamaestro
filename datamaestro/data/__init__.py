@@ -20,6 +20,7 @@ from itertools import chain
 import importlib
 import json
 import yaml
+from typing import Union
 
 YAML_SUFFIX = ".yaml"
 
@@ -401,10 +402,19 @@ class Repository:
             for dataset in datafile:
                 yield dataset
 
-    def findhandler_of(self, handlerdef, fullname):
+    def findhandler_of(self, handlertype: str, handlerdef: Union[dict, str]):
+        """Returns the handler of a given type
+        
+        Arguments:
+            handlertype {str} -- The handler type
+            handlerdef {Union[dict, str]} -- Either a structure containing "__handler__" or a string
+        
+        Returns:
+            handler -- Returns the handler
+        """
         if isinstance(handlerdef, str):
-            return self.findhandler(handlerdef, fullname)
-        return self.findhandler(handlerdef["__handler__"], fullname)
+            return self.findhandler(handlertype, handlerdef)
+        return self.findhandler(handlertype, handlerdef["__handler__"])
 
     def findhandler(self, handlertype, fullname):
         """
