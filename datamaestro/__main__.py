@@ -6,6 +6,11 @@ import logging
 import os.path as op
 from functools import update_wrapper
 import traceback as tb
+from collections import namedtuple
+import pkg_resources
+import re
+from pathlib import Path
+import shutil
 
 from .context import Context
 from .data import Dataset
@@ -25,6 +30,24 @@ def pass_cfg(f):
     def new_func(ctx, *args, **kwargs):
         return ctx.invoke(f, ctx.obj, *args, **kwargs)
     return update_wrapper(new_func, f)
+
+# Get all the available repositories
+
+REPOSITORIES = {}
+for entry_point in pkg_resources.iter_entry_points('datamaestro.repositories'):
+    REPOSITORIES[entry_point.name] = entry_point
+
+DATASET_REGEX = re.compile(r"^\w[\w\.]+\w$")
+
+class regexp_check:
+    def __init__(self, regex):
+        self.regex = regex
+    def __call__(self, ctx, param, value):
+        if not self.regex.match(value):
+            raise click.BadParameter('Dataset ID needs to be in the format AAA.BBBB.CCC[.DDD]')
+        return value
+
+
 
 # --- Create the argument parser
 
@@ -60,12 +83,37 @@ def info(config: Config, dataset):
 
 # --- General information
 
+
 @cli.command(help="List available repositories")
 def repositories():
-    import pkg_resources
-    for entry_point in pkg_resources.iter_entry_points('datamaestro.repositories'):
+    for name, entry_point in REPOSITORIES.items():
         repo_class = entry_point.load()
         print("%s: %s" % (entry_point.name, repo_class.DESCRIPTION))
+
+
+# --- Create a dataset
+
+@click.argument("dataset-id", callback=regexp_check(DATASET_REGEX))
+@click.argument("repository-id", type=click.Choice(REPOSITORIES.keys()))
+@cli.command(help="Create a new dataset in the repository repository-id")
+@pass_cfg
+def create_dataset(config: Config, repository_id: str, dataset_id: str):
+    # Construct the path of the new dataset definition
+    repo_class = REPOSITORIES[repository_id].load()
+    path = repo_class(config).configdir # type: Path
+    names = dataset_id.split(".")
+    for name in names:
+        path = path / name
+    path = path.with_suffix(".yaml")
+
+    if path.is_file():
+        print("File {} already exists - not overwritting".format(path))
+        sys.exit(1)
+
+    template_path = Path(__file__).parent / "templates" / "dataset.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(template_path, path)
+    print("Created file {}".format(path))
 
 # --- prepare and download
 

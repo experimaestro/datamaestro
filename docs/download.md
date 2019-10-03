@@ -42,14 +42,13 @@ A set of files or folders, each being handled by its own download handler.
             url: https://s3.amazonaws.com/my89public/quac/scorer.py
     ```
 
-### /archive:Zip
+###  Archives
 
-Parameters:
 
-- `url`: link to the ZIP archive
-
-### /archive:Tar
+- /archive:Zip
+- /archive:Tar
 
 Transparent decompression of the archive
 
-- `url`: link to the TAR archive
+- `url`: link to the archive
+- `path`: path to a subdirectory to extract (the rest will be ignored)

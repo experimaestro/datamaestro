@@ -1,0 +1,14 @@
+# NAME
+
+name: __NAME__
+web: __WEB__
+
+description: |
+  Describe the dataset
+
+
+
+# Describe how to download
+download: @!__DOWNLOAD_HANDLER__
+  param1: ...
+  

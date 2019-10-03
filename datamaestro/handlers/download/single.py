@@ -38,8 +38,8 @@ class DatasetPath(DownloadHandler):
 
 class File(DownloadHandler):
     """Single file"""
-    def __init__(self, repository, definition):
-        super().__init__(repository, definition)
+    def __init__(self, dataset, definition):
+        super().__init__(dataset, definition)
         self.url = self.definition["url"]
 
     def files(self, destpath, hint: str=None):

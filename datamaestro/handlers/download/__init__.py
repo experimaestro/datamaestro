@@ -23,8 +23,14 @@ class DownloadHandler:
         raise NotImplementedError()
 
     def files(self, destpath):
-        """Get the list of files"""
-        return None
+        """Get the list of files
+        
+        By default, retures the generic handler for the destination path
+        """
+        filetype = self.definition.get("type")
+        if filetype:
+            return self.repository.findhandler_of("files", filetype)(self.path(destpath), filetype)
+        return destpath
 
     @staticmethod
     def find(dataset, definition) -> "DownloadHandler":

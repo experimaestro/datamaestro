@@ -190,7 +190,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         for ds in df:
             if not ds.isalias:
                 if len(df) > 1: r.write("### %s\n\n" % (ds.get("name", ds.id)))
-                if ds.tags: r.write("**Tags**: %s \n" % ", ".join(ds.tags)
+                if ds.tags: r.write("**Tags**: %s \n" % ", ".join(ds.tags))
                 if ds.tasks: r.write("**Tasks**: %s \n" % ", ".join(ds.tasks))
 
         return r.getvalue()
