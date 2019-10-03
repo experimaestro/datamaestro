@@ -1,3 +1,4 @@
 click
 tqdm
 pyyaml
+coverage

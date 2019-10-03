@@ -24,5 +24,6 @@ package:
 
 test:
 	@echo "No test to run"
-#	coverage run -m unittest discover
+	python setup.py test
+	coverage run -m unittest discover
 #	coverage html
