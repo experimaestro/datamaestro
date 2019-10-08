@@ -19,7 +19,13 @@ def open_ext(*args, **kwargs):
         return gzip.open(*args, *kwargs)
     return io.open(*args, **kwargs)
 
-class DatasetPath(DownloadHandler):
+class SingleDownloadHandler(DownloadHandler):
+    def download(self, destination):
+        if not destination.is_file():
+            self._download(destination)
+        
+
+class DatasetPath(SingleDownloadHandler):
     def __init__(self, repository, definition):
         super().__init__(repository, definition)
         self.reference = self.definition["reference"]
@@ -36,7 +42,7 @@ class DatasetPath(DownloadHandler):
     def download(self, destination):
         pass
 
-class File(DownloadHandler):
+class File(SingleDownloadHandler):
     """Single file"""
     def __init__(self, dataset, definition):
         super().__init__(dataset, definition)
@@ -57,7 +63,7 @@ class File(DownloadHandler):
             name = Path(p.path).name
         return path.joinpath(name)
 
-    def download(self, destination):
+    def _download(self, destination):
         logging.info("Downloading %s into %s", self.url, destination)
 
         # Creates directory if needed
@@ -80,7 +86,7 @@ class File(DownloadHandler):
         logging.info("Created file %s" % destination)
 
 
-class Archive(DownloadHandler):
+class Concat(SingleDownloadHandler):
     """Concatenate all files in an archive"""
     def __init__(self, repository, definition):
         super().__init__(repository, definition)
@@ -92,7 +98,7 @@ class Archive(DownloadHandler):
         p = urllib3.util.parse_url(self.url)
         return path.joinpath(Path(p.path).name)
 
-    def download(self, destination):
+    def _download(self, destination):
         tmpdir = None
         try:
             transformer = None
