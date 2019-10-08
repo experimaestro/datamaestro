@@ -1,6 +1,6 @@
 # Datasets
 
-This projects aims at grouping utilities to deal with the numerous and heterogenous datasets present on the Web. It aims
+This projects aims at grouping utilities to deal with the numerous and heterogeneous datasets present on the Web. It aims
 at being
 
 1. A reference for available resources

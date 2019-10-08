@@ -81,16 +81,22 @@ class DatasetHandler:
 
         p["id"] = self.dataset.id
 
-        if "download" in self.content:
+        # Use the "files" section 
+        if "files" in self.content:
+            files = self.dataset.files = {}
+            for key, definition in self.content["files"].items():
+                filetype = definition.get("type", None)
+                path = self.destpath / definition["path"]
+                if filetype:
+                    files[key] = self.repository.findhandler_of("files", filetype)(self.path(path), filetype)
+                else:
+                    files[key] = path 
+
+        # If not, use the download handler directly
+        elif "download" in self.content:
             handler = self.downloadHandler
-            # r["path"] = p["path"] = handler.path(self.destpath)
             self.dataset.files = handler.files(self.destpath)
 
-        # if self.version:
-        #     p["version"] = r["version"] = self.version
-            
-        # self.context.registry[self.dataset.id] = r
-        # self.context.registry.save()
 
     def description(self):
         """Returns the description of the dataset"""

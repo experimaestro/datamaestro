@@ -162,7 +162,7 @@ class Dataset:
         return [self.id]
     
     @property
-    def repository(self):
+    def repository(self) -> "Repository":
         """Main ID is the first one"""
         return self.datafile.repository
 
@@ -404,7 +404,7 @@ class Repository:
             for dataset in datafile:
                 yield dataset
 
-    def findhandler_of(self, handlertype: str, handlerdef: Union[dict, str]):
+    def findhandler_of(self, handlertype: str, handlerdef: Union[dict, str]) -> "FileHandler":
         """Returns the handler of a given type
         
         Arguments:

@@ -6,11 +6,13 @@ import shutil
 import urllib3
 import tarfile
 
+
 class ArchiveDownloader(DownloadHandler):
     def __init__(self, repository, definition):
         super().__init__(repository, definition)
         self.url = self.definition["url"]
         self.subpath = self.definition.get("path", None)
+        self._files = self.definition.get("files", None)
         if self.subpath and not self.subpath.endswith("/"):
             self.subpath = self.subpath + "/"
 
@@ -18,6 +20,8 @@ class ArchiveDownloader(DownloadHandler):
         """Returns the destination path"""
         p = urllib3.util.parse_url(self.url)
         return path.joinpath(Path(p.path).name)
+
+
 
     def download(self, destination: Path):
         # Already downloaded
@@ -58,7 +62,7 @@ class Zip(ArchiveDownloader):
         logging.info("Unzipping file")
         with zipfile.ZipFile(file.path) as zip:
             if self.subpath is None:
-                zip.extractall(tmpdestination)
+                zip.extractall(destination)
             else:
                 L = len(self.subpath)
                 for zip_info in zip.infolist():
