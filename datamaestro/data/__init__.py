@@ -87,14 +87,16 @@ class DataFile:
         self.id = prefix
 
         self.main = None
-        for doc in readyamls(path):
-            fulldid = "%s.%s" % (prefix, doc["id"])  if "id" in doc else self.id
-            ds = Dataset(self, fulldid, doc, self.main)
-            self.datasets[fulldid] = ds
 
-            if not self.main:
-                self.main = ds
-                self.name = doc.get("name", self.id)
+        if path is not None:
+            for doc in readyamls(path):
+                fulldid = "%s.%s" % (prefix, doc["id"])  if "id" in doc else self.id
+                ds = Dataset(self, fulldid, doc, self.main)
+                self.datasets[fulldid] = ds
+
+                if not self.main:
+                    self.main = ds
+                    self.name = doc.get("name", self.id)
 
 
     def __contains__(self, name):

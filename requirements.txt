@@ -2,3 +2,4 @@ click
 tqdm
 pyyaml
 urllib3
+mkdocs
