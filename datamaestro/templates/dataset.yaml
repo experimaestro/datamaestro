@@ -9,6 +9,6 @@ description: |
 
 
 # Describe how to download
-download: @!__DOWNLOAD_HANDLER__
+download: !@__DOWNLOAD_HANDLER__
   param1: ...
   

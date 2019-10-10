@@ -8,8 +8,8 @@ class DownloadPath(DownloadHandler):
 
     def download(self, destination):
         path = None
-        while path is None or not path.is_file():
+        while path is None or not path.is_dir():
             path = Path(input("Path to %s: " % self.definition["name"]))
 
         logging.debug("Linking %s to %s", path, destination)
-        os.link(path, destination)
+        os.symlink(path, destination)
