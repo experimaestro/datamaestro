@@ -85,12 +85,15 @@ class DatasetHandler:
         if "files" in self.content:
             files = self.dataset.files = {}
             for key, definition in self.content["files"].items():
-                filetype = definition.get("type", None)
-                path = self.destpath / definition["path"]
-                if filetype:
-                    files[key] = self.repository.findhandler_of("files", filetype)(self.path(path), filetype)
+                if isinstance(definition, str):
+                    files[key] = self.destpath / definition
                 else:
-                    files[key] = path 
+                    filetype = definition.get("__handler__", None)
+                    path = self.destpath / definition["path"]
+                    if filetype:
+                        files[key] = self.repository.findhandler_of("files", filetype)(path, filetype)
+                    else:
+                        files[key] = path
 
         # If not, use the download handler directly
         elif "download" in self.content:

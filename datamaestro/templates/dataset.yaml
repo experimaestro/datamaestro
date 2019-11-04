@@ -1,14 +1,23 @@
-# NAME
+# See documentation on http://experimaestro.github.io/datamaestro/
+
+# Configuration
+# See http://experimaestro.github.io/datamaestro/configuration/
 
 name: __NAME__
-web: __WEB__
+web: __URL__
+
+# Tags and tasks should be chosen by considering the datamaestro
+# repository practice
+tags: [ ]
+tasks: []
+
 
 description: |
-  Describe the dataset
-
-
+  ___Describe here the dataset___
 
 # Describe how to download
-download: !@__DOWNLOAD_HANDLER__
-  param1: ...
+# See http://experimaestro.github.io/datamaestro/download/
+
+download: !/archive:Zip
+  url: https://codeload.github.com/UniversalDependencies/UD_French-ParTUT/zip/master
   

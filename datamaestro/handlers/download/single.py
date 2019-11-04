@@ -48,13 +48,6 @@ class File(SingleDownloadHandler):
         super().__init__(dataset, definition)
         self.url = self.definition["url"]
 
-    def files(self, destpath, hint: str=None):
-        filetype = self.definition.get("type")
-        
-        if filetype:
-            return self.repository.findhandler_of("files", filetype)(self.path(destpath), filetype)
-        return destpath
-
     def path(self, path: Path, hint: str=None) -> Path:
         """Returns the destination path"""
         p = urllib3.util.parse_url(self.url)

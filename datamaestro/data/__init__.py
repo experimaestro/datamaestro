@@ -439,7 +439,7 @@ class Repository:
         pattern = re.compile(r"^((?P<module>[\w_]+)?(?P<slash>/))?(?P<path>[\w_]+):(?P<name>[\w_]+)$")
         m = pattern.match(fullname)
         if not m:
-            raise Exception("Invalid handler specification %s" % name)
+            raise Exception("Invalid handler specification %s" % fullname)
 
         name = m.group('name')
         if m.group('slash') is None:

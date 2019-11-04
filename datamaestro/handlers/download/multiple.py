@@ -17,10 +17,7 @@ class List(DownloadHandler):
             if key == "__handler__": continue
             handler = DownloadHandler.find(self.dataset, value)
             destpath = handler.path(destination, key)
-            if destpath.exists():
-                logging.info("File already downloaded [%s]", destpath)
-            else:
-                handler.download(destpath)
+            handler.download(destpath)
 
     def files(self, destpath):
         """Set the list of files"""

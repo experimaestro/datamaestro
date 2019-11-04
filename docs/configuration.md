@@ -91,7 +91,7 @@ statistics:
 ### Download and data
 
 The field `download` specifies how data should be downloaded. Generic handlers are defined
-in datamaestro ([see documentation](download.html)) or defined in datamaestro extensions.
+in datamaestro ([see documentation](../download)) or defined in datamaestro extensions.
 
-The field `files` specifies [file formats](files.html)
+The field `files` specifies [file formats](../files)
 
