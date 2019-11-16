@@ -14,9 +14,9 @@ import re
 
 VERSION='0.2.5'
 
-RE_BLANCK=re.compile(r"^\s*#?")
+RE_COMMENT = re.compile(r"^\s*#")
 with (Path(__file__).parent / 'requirements.txt').open() as f:
-    requirements = [x for x in f.read().splitlines() if not RE_BLANCK.match(x)]
+    requirements = [x for x in f.read().splitlines() if not RE_COMMENT.match(x) and x]
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
@@ -47,8 +47,8 @@ setup(name='datamaestro',
     python_requires='>=3',
     entry_points = {
         'console_scripts': [
-            'datamaestro = datamaestro.__main__:main',                  
-        ],         
+            'datamaestro = datamaestro.__main__:main',
+        ],
         'mkdocs.plugins': [
                 'datamaestro = datamaestro.commands.site:DatasetGenerator',
         ]
