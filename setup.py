@@ -14,9 +14,9 @@ import re
 
 VERSION='0.2.5'
 
-RE_COMMENT = re.compile(r"^\s*#")
+RE_BLANCK = re.compile(r"^\s*(#.*)?$")
 with (Path(__file__).parent / 'requirements.txt').open() as f:
-    requirements = [x for x in f.read().splitlines() if not RE_COMMENT.match(x) and x]
+    requirements = [x for x in f.read().splitlines() if not RE_BLANCK.match(x)]
 
 class VerifyVersionCommand(install):
     """Custom command to verify that the git tag matches our version"""
