@@ -37,16 +37,6 @@ REPOSITORIES = {}
 for entry_point in pkg_resources.iter_entry_points('datamaestro.repositories'):
     REPOSITORIES[entry_point.name] = entry_point
 
-DATASET_REGEX = re.compile(r"^\w[\w\.]+\w$")
-
-class regexp_check:
-    def __init__(self, regex):
-        self.regex = regex
-    def __call__(self, ctx, param, value):
-        if not self.regex.match(value):
-            raise click.BadParameter('Dataset ID needs to be in the format AAA.BBBB.CCC[.DDD]')
-        return value
-
 
 
 # --- Create the argument parser
@@ -93,7 +83,21 @@ def repositories():
 
 # --- Create a dataset
 
-@click.argument("dataset-id", callback=regexp_check(DATASET_REGEX))
+DATASET_REGEX = re.compile(r"^\w[\w\.-]+\w$")
+from urllib.parse import urlparse
+def dataset_id_check(ctx, param, value):
+    try:
+        value = urlparse(value)
+        return ".".join(value.hostname.split(".")[::-1] + value.path[1:].split("/"))
+    except:
+        raise
+
+    if not DATASET_REGEX.match(value):
+        raise click.BadParameter('Dataset ID needs to be an URL or in the format AAA.BBBB.CCC[.DDD]')
+    return value
+
+
+@click.argument("dataset-id", callback=dataset_id_check)
 @click.argument("repository-id", type=click.Choice(REPOSITORIES.keys()))
 @cli.command(help="Create a new dataset in the repository repository-id")
 @pass_cfg

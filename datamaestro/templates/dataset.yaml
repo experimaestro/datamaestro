@@ -18,6 +18,6 @@ description: |
 # Describe how to download
 # See http://experimaestro.github.io/datamaestro/download/
 
-download: !/archive:Zip
-  url: https://codeload.github.com/UniversalDependencies/UD_French-ParTUT/zip/master
+download: !@/...
+  __OPTIONS__
   

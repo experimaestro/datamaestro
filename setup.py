@@ -12,9 +12,9 @@ from setuptools.command.install import install
 from pathlib import Path
 import re
 
-VERSION='0.2.5'
+VERSION='0.2.6'
 
-RE_BLANCK=re.compile(r"^\s*#?")
+RE_BLANCK=re.compile(r"^\s*(#.*)?$")
 with (Path(__file__).parent / 'requirements.txt').open() as f:
     requirements = [x for x in f.read().splitlines() if not RE_BLANCK.match(x)]
 
