@@ -18,6 +18,5 @@ description: |
 # Describe how to download
 # See http://experimaestro.github.io/datamaestro/download/
 
-download: !@/...
-  __OPTIONS__
+download: !@/todo {}
   

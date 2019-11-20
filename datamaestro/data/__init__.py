@@ -431,17 +431,22 @@ class Repository:
         Two shortcuts can be used:
         - `/subpackage:class`: module = datamaestro
         - `subpackage:class`: module = repository module
-
-
+        
+        If `class` is not given, use the last subpackage name (with a uppercase first letter)
 
         """
         logging.debug("Searching for handler %s of type %s", fullname, handlertype)
-        pattern = re.compile(r"^((?P<module>[\w_]+)?(?P<slash>/))?(?P<path>[\w_]+):(?P<name>[\w_]+)$")
+        pattern = re.compile(r"^((?P<module>[\w_]+)?(?P<slash>/))?(?P<path>[\w_]+)(?::(?P<name>[\w_]+))?$")
         m = pattern.match(fullname)
         if not m:
             raise Exception("Invalid handler specification %s" % fullname)
 
         name = m.group('name')
+        path = m.group('path')
+        if name is None:
+            mpath = re.match(r"^(?:.*\.)?([^.])([^.]+)$", path)
+            name = mpath.group(1).upper() + mpath.group(2)
+            
         if m.group('slash') is None:
             # relative path
             module = self.module
@@ -453,7 +458,7 @@ class Repository:
                 module = "datamaestro"
         
 
-        package = "%s.handlers.%s.%s" % (module, handlertype, m.group("path"))
+        package = "%s.handlers.%s.%s" % (module, handlertype, path)
         
         logging.debug("Searching for handler: package %s, class %s", package, name)
         try:
