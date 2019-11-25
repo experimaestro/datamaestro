@@ -140,7 +140,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
             for dataset in datafile:
                 for tag in dataset.tags:
                     self.tags.add(tag, dataset)
-                for task in dataset.tasks():
+                for task in dataset.tasks:
                     self.tasks.add(task, dataset)
         
         for c in self.classifications:
