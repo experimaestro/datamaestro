@@ -12,6 +12,7 @@ workflows:
           requires:
             - build
       - deploy:
+          context: PyPI
           requires:
             - build
           filters:
