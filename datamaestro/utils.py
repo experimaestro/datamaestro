@@ -56,9 +56,7 @@ class BaseJSONEncoder(json.JSONEncoder):
         self.context = JsonContext()
 
     def default(self, o):
-        from .data import Dataset
-        if isinstance(o, Dataset):
-            return o.__jsondict__(self.context)
+        from .dataset import Dataset
         return {key: value for key, value in o.__dict__.items() if not key.startswith("__")}
 
 class JsonEncoder(BaseJSONEncoder):

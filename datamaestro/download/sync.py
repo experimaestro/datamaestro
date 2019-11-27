@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
 
-from datamaestro import Dataset
-from datamaestro.handlers.download import DownloadHandler
+from datamaestro import DatasetDefinition
+from datamaestro.download import DownloadHandler
 
 from subprocess import run
 

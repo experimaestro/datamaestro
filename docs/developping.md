@@ -13,3 +13,5 @@ to install the command line tool and develop at the same time.
 ## Repositories
 
 Repositories maintain field specific datasets.
+
+- `definitions.DatasetDefinition`

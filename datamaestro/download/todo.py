@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from datamaestro.handlers.download import DownloadHandler
+from datamaestro.download import DownloadHandler
 
 class Todo(DownloadHandler):
     def download(self, destination: Path):

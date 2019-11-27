@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from datamaestro.handlers.transform import Transform
+from datamaestro.transform import Transform
 
 class File: 
     def __init__(self, path: Path, definition: dict):

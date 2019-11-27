@@ -33,7 +33,7 @@ class VerifyVersionCommand(install):
 
 setup(name='datamaestro',
     version=VERSION,
-    description='Dataset management',
+    description='DatasetDefinition management',
     author='Benjamin Piwowarski',
     author_email='benjamin@piwowarski.fr',
     url='https://github.com/bpiwowar/datamaestro',

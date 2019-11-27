@@ -6,8 +6,8 @@ import tempfile
 from pathlib import Path
 import shutil
 
-import datamaestro.handlers.download.single as single
-from datamaestro import Repository, Context, Dataset, DataFile
+import datamaestro.download.single as single
+from datamaestro import Repository, Context, DatasetDefinition, DataFile
 
 
 TEST_PATH = Path(__file__).parent
@@ -47,7 +47,7 @@ class MainTest(TemporaryContext):
         ds_definition = { "download": f_definition }
 
         datafile = DataFile.create(repository, "", None)
-        dataset = Dataset(datafile, "single", ds_definition, None)
+        dataset = DatasetDefinition(datafile, "single", ds_definition, None)
         dataset.download()
 
 

@@ -105,10 +105,10 @@ class Context:
             for dataset in repository:
                 yield dataset
 
-    def dataset(self, datasetid) -> ".data.Dataset":
+    def dataset(self, datasetid) -> ".data.DatasetDefinition":
         """Get a dataset by ID"""
-        from .data import Dataset
-        return Dataset.find(datasetid, context=self)
+        from .definitions import DatasetDefinition
+        return DatasetDefinition.find(datasetid, context=self)
 
     def preference(self, key, default=None):
         return self.settings.get(key, default)

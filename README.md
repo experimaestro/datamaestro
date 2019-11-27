@@ -29,10 +29,10 @@ The commmand line interface allows to download automatically the different resou
 
 ```sh
 $ datamaestro search glove   
-Dataset(edu.standford.glove)
-Dataset(edu.standford.glove.6b)
-Dataset(edu.standford.glove.42b)
-Dataset(edu.standford.glove.840b)
+edu.standford.glove
+edu.standford.glove.6b
+edu.standford.glove.42b
+edu.standford.glove.840b
 
 $ datamaestro prepare edu.standford.glove.6b
 INFO:root:Downloading Dataset(edu.standford.glove.6b)

@@ -7,9 +7,11 @@ import gzip
 import os.path as op, os
 import urllib3
 from pathlib import Path
+from tempfile import NamedTemporaryFile
+
 from datamaestro.utils import rm_rf
-from datamaestro.handlers.transform import Transform
-from datamaestro.handlers.download import DownloadHandler
+from datamaestro.transform import Transform
+from datamaestro.download import DownloadHandler
 
 
 def open_ext(*args, **kwargs):
@@ -32,7 +34,7 @@ class DatasetPath(SingleDownloadHandler):
         self._path = self.definition.get("path", None)
     
     def path(self, path: Path) -> Path:
-        dshandler = self.reference.handler
+        dshandler = self.reference
         rpath = dshandler.destpath
         rpath = dshandler.downloadHandler.path(rpath)    
         if self._path:
@@ -69,7 +71,7 @@ class File(SingleDownloadHandler):
             if "transforms" in self.definition:
                 logging.info("Transforming file")
                 transformer = Transform.create(self.repository, self.definition["transforms"])
-                with file.open("rb") as fp, transformer(fp) as stream, destination.open("wb") as out:
+                with file.path.open("rb") as fp, transformer(fp) as stream, destination.open("wb") as out:
                     shutil.copyfileobj(stream, out)
             else:
                 logging.info("Keeping original downloaded file %s", file.path)
@@ -89,45 +91,19 @@ class Concat(SingleDownloadHandler):
     def path(self, path: Path) -> Path:
         """Returns the destination path"""
         p = urllib3.util.parse_url(self.url)
-        return path.joinpath(Path(p.path).name)
+        return path / Path(p.path).stem
 
     def _download(self, destination):
-        tmpdir = None
-        try:
-            transformer = None
+        with NamedTemporaryFile("wb") as f,  self.dataset.downloadURL(self.url) as dl, tarfile.open(dl.path) as archive:
             if "transforms" in self.definition:
-                transformer = Transform.create(self.repository, self.definition["transforms"])
+                transformer = Transform.create(self.repository, self.definition["transforms"]) 
+            else:
+                transformer = lambda x: x
 
-            # Temporary directory
-            tmpdir = tempfile.mkdtemp()
-            dlfile = self.dataset.downloadURL(self.url)
-
-            d = "%s/all" % tmpdir
-            tarfile.open(dlfile.path).extractall(path="%s/all" % tmpdir)
-            outfilename = "%s/qrels" % tmpdir #FIXME: seems specific to a dataset
-            
-            with open(outfilename, 'wb') as f_out:
-                for aPath in (os.path.join(d, f) for f in os.listdir(d)):
-                    logging.info("Reading %s" % aPath)
-                    with open_ext(aPath, "rb") as gzf:
-                        f_out.write(gzf.read())
-
-            if transformer:
-                tname = outfilename + ".filtered"
-                with open(outfilename, mode="rb") as r, open(tname, mode="wb") as w:
-                    stream = transformer(r)
-                    while True:
-                        b = stream.read(1024)
-                        if not b:
-                            break
-                        w.write(b)
-                outfilename = tname
-                            
-            # Move in place
-            shutil.move(outfilename, destination)
-            dlfile.discard()
-            logging.info("Created file %s" % destination)
-        finally:
-            if not tmpdir is None:
-                rm_rf(tmpdir)
-
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with open(destination, "wb") as out:
+                for tarinfo in archive:
+                    if tarinfo.isreg():
+                        logging.debug("Processing file %s", tarinfo.name)
+                        with transformer(archive.fileobject(archive, tarinfo)) as fp:
+                            shutil.copyfileobj(fp, out)

@@ -1,10 +1,10 @@
-from .data import Dataset
+from .definitions import DatasetDefinition
 import re
 
 RE_TAG = re.compile(r"^tag:(.*)")
 
 class Condition:
-    def match(self, dataset: Dataset):
+    def match(self, dataset: DatasetDefinition):
         raise Exception("Match not implemented in %s" % type(self))
 
     @staticmethod
@@ -22,7 +22,7 @@ class AndCondition(Condition):
     def append(self, condition: Condition):
         self.conditions.append(condition)
     
-    def match(self, dataset: Dataset):
+    def match(self, dataset: DatasetDefinition):
         for condition in self.conditions:
             if not condition.match(dataset):
                 return False
@@ -33,12 +33,12 @@ class ReCondition(Condition):
         self.regex = re.compile(regex)
 
 class TagCondition(ReCondition):
-    def match(self, dataset: Dataset):
+    def match(self, dataset: DatasetDefinition):
         for tag in dataset.tags:
             if self.regex.search(tag):
                 return True
         return False
 
 class IDCondition(ReCondition):
-    def match(self, dataset: Dataset):
+    def match(self, dataset: DatasetDefinition):
         return self.regex.search(dataset.id)

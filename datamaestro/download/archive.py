@@ -1,5 +1,5 @@
 import logging
-from datamaestro.handlers.download import DownloadHandler
+from datamaestro.download import DownloadHandler
 from pathlib import Path
 import zipfile
 import shutil

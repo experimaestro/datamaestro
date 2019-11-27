@@ -12,6 +12,7 @@ pages:
   - Developping: developping.md
   - Handlers:
     - Download: download.md
+    - Transform: transform.md
 
 markdown_extensions: 
   - pymdownx.details

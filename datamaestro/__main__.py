@@ -13,7 +13,7 @@ from pathlib import Path
 import shutil
 
 from .context import Context
-from .data import Dataset
+from .definitions import DatasetDefinition
 
 import click
 
@@ -67,7 +67,7 @@ def main():
 @click.argument("dataset", type=str)
 @pass_cfg
 def info(config: Config, dataset):
-    dataset = Dataset.find(dataset, context=config.context)
+    dataset = DatasetDefinition.find(dataset, context=config.context)
     print(dataset.description)
     print(dataset.tags)
 
@@ -126,7 +126,7 @@ def create_dataset(config: Config, repository_id: str, dataset_id: str):
 @pass_cfg
 def download(config: Config, dataset):
     """Download a dataset"""
-    dataset = Dataset.find(dataset, context=config.context)
+    dataset = DatasetDefinition.find(dataset, context=config.context)
     success = dataset.download()
     if not success:
         logging.error("One or more errors occured while downloading the dataset")
@@ -178,6 +178,6 @@ def search(config: Config, searchterms):
 
     for dataset in config.context.datasets():
         if condition.match(dataset):
-            print(dataset)
+            print(dataset.id)
 
 

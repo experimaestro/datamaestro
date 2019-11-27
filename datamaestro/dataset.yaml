@@ -1,7 +1,7 @@
 # Example of a dataset
 
 name: UltiSet
-title: The Ultimate Dataset
+title: The Ultimate DatasetDefinition
 tasks:
   - question anwering
 content:

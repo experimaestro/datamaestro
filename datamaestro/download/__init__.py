@@ -1,12 +1,12 @@
 from pathlib import Path
-from datamaestro.data import Repository
-from datamaestro import Dataset
+from datamaestro.definitions import Repository
+from datamaestro import DatasetDefinition
 
 class DownloadHandler:
     """
     Base class for all download handlers
     """
-    def __init__(self, dataset: Dataset, definition: object):
+    def __init__(self, dataset: DatasetDefinition, definition: object):
         self.dataset = dataset
         self.repository = dataset.repository
         self.context = self.repository.context
@@ -33,8 +33,8 @@ class DownloadHandler:
         return destpath
 
     @staticmethod
-    def find(dataset, definition) -> "DownloadHandler":
+    def find(datadef, definition) -> "DownloadHandler":
         handler = definition.get("__handler__", definition.get("handler", None))
         if handler is None:
             raise Exception("No handler defined for %s" % definition)
-        return dataset.repository.findhandler("download", handler)(dataset, definition)
+        return datadef.repository.findhandler("download", handler)(datadef, definition)
