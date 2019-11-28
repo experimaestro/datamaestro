@@ -22,6 +22,7 @@ class List(DownloadHandler):
 
     def files(self, destpath):
         """Set the list of files"""
+        r = {}
         for key, value in self.list.items():
             if not key.startswith("__"):
                 handler = DownloadHandler.find(self.dataset, value)

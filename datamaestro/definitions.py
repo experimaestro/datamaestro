@@ -245,14 +245,14 @@ class DatasetDefinition:
 
         # Set some values
         self.dataset.id = self.id
-        
+
         # Update all dependencies
         for key, dependency in self.dependencies.items():
             dependency.prepare(download=download)
 
         # Use the "files" section 
         if "files" in self.content:
-            files = self.dataset.files
+            files = self.dataset.files = {}
             for key, definition in self.content["files"].items():
                 if isinstance(definition, str):
                     files[key] = self.destpath / definition
@@ -525,18 +525,29 @@ class Repository:
 
     def datafiles(self):
         """Iterates over all datafiles in this repository"""
-        logging.debug("Looking at definitions in %s", self.configdir)
-        for path in self.configdir.rglob("*%s" % YAML_SUFFIX):
+        for _, fid, path in self._datafiles():
             try:
-                c = [p.name for p in path.relative_to(self.configdir).parents][:-1][::-1]
-                c.append(path.stem)
-                fid = ".".join(c)
                 datafile = DataFile.create(self, fid, path)
                 yield datafile
             except Exception as e:
                 import traceback
                 traceback.print_exc()
                 logging.error("Error while reading definitions file %s: %s", path, e)
+
+    def _datafiles(self):
+        """Iterate over datafiles (without parsing them)"""
+        for path in self.configdir.rglob("*%s" % YAML_SUFFIX):
+            try:
+                c = [p.name for p in path.relative_to(self.configdir).parents][:-1][::-1]
+                c.append(path.stem)
+                fid = ".".join(c)
+                yield self, fid, path
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logging.error("Error while reading definitions file %s: %s", path, e)
+
+
 
     def __iter__(self):
         """Iterates over all datasets in this repository"""

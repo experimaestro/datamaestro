@@ -12,7 +12,7 @@ from mkdocs.structure.pages import Page as MkdocPage
 from mkdocs.structure.nav import Navigation as MkdocNavigation
 
 from ..context import Context
-from ..data import Repository
+from ..definitions import Repository
 
 # Custom URIs for tags and datafiles
 RE_DATAFILE = re.compile(r"^datamaestro/df/([^/]*)/(.*)\.md$")

@@ -12,7 +12,7 @@ from setuptools.command.install import install
 from pathlib import Path
 import re
 
-VERSION='0.2.8'
+VERSION='0.4.0'
 
 RE_BLANCK=re.compile(r"^\s*(#.*)?$")
 with (Path(__file__).parent / 'requirements.txt').open() as f:
@@ -53,4 +53,6 @@ setup(name='datamaestro',
                 'datamaestro = datamaestro.commands.site:DatasetGenerator',
         ]
     },
+
+    test_suite='datamaestro.test'
 )

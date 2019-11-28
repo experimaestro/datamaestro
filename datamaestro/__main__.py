@@ -135,15 +135,18 @@ def download(config: Config, dataset):
 
 @click.argument("datasetid")
 @click.option("--encoder", help="Encoder used for output", default="normal", type=click.Choice(['normal', 'xpm']))
+@click.option("--no-downloads", is_flag=True, help="Do not try to download datasets")
 @cli.command(help="Downloads a dataset (if freely available)")
 @pass_cfg
 def prepare(config: Config, datasetid, encoder):
     """Download a dataset and returns information in json format"""
     dataset = config.context.dataset(datasetid)
-    success = dataset.download()
-    if not success:
-        logging.error("One or more errors occured while downloading the dataset")
-        sys.exit(1)
+    
+    if not no_downloads:
+        success = dataset.download()
+        if not success:
+            logging.error("One or more errors occured while downloading the dataset")
+            sys.exit(1)
 
     s = dataset.prepare()
     try: 

@@ -43,7 +43,7 @@ class CachedFile():
             if not self.keep:
                 self.path.unlink()
         except Exception as e:
-            logging.warn("Could not delete cached file %s", self.path)
+            logging.warning("Could not delete cached file %s [%s]", self.path, e)
 
 # --- JSON
 
