@@ -11,9 +11,8 @@ import pkg_resources
 import re
 from pathlib import Path
 import shutil
-
-from .context import Context
 from .definitions import DatasetDefinition
+from .context import Context
 
 import click
 
@@ -56,6 +55,7 @@ def cli(ctx, quiet, debug, traceback, data, keep_downloads):
 
     context = Context(data)
     ctx.obj = Config(context)
+    context.traceback = traceback
     ctx.obj.traceback = traceback
     ctx.obj.debug = debug
     context.keep_downloads = keep_downloads
@@ -138,7 +138,7 @@ def download(config: Config, dataset):
 @click.option("--no-downloads", is_flag=True, help="Do not try to download datasets")
 @cli.command(help="Downloads a dataset (if freely available)")
 @pass_cfg
-def prepare(config: Config, datasetid, encoder):
+def prepare(config: Config, datasetid, encoder, no_downloads):
     """Download a dataset and returns information in json format"""
     dataset = config.context.dataset(datasetid)
     

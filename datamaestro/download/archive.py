@@ -1,5 +1,5 @@
 import logging
-from datamaestro.download import DownloadHandler
+from datamaestro.download import Download
 from pathlib import Path
 import zipfile
 import shutil
@@ -7,7 +7,7 @@ import urllib3
 import tarfile
 
 
-class ArchiveDownloader(DownloadHandler):
+class ArchiveDownloader(Download):
     def __init__(self, repository, definition):
         super().__init__(repository, definition)
         self.url = self.definition["url"]

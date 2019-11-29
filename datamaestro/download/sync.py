@@ -2,11 +2,11 @@ import logging
 from pathlib import Path
 
 from datamaestro import DatasetDefinition
-from datamaestro.download import DownloadHandler
+from datamaestro.download import Download
 
 from subprocess import run
 
-class GSync(DownloadHandler):
+class GSync(Download):
     """Google sync call"""
     def __init__(self, repository, definition):
         super().__init__(repository, definition)

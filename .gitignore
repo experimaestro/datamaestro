@@ -1,6 +1,7 @@
 __pycache__
 share/datasets
 *.egg-info
+*.pyc
 .vscode
 dist
 downloads

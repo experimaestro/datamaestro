@@ -10,8 +10,8 @@ class Transform:
     def createFromPath(path: Path):
         if path.suffix == ".gz":
             from .compress import Gunzip 
-            return Gunzip({})
-        return Identity
+            return path.stem, Gunzip({})
+        return path.name, Identity({})
 
     @staticmethod
     def create(repository, definition):

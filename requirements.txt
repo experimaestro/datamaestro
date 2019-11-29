@@ -1,6 +1,5 @@
 click
 tqdm
-pyyaml
 urllib3
 
 # Mkdocs

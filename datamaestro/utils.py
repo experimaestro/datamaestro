@@ -56,7 +56,6 @@ class BaseJSONEncoder(json.JSONEncoder):
         self.context = JsonContext()
 
     def default(self, o):
-        from .dataset import Dataset
         return {key: value for key, value in o.__dict__.items() if not key.startswith("__")}
 
 class JsonEncoder(BaseJSONEncoder):
@@ -74,5 +73,12 @@ class XPMEncoder(BaseJSONEncoder):
                 "$type": "path",
                 "$value": str(o.resolve())
             }
+        
+        # Data object
+        if hasattr(o.__class__, "__datamaestro__"):
+            m = super().default(o)
+            m["$type"] = o.__class__.__datamaestro__.id
+            return m
+
         return super().default(o)
 

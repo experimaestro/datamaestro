@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from datamaestro.download import DownloadHandler
+from datamaestro.download import Download
 
-class Todo(DownloadHandler):
+class Todo(Download):
     def download(self, destination: Path):
         raise NotImplementedError("Download method not defined - please edit the definition file")

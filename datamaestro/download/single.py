@@ -11,7 +11,7 @@ from tempfile import NamedTemporaryFile
 
 from datamaestro.utils import rm_rf
 from datamaestro.transform import Transform
-from datamaestro.download import DownloadHandler
+from datamaestro.download import Download
 
 
 def open_ext(*args, **kwargs):
@@ -21,42 +21,38 @@ def open_ext(*args, **kwargs):
         return gzip.open(*args, *kwargs)
     return io.open(*args, **kwargs)
 
-class SingleDownloadHandler(DownloadHandler):
-    def download(self, destination):
-        if not destination.is_file():
-            self._download(destination)
+
+class SingleDownload(Download):
+    @property
+    def path(self):
+        return self.definition.destpath / self.name
+
+    def download(self, force=False):
+        if not self.path.is_file():
+            self._download(self.path)
         
 
-class DatasetPath(SingleDownloadHandler):
-    def __init__(self, repository, definition):
-        super().__init__(repository, definition)
-        self.reference = self.definition["reference"]
-        self._path = self.definition.get("path", None)
-    
-    def path(self, path: Path) -> Path:
-        dshandler = self.reference
-        rpath = dshandler.destpath
-        rpath = dshandler.downloadHandler.path(rpath)    
-        if self._path:
-            rpath /= self._path
-        return rpath 
-        
-    def download(self, destination):
-        pass
-
-class File(SingleDownloadHandler):
+class DownloadFile(SingleDownload):
     """Single file"""
-    def __init__(self, dataset, definition):
-        super().__init__(dataset, definition)
-        self.url = self.definition["url"]
+    def __init__(self, varname: str, url: str, name :str=None, transforms=None):
+        super().__init__(varname)
+  
+        self.url = url
 
-    def path(self, path: Path, hint: str=None) -> Path:
-        """Returns the destination path"""
+        # Infer name and 
         p = urllib3.util.parse_url(self.url)
-        name = self.definition.get("name", None)
-        if not name:
-            name = Path(p.path).name
-        return path.joinpath(name)
+        path = Path(p.path)
+
+        self.name = name
+        
+        if transforms is None:
+            self.name, self.transformer = Transform.createFromPath(path)
+        else:
+            self.transformer = Transform.create(self.repository, self.definition["transforms"])
+        
+        if self.name is None:
+            self.name = p.name
+            
 
     def _download(self, destination):
         logging.info("Downloading %s into %s", self.url, destination)
@@ -66,12 +62,11 @@ class File(SingleDownloadHandler):
         os.makedirs(dir, exist_ok=True)
 
         # Download (cache)
-        with self.dataset.downloadURL(self.url) as file:
+        with self.context.downloadURL(self.url) as file:
             # Transform if need be
-            if "transforms" in self.definition:
+            if self.transformer:
                 logging.info("Transforming file")
-                transformer = Transform.create(self.repository, self.definition["transforms"])
-                with file.path.open("rb") as fp, transformer(fp) as stream, destination.open("wb") as out:
+                with self.transformer(file.path.open("rb")) as stream, destination.open("wb") as out:
                     shutil.copyfileobj(stream, out)
             else:
                 logging.info("Keeping original downloaded file %s", file.path)
@@ -81,7 +76,7 @@ class File(SingleDownloadHandler):
         logging.info("Created file %s" % destination)
 
 
-class Concat(SingleDownloadHandler):
+class Concat(SingleDownload):
     """Concatenate all files in an archive"""
     def __init__(self, repository, definition):
         super().__init__(repository, definition)

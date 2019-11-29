@@ -17,357 +17,203 @@ from pathlib import Path
 from itertools import chain
 import importlib
 import json
+import traceback
 import yaml
 from typing import Union
-
+from .experimaestro import Argument, Type
 from .context import Context, DownloadReportHook
-from .utils import CachedFile
 
-YAML_SUFFIX = ".yaml"
+# class DataDefinition:
+#     """Represents one dataset definition"""
 
-class DatasetReference:
-    def __init__(self, value):
-        self.value = value
+#     def __init__(self, module: module, datasetid: str, content: object, parent: "DataDefinition"):
+#         """
+#         Construct a new dataset
 
-    def resolve(self, reference):
-        did = self.value
-        logging.debug("Resolving dataset reference %s", did)
+#         :param module: the attached definition file
+#         :param id: the ID of this dataset
+#         :param content: The dataset definition
+#         """
+#         self.module = module
+#         self.id = datasetid
+#         self.content = content
+#         self.parent = parent
+#         self.isalias = isinstance(content, DatasetReference)
 
-        pos = did.find("!")
-        if pos > 0:
-            namespace = did[:pos]
-            name = did[pos+1:]
-            did = "%s.%s" % (reference.resolvens(namespace), name)
-        elif did.startswith("."):
-            did = reference.baseid + did
+#         # Don't define any dataset object for now
+#         self._dataset = None
+#         self._resolved = False
+        
+#         # Search for dependencies
+#         self.dependencies = {}
 
-        return DatasetDefinition.find(did, context=reference.context)
+#         # Get some useful values from the definition
+#         self.type = self.content.get("type", None)
+#         self.version = self.content.get("version", None)
+#         self.name = self.content.get("name", self.id)
 
-def datasetref(loader, node):
-    """A dataset reference"""
-    assert(isinstance(node.value, str))
-    return DatasetReference(node.value)
+#     @property
+#     def dataset(self):
+#         if not self._dataset:
+#             # Resolve the references
+#             self.resolve()
+            
+#             if self.type:
+#                 logging.debug("Searching for dataset object of type %s", self.type)
+#                 self._dataset = self.repository.findhandler("dataset", self.type).fromdefinition(self)
+#             else:
+#                 from datamaestro.dataset import Dataset
+#                 self._dataset = Dataset.fromdefinition(self)
 
-
-def handlertag(loader: yaml.Loader, tag_suffix, node):
-    """A handler tag"""
-    v = loader.construct_mapping(node)
-    v["__handler__"] = tag_suffix
-    return v
-
-class YAMLLoader(yaml.FullLoader):
-    pass
-
-YAMLLoader.add_constructor('!dataset', datasetref)
-YAMLLoader.add_multi_constructor('!@', handlertag)
-
-def readyaml(path):
-    with open(path) as f:
-        return yaml.load(f, Loader=YAMLLoader)
-
-def readyamls(path):
-    with open(path) as f:
-        for p in yaml.load_all(f, Loader=YAMLLoader):
-            yield p
+#         return self._dataset
 
 
-class DataFile:
-    """A data configuration file"""
-
-    @staticmethod
-    @lru_cache()
-    def create(repository, prefix: str, path: str):
-        return DataFile(repository, prefix, path)
-
-    def __init__(self, repository, prefix: str, path: str):
-        self.repository = repository
-        logging.debug("Reading %s", path)
-        self.path = path
-        self.datasets = {}
-        self.id = prefix
-
-        self.main = None
-
-        if path is not None:
-            for doc in readyamls(path):
-                fulldid = "%s.%s" % (prefix, doc["id"])  if "id" in doc else self.id
-                ds = DatasetDefinition(self, fulldid, doc, self.main)
-                self.datasets[fulldid] = ds
-
-                if not self.main:
-                    self.main = ds
-                    self.name = doc.get("name", self.id)
+#     def prepare(self, download=False):
+#         """Prepare the dataset
+        
+#         Performs (basic) post-processing after the dataset has been downloaded,
+#         and returns a Data object
+#         """
+#         self.resolve()
 
 
-    def __contains__(self, name):
-        """Returns true if the dataset belongs to this datafile"""
-        return name in self.datasets
+#         # Set some values
+#         self.dataset.id = self.id
 
-    def __getitem__(self, name):
-        return self.datasets[name]
+#         # Prepare all dependencies
+#         for key, dependency in self.dependencies.items():
+#             try:
+#                 dependency.prepare(download=download)
+#             except:
+#                 logging.error("Error while processing {}".format(dependency.id))
+#                 raise
 
-    def resolvens(self, ns):
-        return self.main["namespaces"][ns]
+#         # Download
+#         if download:
+#             self.download()
 
-    def __len__(self):
-        return len(self.datasets)
+#         # Use the "files" section 
+#         if "files" in self.content:
+#             files = self.dataset.files = {}
+#             for key, definition in self.content["files"].items():
+#                 if isinstance(definition, str):
+#                     files[key] = self.destpath / definition
+#                 elif isinstance(definition, DataDefinition):
+#                     # This is a dataset
+#                     files[key] = definition.prepare().files
+#                 else:
+#                     filetype = definition.get("__handler__", None)
+#                     path = self.destpath / definition["path"]
+#                     if filetype:
+#                         files[key] = self.repository.findhandler_of("files", filetype)(path, filetype)
+#                     else:
+#                         files[key] = path
 
-    def __iter__(self):
-        return self.datasets.values().__iter__()
+#         # If not, use the download handler directly
+#         elif "download" in self.content:
+#             handler = self.downloadHandler
+#             self.dataset.files = handler.files(self.destpath)
 
-    @property
-    def description(self):
-        return self.main.get("description", "")
+#         return self.dataset
+
+
+#     @property
+#     def extrapath(self):
+#         """Returns the path containing extra configuration files"""
+#         return self.repository.extrapath.joinpath(self.path)
+
+
+#     @property
+#     def generatedpath(self):
+#         """Returns the destination path for generated files"""
+#         return self.repository.generatedpath.joinpath(self.path)
+
+class DataDefinition():
+    """Object that stores the declarative part of a data(set) description
+    """
+    def __init__(self, t):
+        # Copy base type and find matching repository
+        self.t = t
+        module = importlib.import_module(t.__module__.split(".",1)[0])
+        self.repository = module.Repository.instance() if module.__name__ != "datamaestro" else None
+
+        # Dataset id (and all aliases)
+        self.id = None
+        self.aliases = set()
+
+        self.tags = set()
+        self.tasks = set()
+
+        self.url = None
+        self.description = None
+        self.name = None
+        self.version = None
+        if t.__doc__:
+            lines = t.__doc__.split("\n", 3)
+            self.name = lines[0]
+            if len(lines) > 1:
+                assert lines[1].strip() == "", "Second line should be blank"
+            if len(lines) > 2:
+                self.description = lines[2]
+
+        self.resources = {}
+
+    def update(self, base):
+        self.tags.update(base.tags)
+        self.tasks.update(base.tasks)
+        for key, resource in base.resources.items():
+            if key not in self.resources:
+                self.resources[key] = value
+
+class DatasetDefinition(DataDefinition):
+    def download(self, force=False):
+        """Download all the necessary resources"""
+        success = True
+        for key, resource in self.resources.items():
+            try:
+                resource.download(force)
+            except:
+                logging.error("Could not download resource %s", key)
+                traceback.print_exc()
+                success = False
+        return success
+
+    def prepare(self, download=False):
+        if download and not self.download(False):
+            raise Exception("Could not load necessary resources")
+        logging.debug("Building with data type %s and dataset %s", self.base, self.t)
+        data = self.base(**self.t(**self.resources))
+        data.id = self.id
+        return data
 
     @property
     def context(self):
         return self.repository.context
 
     @property
-    def baseid(self):
-        return self.id
-
-
-class DatasetDefinition:
-    """Represents one dataset definition"""
-
-    def __init__(self, datafile: DataFile, datasetid: str, content: object, parent: "DatasetDefinition"):
-        """
-        Construct a new dataset
-
-        :param datafile: the attached definition file
-        :param id: the ID of this dataset
-        :param content: The dataset definition
-        """
-        self.datafile = datafile
-        self.id = datasetid
-        self.content = content
-        self.parent = parent
-        self.isalias = isinstance(content, DatasetReference)
-
-        # Don't define any dataset object for now
-        self._dataset = None
-        self._resolved = False
-        
-        # Search for dependencies
-        self.dependencies = {}
-
-        # Get some useful values from the definition
-        self.type = self.content.get("type", None)
-        self.version = self.content.get("version", None)
-        self.name = self.content.get("name", self.id)
-
-
-
-    def _resolve(self, path, content):
-        """
-        Resolve all dataset references
-
-        Returns the content 
-        """
-        
-        prefix = path + "." if path else ""
-
-        if isinstance(content, dict):
-            return {str(k): self._resolve(prefix + str(k), v) for k, v in content.items()}
-        elif isinstance(content, list):
-            return [self._resolve("%s.%d" % (prefix, i), v) for i, v in enumerate(content)]
-        elif isinstance(content, DatasetReference):
-            dataset = content.resolve(self)
-            self.dependencies[path] = dataset
-            return dataset
-        return content
-
-    def resolve(self):
-        """Resolve all references within content"""
-        if not self._resolved:
-            self.content = self._resolve("", self.content)
-            self._resolved = True
-
-
-    @property
-    def downloadHandler(self):
-        from datamaestro.download import DownloadHandler
-        return DownloadHandler.find(self, self.content["download"])
-
-    @property
-    def dataset(self):
-        if not self._dataset:
-            # Resolve the references
-            self.resolve()
-            
-            if self.type:
-                logging.debug("Searching for dataset object of type %s", self.type)
-                self._dataset = self.repository.findhandler("dataset", self.type)()
-            else:
-                from datamaestro.dataset import Dataset
-                self._dataset = Dataset()
-
-        return self._dataset
-
-
-    def download(self, force=False):
-        """Download the dataset files
-        
-        Keyword Arguments:
-            force {bool} -- Force the download of resources, even if already done (default: {False})
-        
-        Returns:
-            A boolean indicating whether the download was succesful or not
-        """
-        logging.debug("Asked to download files for dataset %s", self.name)
-        self.resolve()
-
-        # (1) Download direct resources
-        if "download" in self.content:
-            handler = self.downloadHandler
-            destpath = handler.path(self.destpath)
-            handler.download(destpath)
-
-        # (2) Download dependencies
-        success = True
-        for dependency in self.dependencies.values():
-            logging.debug("Downloading dependency %s", dependency)
-            success &= dependency.download()
-
-        return success
-
-    def prepare(self, download=False):
-        """Prepare the dataset
-        
-        Performs (basic) post-processing after the dataset has been downloaded,
-        and returns a Data object
-        """
-        self.resolve()
-
-        if download:
-            self.download()
-
-        # Set some values
-        self.dataset.id = self.id
-
-        # Update all dependencies
-        for key, dependency in self.dependencies.items():
-            dependency.prepare(download=download)
-
-        # Use the "files" section 
-        if "files" in self.content:
-            files = self.dataset.files = {}
-            for key, definition in self.content["files"].items():
-                if isinstance(definition, str):
-                    files[key] = self.destpath / definition
-                elif isinstance(definition, DatasetDefinition):
-                    # This is a dataset
-                    files[key] = definition.prepare().files
-                else:
-                    filetype = definition.get("__handler__", None)
-                    path = self.destpath / definition["path"]
-                    if filetype:
-                        files[key] = self.repository.findhandler_of("files", filetype)(path, filetype)
-                    else:
-                        files[key] = path
-
-        # If not, use the download handler directly
-        elif "download" in self.content:
-            handler = self.downloadHandler
-            self.dataset.files = handler.files(self.destpath)
-
-        return self.dataset
-
-
-    def description(self):
-        """Returns the description of the dataset"""
-        return self.content.get("description", "No description")
-
-    def tags(self):
-        """Returns the description of the dataset"""
-        return self.content.get("tags", [])
-        
-    def tasks(self):
-        """Returns the description of the dataset"""
-        return self.content.get("tasks", [])
-
-
-    @property
     def path(self) -> Path:
+        """Returns the path"""
         path = Path(*self.id.split("."))
         if self.version:
             path = path.with_suffix(".v%s" % self.version)
         return path
+        
+    @staticmethod
+    def find(name: str) -> "DataDefinition":
+        """Find a dataset given its name"""
+        logging.debug("Searching dataset %s", name)
+        for repository in Context.instance().repositories():
+            logging.debug("Searching dataset %s in %s", name, repository)
+            dataset = repository.search(name)
+            if dataset is not None:
+                return dataset
+        raise Exception("Could not find the dataset %s" % (name))
 
-    @property
-    def extrapath(self):
-        """Returns the path containing extra configuration files"""
-        return self.repository.extrapath.joinpath(self.path)
-
-    @property
-    def destpath(self):
-        """Returns the destination path for downloads"""
-        return self.repository.downloadpath.joinpath(self.path)
-
-    @property
-    def generatedpath(self):
-        """Returns the destination path for generated files"""
-        return self.repository.generatedpath.joinpath(self.path)
-
-
-    def parent(self):
-        pos = self.id.rfind(".")
-        return self.datafile.repository.search(self.id[:pos])
-
-    @property
-    def context(self):
-        """Returns the context"""
-        return self.datafile.context
-
-    @property
-    def ids(self):
-        """Returns all the IDs of this dataset"""
-        return [self.id]
-    
-    @property
-    def repository(self) -> "Repository":
-        """Main ID is the first one"""
-        return self.datafile.repository
-
-    @property
-    def baseid(self):
-        """Main ID is the first one"""
-        return self.datafile.id
-
-    def resolvens(self, ns):
-        return self.datafile.resolvens(ns)
-
-    def __repr__(self):
-        return "DatasetDefinition(%s)" % (", ".join(self.ids))
-
-
-    def __getitem__(self, key):
-        """Get the item"""
-
-        # If content is a dataset reference, then resolve it
-        if isinstance(self.content, DatasetReference):
-            self.content = self.content.resolve(self).content
-
-        # Tries first ourselves, then go upward
-        if key in self.content:
-            return self.content[key]
-        if self.parent:
-            return self.parent[key]
-
-        raise IndexError()
-    
-
-    def get(self, key, defaultValue):
-        try:
-            return self[key]
-        except IndexError:
-            return defaultValue
 
     @property
     def datadir(self):
         """Path containing real data"""
-        datapath = self.datafile.repository.datapath
+        datapath = self.module.repository.datapath
         if "datapath" in self:
             steps = self.id.split(".")
             steps.extend(self["datapath"].split("/"))
@@ -376,91 +222,128 @@ class DatasetDefinition:
         return datapath.joinpath(*steps)
 
     @property
-    def description(self):
-        return self.handler.description()
+    def destpath(self):
+        """Returns the destination path for downloads"""
+        return self.repository.downloadpath.joinpath(self.path)
 
-    @property
-    def tags(self):
-        return self.handler.tags()
 
-    @property
-    def tasks(self):
-        return self.handler.tasks()
 
-    def downloadURL(self, url):
-        """Downloads an URL"""
+class DataAnnotation():
+  def __call__(self, t):
+    # Set some useful members
+    self.definition = t.__datamaestro__
+    self.repository = self.definition.repository
+    self.context = self.definition.repository.context if self.definition.repository else None
 
-        self.context.cachepath.mkdir(exist_ok=True)
+    # Annotate
+    self.annotate()
+    return t
 
-        def getPaths(hasher):
-            """Returns a cache file path"""
-            path = self.context.cachepath.joinpath(hasher.hexdigest())
-            urlpath = path.with_suffix(".url")
-            dlpath = path.with_suffix(".dl")
+  def annotate(self):
+    raise NotImplementedError("Method annotate for class %s" % self.__class__)
+
+
+def DataTagging(f): 
+  class _Annotation(DataAnnotation):
+    """Define tags in a data definition"""
+    def __init__(self, *tags):
+      self.tags = tags
+
+    def annotate(self):
+      f(self.definition).update(self.tags)
+  return _Annotation
+
+DataTags = DataTagging(lambda d: d.tags)
+DataTasks = DataTagging(lambda d: d.tasks)
+
+def Data(description=None): 
+    def annotate(t):
+        try:
+            object.__getattribute__(t, "__datamaestro__")
+            raise AssertionError("@Data should only be called once")
+        except AttributeError:
+            pass
+
+        # Determine the data type
+        from .experimaestro import Type
+        module, data, path = ("%s.%s" % (t.__module__, t.__name__)).split(".", 2)
+        assert data == "data", "A @Data object should be in the .data module (not %s.%s)" % (module, data)
+        identifier = "%s.%s" % (module, path.lower())
+        t = Type(identifier)(t)
+
+        t.__datamaestro__ = DataDefinition(t)
+        t.__datamaestro__.id = identifier
+
+        return t
+    return annotate
+
+
+class FutureAttr:
+    """Allows to access a dataset subproperty"""
+    def __init__(self, definition, keys):
+        self.definition = definition
+        self.keys = keys
+
+    def __repr__(self):
+        return "[%s].%s" % (self.definition.id, ".".join(self.keys))
+
+    def __call__(self):
+        """Returns the value"""
+        value = self.definition.prepare()
+        for key in self.keys:
+            value = getattr(value, key)
+        return value
+
+
+    def __getattr__(self, key):
+        return FutureAttr(self.definition, self.keys + [key])
+
+    def download(self, force=False):
+        self.definition.download(force)
+
+class DatasetWrapper:
+    def __init__(self, annotation, t):
+        self.t = t
+        d = DatasetDefinition(t)
+        self.__datamaestro__ = d
+        d.base = annotation.base
+        d.update(annotation.base.__datamaestro__)
         
-            if urlpath.is_file():
-                if urlpath.read_text() != url:
-                    # TODO: do something better
-                    raise Exception("Cached URL hash does not match. Clear cache to resolve")
-            return urlpath, dlpath
+        # Removes module_name.config prefix
+        path = t.__module__.split(".", 2)[2]
+        d.id = "%s.%s" % (path, t.__name__.lower())
+        d.aliases.add(d.id)
 
-        hasher = hashlib.sha256(json.dumps(url).encode("utf-8"))
+    def __call__(self, *args, **kwargs):
+        self.t(*args, **kwargs)
 
-        if isinstance(url, dict):
-            logging.info("Needs to download file %s", url["name"])
-            handler = self.repository.findhandler("download", url["handler"])(self, url)
-            urlpath, dlpath = getPaths(hasher)
-            handler.download(dlpath)
-            return CachedFile(dlpath, keep=self.context.keep_downloads)
+    def __getattr__(self, key):
+        return FutureAttr(self.__datamaestro__, [key])
 
+class Dataset():
+    def __init__(self, base, url=None): 
+        self.base = base
 
-        urlpath, dlpath = getPaths(hasher)
-        urlpath.write_text(url)
-
-        if dlpath.is_file():
-            logging.debug("Using cached file %s for %s", dlpath, url)
-        else:
-
-            logging.info("Downloading %s", url)
-            tmppath = dlpath.with_suffix(".tmp")
-            try:
-                with DownloadReportHook(desc="Downloading %s" % url) as reporthook:
-                    urllib.request.urlretrieve(url, tmppath, reporthook.__call__)
-                shutil.move(tmppath, dlpath)
-            except:
-                tmppath.unlink()
-                raise
-
-
-        return CachedFile(dlpath, keep=self.context.keep_downloads)
+    def __call__(self, t):
+        try:
+            object.__getattribute__(t, "__datamaestro__")
+            raise AssertionError("@Data should only be called once")
+        except AttributeError:
+            pass
         
-        
-    @staticmethod
-    def find(name: str, *, context: "Context" = Context.default_context()) -> "DatasetDefinition":
-        """Find a dataset given its name"""
-        logging.debug("Searching dataset %s", name)
-        for repository in context.repositories():
-            logging.debug("Searching dataset %s in %s", name, repository)
-            dataset = repository.search(name)
-            if dataset is not None:
-                return dataset
-        raise Exception("Could not find the dataset %s" % (name))
+        return DatasetWrapper(self, t)
 
 
-def find_dataset(dataset_id: str):
-    """Find a dataset given its id"""
-    return DatasetDefinition.find(dataset_id)
-
-def prepare_dataset(dataset_id: str, context=Context.default_context()):
-    """Find a dataset given its id"""
-    ds = DatasetDefinition.find(dataset_id, context=context)
-    return ds.prepare(download=True)
-
+def datasets(module):
+    for key, value in module.__dict__.items():
+        if hasattr(value, "__datamaestro__"):
+            if value.__datamaestro__.aliases:
+                yield value
 
 class Repository:
     """A repository regroup a set of datasets and their corresponding specific handlers (downloading, filtering, etc.)"""
 
-    def __init__(self, context: Context, basedir:Path= None):
+    def __init__(self, context: Context):
         """Initialize a new repository
 
         :param context: The dataset main context
@@ -468,15 +351,22 @@ class Repository:
             (by default, the same as the repository class)
         """
         self.context = context
-        self.basedir = basedir 
-        if not self.basedir:
-            p = inspect.getabsfile(self.__class__)
-            self.basedir = Path(p).parent
+        p = inspect.getabsfile(self.__class__)
+        self.basedir = Path(p).parent
         self.configdir = self.basedir.joinpath("config")
         self.id = self.__class__.NAMESPACE
         self.name = self.id
         self.module = self.__class__.__module__
-        
+        self.__class__.INSTANCE = self
+
+    @classmethod
+    def instance(cls, context=None):
+        try:
+            return cls.__getattribute__(cls, "INSTANCE")
+        except AttributeError:
+            return cls(context if context else Context.instance())
+
+
     def __repr__(self):
         return "Repository(%s)" % self.basedir
 
@@ -491,6 +381,7 @@ class Repository:
         """Search for a dataset in the definitions"""
         logging.debug("Searching for %s in %s", name, self.configdir)
 
+
         # Search for the YAML file that might contain the definition
         components = name.split(".")
         sub = None
@@ -498,126 +389,66 @@ class Repository:
         path = self.configdir
         for i, c in enumerate(components):
             path = path.joinpath(c)
-            if path.with_suffix(YAML_SUFFIX).is_file():
+            if path.with_suffix(".py").is_file():
                 prefix = ".".join(components[:i+1])
                 sub = ".".join(components[i+1:])
-                path = path.with_suffix(path.suffix + YAML_SUFFIX)
+                path = path.with_suffix(path.suffix + ".py")
                 break
             if not path.is_dir():
                 logging.debug("Could not find %s", path)
                 return None
 
         # Get the dataset
-        logging.debug("Found file %s [prefix=%s/id=%s]", path, prefix, sub)
-        f = DataFile.create(self, prefix, path)
-        if not name in f:
-            return None
+        logging.debug("Found file %s [prefix=%s/id=%s] in module %s", path, prefix, sub, self.module)
+        module = importlib.import_module("%s.config.%s" % (self.module, prefix))
+        for value in datasets(module):
+            if name in value.__datamaestro__.aliases:
+                return value.__datamaestro__
 
-        dataset = f[name]
-        if isinstance(dataset.content, DatasetReference):
-            dataset = dataset.content.resolve(f)
-        return dataset
+        return None
 
-    def datafile(self, did):
-        """Returns a datafile given the its id"""
-        path = self.basedir.joinpath("config").joinpath(*did.split(".")).with_suffix(YAML_SUFFIX)
-        return DataFile.create(self, did, path)
+    def module(self, did):
+        """Returns a module given the its id"""
+        path = self.basedir.joinpath("config").joinpath(*did.split(".")).with_suffix(".py")
+        return module.create(self, did, path)
 
-    def datafiles(self):
-        """Iterates over all datafiles in this repository"""
-        for _, fid, path in self._datafiles():
+    def modules(self):
+        """Iterates over all modules in this repository"""
+        for _, fid, package in self._modules():
             try:
-                datafile = DataFile.create(self, fid, path)
-                yield datafile
+                module = importlib.import_module(package)
+                yield datasets(module)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
-                logging.error("Error while reading definitions file %s: %s", path, e)
+                logging.error("Error while loading module %s: %s", package, e)
 
-    def _datafiles(self):
-        """Iterate over datafiles (without parsing them)"""
-        for path in self.configdir.rglob("*%s" % YAML_SUFFIX):
+    def _modules(self):
+        """Iterate over modules (without parsing them)"""
+        import pkgutil
+
+        for path in self.configdir.rglob("*.py"):
             try:
-                c = [p.name for p in path.relative_to(self.configdir).parents][:-1][::-1]
-                c.append(path.stem)
+                relpath = path.relative_to(self.configdir)
+                c = [p.name for p in relpath.parents][:-1][::-1]
+                if path.name != "__init__.py":
+                    c.append(path.stem)
                 fid = ".".join(c)
-                yield self, fid, path
+
+                package = ".".join([self.module, "config", *c])
+
+                yield self, fid, package
             except Exception as e:
                 import traceback
                 traceback.print_exc()
                 logging.error("Error while reading definitions file %s: %s", path, e)
-
-
-
+   
     def __iter__(self):
         """Iterates over all datasets in this repository"""
-        for datafile in self.datafiles():
-            for dataset in datafile:
-                yield dataset
+        for datasets in self.modules():
+            for dataset in datasets:
+                yield dataset.__datamaestro__
 
-    def findhandler_of(self, handlertype: str, handlerdef: Union[dict, str]) -> "FileHandler":
-        """Returns the handler of a given type
-        
-        Arguments:
-            handlertype {str} -- The handler type
-            handlerdef {Union[dict, str]} -- Either a structure containing "__handler__" or a string
-        
-        Returns:
-            handler -- Returns the handler
-        """
-        if isinstance(handlerdef, str):
-            return self.findhandler(handlertype, handlerdef)
-        return self.findhandler(handlertype, handlerdef["__handler__"])
-
-    def findhandler(self, handlertype, fullname):
-        """
-        Find a handler of a given type
-
-        A handle can be specified using
-
-        `module/subpackage:class`
-
-        will map to class <class> in <module>.<handlertype>.subpackage
-
-        Two shortcuts can be used:
-        - `/subpackage:class`: module = datamaestro
-        - `subpackage:class`: module = repository module
-        
-        If `class` is not given, use the last subpackage name (with a uppercase first letter)
-
-        """
-        logging.debug("Searching for handler %s of type %s", fullname, handlertype)
-        pattern = re.compile(r"^((?P<module>[\w_]+)?(?P<slash>/))?(?P<path>[\w_]+)(?::(?P<name>[\w_]+))?$")
-        m = pattern.match(fullname)
-        if not m:
-            raise Exception("Invalid handler specification %s" % fullname)
-
-        name = m.group('name')
-        path = m.group('path')
-        if name is None:
-            mpath = re.match(r"^(?:.*\.)?([^.])([^.]+)$", path)
-            name = mpath.group(1).upper() + mpath.group(2)
-            
-        if m.group('slash') is None:
-            # relative path
-            module = self.module
-        else:
-            # absolute path
-            if m.group('module'):
-                module = m.group('module')
-            else:
-                module = "datamaestro"
-        
-
-        package = "%s.%s.%s" % (module, handlertype, path)
-        
-        logging.debug("Searching for handler: package %s, class %s", package, name)
-        try:
-            package = importlib.import_module(package)
-        except ModuleNotFoundError:
-            raise Exception("""Could not find handler "{}" of type {}: module {} not found""".format(fullname, handlertype, package))
-
-        return getattr(package, name)
 
     @property
     def generatedpath(self):
@@ -635,4 +466,16 @@ class Repository:
     def extrapath(self):
         """Path to the directory containing extra configuration files"""
         return self.basedir.joinpath("data")
+
+
+
+
+def find_dataset(dataset_id: str):
+    """Find a dataset given its id"""
+    return DatasetDefinition.find(dataset_id)
+
+def prepare_dataset(dataset_id: str):
+    """Find a dataset given its id"""
+    ds = DatasetDefinition.find(dataset_id) 
+    return ds.prepare(download=True)
 

@@ -2,7 +2,7 @@ import logging
 import traceback
 import importlib
 
-from datamaestro.definitions import Repository, DataFile
+from datamaestro.definitions import Repository
 from datamaestro.context import Context
 
 import unittest
@@ -10,7 +10,7 @@ import unittest
 class DatasetTests():
     @classmethod
     def setUpClass(cls):
-        context = Context.default_context()
+        context = Context.instance()
         module = importlib.import_module(cls.__module__.split(".")[0])
         logging.info("Setting up %s", module.Repository(context))
         cls.__DATAMAESTRO_REPOSITORY__ = module.Repository(context)
@@ -20,9 +20,9 @@ class DatasetTests():
         return self.__class__.__DATAMAESTRO_REPOSITORY__
 
     def test_datafiles(self):
-        for context, file_id, path in self.repository._datafiles():
-            with self.subTest(datafile=path):
-                DataFile(context, file_id, path)
+        for context, file_id, package in self.repository._modules():
+            with self.subTest(package=package):
+                importlib.import_module(package)
 
     def test_datasets(self):
         """Check datasets integrity by preparing them (without downloading)

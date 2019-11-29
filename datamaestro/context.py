@@ -9,8 +9,10 @@ import urllib
 import shutil
 from .registry import Registry
 from itertools import chain
+import json
 import pkg_resources
 from tqdm import tqdm
+from .utils import CachedFile
 
 class Compression:
     @staticmethod
@@ -51,15 +53,18 @@ class Context:
     """
     MAINDIR = Path(os.environ.get("DATAMAESTRO_DIR", "~/datamaestro")).expanduser()
 
-    DEFAULT=None
+    INSTANCE=None
 
     """Main settings"""
     def __init__(self, path: Path = None):
+        assert not Context.INSTANCE
+
         self._path = path or Context.MAINDIR
         self._dpath = Path(__file__).parents[1]
         self._repository = None
         self.registry = Registry(self.datapath / "registry.yaml")
         self.keep_downloads = False
+        self.traceback = False
 
         # Read preferences
         self.settings = {}
@@ -69,15 +74,11 @@ class Context:
                 flatten_settings(self.settings, yaml.load(fp, Loader=yaml.SafeLoader))
                    
     @staticmethod
-    def default_context():
-        if Context.DEFAULT is None:
-            Context.DEFAULT = Context()
-        return Context.DEFAULT
-        
-    @staticmethod
     def instance():
-        return Context()
-
+        if Context.INSTANCE is None:
+            Context.INSTANCE = Context()
+        return Context.INSTANCE
+        
     @property
     def datapath(self):
         return self._path.joinpath("data")
@@ -87,9 +88,9 @@ class Context:
         return self._path.joinpath("cache")
 
     def repositories(self):
-        """Returns the repository"""
+        """Returns an iterator over repositories"""
         for entry_point in pkg_resources.iter_entry_points('datamaestro.repositories'):
-            yield entry_point.load()(self)
+            yield entry_point.load().instance()
 
     def repository(self, repositoryid):
         l = [x for x in pkg_resources.iter_entry_points('datamaestro.repositories', repositoryid)]
@@ -107,8 +108,55 @@ class Context:
 
     def dataset(self, datasetid) -> ".data.DatasetDefinition":
         """Get a dataset by ID"""
-        from .definitions import DatasetDefinition
-        return DatasetDefinition.find(datasetid, context=self)
+        from .definitions import Repository
+        for repository in self.repositories():
+            dataset = repository.search(datasetid)
+            if dataset is not None:
+                return dataset
+        
+        raise Exception("Dataset {} not found".format(datasetid))
 
     def preference(self, key, default=None):
         return self.settings.get(key, default)
+
+
+
+    def downloadURL(self, url):
+        """Downloads an URL"""
+
+        self.cachepath.mkdir(exist_ok=True)
+
+        def getPaths(hasher):
+            """Returns a cache file path"""
+            path = self.cachepath.joinpath(hasher.hexdigest())
+            urlpath = path.with_suffix(".url")
+            dlpath = path.with_suffix(".dl")
+        
+            if urlpath.is_file():
+                if urlpath.read_text() != url:
+                    # TODO: do something better
+                    raise Exception("Cached URL hash does not match. Clear cache to resolve")
+            return urlpath, dlpath
+
+        hasher = hashlib.sha256(json.dumps(url).encode("utf-8"))
+
+        urlpath, dlpath = getPaths(hasher)
+        urlpath.write_text(url)
+
+        if dlpath.is_file():
+            logging.debug("Using cached file %s for %s", dlpath, url)
+        else:
+
+            logging.info("Downloading %s", url)
+            tmppath = dlpath.with_suffix(".tmp")
+            try:
+                with DownloadReportHook(desc="Downloading %s" % url) as reporthook:
+                    urllib.request.urlretrieve(url, tmppath, reporthook.__call__)
+                shutil.move(tmppath, dlpath)
+            except:
+                tmppath.unlink()
+                raise
+
+
+        return CachedFile(dlpath, keep=self.keep_downloads)
+        
