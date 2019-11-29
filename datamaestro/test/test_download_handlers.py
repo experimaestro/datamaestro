@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 
 import datamaestro.download.single as single
-from datamaestro import Repository, Context, DatasetDefinition, DataFile
+from datamaestro import Repository, Context
 
 
 TEST_PATH = Path(__file__).parent
@@ -38,17 +38,19 @@ class MyRepository(Repository):
     AUTHOR = """Benjamin Piwowarski <benjamin@piwowarski.fr>"""
     DESCRIPTION = """Repository with tests"""
 
+class Definition: pass
+
 class MainTest(TemporaryContext):
 
     def test_single_(self):
         repository = MyRepository(MainTest.context)
         
-        f_definition = { "url": "file:///" + str(Path(__file__).resolve()), "__handler__": "/single:File"  }
-        ds_definition = { "download": f_definition }
-
-        datafile = DataFile.create(repository, "", None)
-        dataset = DatasetDefinition(datafile, "single", ds_definition, None)
-        dataset.download()
+        url = "file:///" + str(Path(__file__).resolve())
+        downloader = single.DownloadFile("test", url)
+        downloader.definition = Definition()
+        downloader.definition.destpath = Path(self.__class__.dir)
+        downloader.context = self.__class__.context
+        downloader.download()
 
 
 if __name__ == '__main__':
