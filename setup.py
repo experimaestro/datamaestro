@@ -31,15 +31,20 @@ class VerifyVersionCommand(install):
             )
             sys.exit(info)
 
+with open("README.md", "r") as fh:
+    long_description = fh.read()
+
 setup(name='datamaestro',
     version=VERSION,
-    description='DatasetDefinition management',
+    description='Dataset management',
     author='Benjamin Piwowarski',
     author_email='benjamin@piwowarski.fr',
     url='https://github.com/bpiwowar/datamaestro',
     packages=find_namespace_packages(include="datamaestro.*"),
     install_requires = requirements,
-    package_data={'datamaestro': ['LICENSE',  'datamaestro/repositories.yaml']},
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    package_data={'datamaestro': ['LICENSE']},
     data_files=[('config', ['requirements.txt'])],
     cmdclass={
         'verify': VerifyVersionCommand,
