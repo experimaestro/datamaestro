@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/experimaestro/datamaestro.svg?style=svg)](https://circleci.com/gh/experimaestro/datamaestro) [![PyPI version](https://badge.fury.io/py/datamaestro.svg)](https://badge.fury.io/py/datamaestro)
+
 # Introduction
 
 This projects aims at grouping utilities to deal with the numerous and heterogenous datasets present on the Web. It aims
