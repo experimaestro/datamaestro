@@ -67,7 +67,7 @@ def main():
 @click.argument("dataset", type=str)
 @pass_cfg
 def info(config: Config, dataset):
-    dataset = DatasetDefinition.find(dataset, context=config.context)
+    dataset = DatasetDefinition.find(dataset)
     print(dataset.description)
     print(dataset.tags)
 
