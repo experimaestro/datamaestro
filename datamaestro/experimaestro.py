@@ -1,3 +1,5 @@
+import logging
+
 # If experimaestro is installed, use it... otherwise, use dummy classes
 try:
     from experimaestro import *
