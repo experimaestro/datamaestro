@@ -206,7 +206,7 @@ class DatasetWrapper:
         
         # Removes module_name.config prefix
         path = t.__module__.split(".", 2)[2]
-        d.id = "%s.%s" % (path, t.__name__.lower())
+        d.id = "%s.%s" % (path, annotation.id or t.__name__.lower())
         d.aliases.add(d.id)
 
     def __call__(self, *args, **kwargs):
@@ -216,8 +216,10 @@ class DatasetWrapper:
         return FutureAttr(self.__datamaestro__, [key])
 
 class Dataset():
-    def __init__(self, base, url=None): 
+    def __init__(self, base, *, id=None, url=None): 
         self.base = base
+        self.id = id
+        self.url = url
 
     def __call__(self, t):
         try:

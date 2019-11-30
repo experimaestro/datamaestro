@@ -1,8 +1,10 @@
 # If experimaestro is installed, use it... otherwise, use dummy classes
 try:
     from experimaestro import *
+    logging.debug("Using real experimaestro")
 except ModuleNotFoundError:
     # Use dummy classes    
+    logging.debug("Using dummy experimaestro")
     class Typename:
         def __init__(self, name):
             self.name = name

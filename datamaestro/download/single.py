@@ -42,10 +42,10 @@ class DownloadFile(SingleDownload):
 
         # Infer name and 
         p = urllib3.util.parse_url(self.url)
-        path = Path(p.path)
+        path = Path(Path(p.path).name)
 
         self.transforms = transforms if transforms else Transform.createFromPath(path)
-        self.name = Path(name) if name else self.transforms.path(Path(p.path))
+        self.name = Path(name) if name else self.transforms.path(path)
             
 
     def _download(self, destination):
