@@ -10,7 +10,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from datamaestro.utils import rm_rf
-from datamaestro.transform import Transform
+from datamaestro.stream import Transform
 from datamaestro.download import Download
 
 
@@ -33,7 +33,8 @@ class SingleDownload(Download):
         
 
 class DownloadFile(SingleDownload):
-    """Single file"""
+    """Downloads a single file given by a URL"""
+    
     def __init__(self, varname: str, url: str, name :str=None, transforms=None):
         super().__init__(varname)
   
@@ -43,15 +44,8 @@ class DownloadFile(SingleDownload):
         p = urllib3.util.parse_url(self.url)
         path = Path(p.path)
 
-        self.name = name
-        
-        if transforms is None:
-            self.name, self.transformer = Transform.createFromPath(path)
-        else:
-            self.transformer = Transform.create(self.repository, self.definition["transforms"])
-        
-        if self.name is None:
-            self.name = p.name
+        self.transforms = transforms if transforms else Transform.createFromPath(path)
+        self.name = Path(name) if name else self.transforms.path(Path(p.path))
             
 
     def _download(self, destination):
@@ -64,9 +58,9 @@ class DownloadFile(SingleDownload):
         # Download (cache)
         with self.context.downloadURL(self.url) as file:
             # Transform if need be
-            if self.transformer:
+            if self.transforms:
                 logging.info("Transforming file")
-                with self.transformer(file.path.open("rb")) as stream, destination.open("wb") as out:
+                with self.transforms(file.path.open("rb")) as stream, destination.open("wb") as out:
                     shutil.copyfileobj(stream, out)
             else:
                 logging.info("Keeping original downloaded file %s", file.path)
@@ -76,29 +70,27 @@ class DownloadFile(SingleDownload):
         logging.info("Created file %s" % destination)
 
 
-class Concat(SingleDownload):
+class ConcatDownload(SingleDownload):
     """Concatenate all files in an archive"""
-    def __init__(self, repository, definition):
-        super().__init__(repository, definition)
-        self.url = self.definition["url"]
-        self.gzip = self.url.endswith(".gz")
 
-    def path(self, path: Path) -> Path:
-        """Returns the destination path"""
+    def __init__(self, varname: str, url: str, name :str=None, transforms=None):
+        super().__init__(varname)
+  
+        self.url = url
+
+        # Infer name and 
         p = urllib3.util.parse_url(self.url)
-        return path / Path(p.path).stem
+        path = Path(p.path)
+
+        self.transforms = transforms if transforms else Transform.createFromPath(path)
+        self.name = Path(name) if name else self.transforms.path(Path(p.path))
 
     def _download(self, destination):
         with NamedTemporaryFile("wb") as f,  self.dataset.downloadURL(self.url) as dl, tarfile.open(dl.path) as archive:
-            if "transforms" in self.definition:
-                transformer = Transform.create(self.repository, self.definition["transforms"]) 
-            else:
-                transformer = lambda x: x
-
             destination.parent.mkdir(parents=True, exist_ok=True)
             with open(destination, "wb") as out:
                 for tarinfo in archive:
                     if tarinfo.isreg():
                         logging.debug("Processing file %s", tarinfo.name)
-                        with transformer(archive.fileobject(archive, tarinfo)) as fp:
+                        with self.transforms(archive.fileobject(archive, tarinfo)) as fp:
                             shutil.copyfileobj(fp, out)

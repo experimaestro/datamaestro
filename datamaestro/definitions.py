@@ -23,111 +23,6 @@ from typing import Union
 from .experimaestro import Argument, Type
 from .context import Context, DownloadReportHook
 
-# class DataDefinition:
-#     """Represents one dataset definition"""
-
-#     def __init__(self, module: module, datasetid: str, content: object, parent: "DataDefinition"):
-#         """
-#         Construct a new dataset
-
-#         :param module: the attached definition file
-#         :param id: the ID of this dataset
-#         :param content: The dataset definition
-#         """
-#         self.module = module
-#         self.id = datasetid
-#         self.content = content
-#         self.parent = parent
-#         self.isalias = isinstance(content, DatasetReference)
-
-#         # Don't define any dataset object for now
-#         self._dataset = None
-#         self._resolved = False
-        
-#         # Search for dependencies
-#         self.dependencies = {}
-
-#         # Get some useful values from the definition
-#         self.type = self.content.get("type", None)
-#         self.version = self.content.get("version", None)
-#         self.name = self.content.get("name", self.id)
-
-#     @property
-#     def dataset(self):
-#         if not self._dataset:
-#             # Resolve the references
-#             self.resolve()
-            
-#             if self.type:
-#                 logging.debug("Searching for dataset object of type %s", self.type)
-#                 self._dataset = self.repository.findhandler("dataset", self.type).fromdefinition(self)
-#             else:
-#                 from datamaestro.dataset import Dataset
-#                 self._dataset = Dataset.fromdefinition(self)
-
-#         return self._dataset
-
-
-#     def prepare(self, download=False):
-#         """Prepare the dataset
-        
-#         Performs (basic) post-processing after the dataset has been downloaded,
-#         and returns a Data object
-#         """
-#         self.resolve()
-
-
-#         # Set some values
-#         self.dataset.id = self.id
-
-#         # Prepare all dependencies
-#         for key, dependency in self.dependencies.items():
-#             try:
-#                 dependency.prepare(download=download)
-#             except:
-#                 logging.error("Error while processing {}".format(dependency.id))
-#                 raise
-
-#         # Download
-#         if download:
-#             self.download()
-
-#         # Use the "files" section 
-#         if "files" in self.content:
-#             files = self.dataset.files = {}
-#             for key, definition in self.content["files"].items():
-#                 if isinstance(definition, str):
-#                     files[key] = self.destpath / definition
-#                 elif isinstance(definition, DataDefinition):
-#                     # This is a dataset
-#                     files[key] = definition.prepare().files
-#                 else:
-#                     filetype = definition.get("__handler__", None)
-#                     path = self.destpath / definition["path"]
-#                     if filetype:
-#                         files[key] = self.repository.findhandler_of("files", filetype)(path, filetype)
-#                     else:
-#                         files[key] = path
-
-#         # If not, use the download handler directly
-#         elif "download" in self.content:
-#             handler = self.downloadHandler
-#             self.dataset.files = handler.files(self.destpath)
-
-#         return self.dataset
-
-
-#     @property
-#     def extrapath(self):
-#         """Returns the path containing extra configuration files"""
-#         return self.repository.extrapath.joinpath(self.path)
-
-
-#     @property
-#     def generatedpath(self):
-#         """Returns the destination path for generated files"""
-#         return self.repository.generatedpath.joinpath(self.path)
-
 class DataDefinition():
     """Object that stores the declarative part of a data(set) description
     """
@@ -332,7 +227,6 @@ class Dataset():
             pass
         
         return DatasetWrapper(self, t)
-
 
 def datasets(module):
     for key, value in module.__dict__.items():

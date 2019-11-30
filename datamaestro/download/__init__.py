@@ -19,3 +19,15 @@ class Download(DataAnnotation):
     def download(self, force=False):
         """Downloads the content"""
         raise NotImplementedError()
+
+class Reference(Download):
+    def __init__(self, varname, reference):
+        super().__init__(varname)
+        self.reference = reference
+
+    @property
+    def value(self):
+        return self.reference.__datamaestro__.prepare()
+
+    def download(self, force=False):
+        self.reference.__datamaestro__.download(force)

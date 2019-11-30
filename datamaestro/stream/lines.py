@@ -1,4 +1,6 @@
 import io
+import re
+
 from . import Transform
 
 class LineTransformStream(io.RawIOBase):
@@ -48,19 +50,17 @@ class LineTransformStream(io.RawIOBase):
 
 class Replace(Transform):
     """Line by line transform"""
-    def __init__(self, content):
-        import re
-        self.re = re.compile(content["pattern"])
-        self.repl = content["repl"]
+    def __init__(self, pattern, replacement):
+        self.re = re.compile(pattern)
+        self.repl = replacement
        
     def __call__(self, fileobj):
         return LineTransformStream(fileobj, lambda s: self.re.sub(self.repl, s))
 
 class Filter(Transform):
     """Line by line transform"""
-    def __init__(self, content):
-        import re
-        self.re = re.compile(content["pattern"])
+    def __init__(self, pattern):
+        self.re = re.compile(pattern)
        
     def filter(self, line):
         if self.re.search(line): 

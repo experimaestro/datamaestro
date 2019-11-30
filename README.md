@@ -7,7 +7,7 @@ at being
 
 1. a reference for available resources, listing datasets
 1. a tool to automatically download and process resources (when freely available)
-1. optional integration with an experiment scheduler
+1. optional integration with the [experimaestro](http://experimaestro.github.io/experimaestro/) experiment manager.
 1. (planned) a tool that allows to copy data from one computer to another
 
 Each datasets is uniquely identified by a qualified name such as `com.lecun.mnist`, which is usually the inversed path to the domain name of the website associated with the dataset.

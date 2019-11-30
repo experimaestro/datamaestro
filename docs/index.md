@@ -1,12 +1,121 @@
-# Datasets
+# Datamaestro
 
-This projects aims at grouping utilities to deal with the numerous and heterogeneous datasets present on the Web. It aims
+This projects aims at grouping utilities to deal with the numerous and heterogenous datasets present on the Web. It aims
 at being
 
-1. A reference for available resources
-1. A tool to automatically download and/or process resources, when this is possible
+1. a reference for available resources, listing datasets
+1. a tool to automatically download and process resources (when freely available)
+1. optional integration with the [experimaestro](http://experimaestro.github.io/experimaestro/) experiment manager.
+1. (planned) a tool that allows to copy data from one computer to another
 
-Each dataset is uniquely identified by a qualified name such as `nist.trec.2009.web.adhoc`. A dataset can reference other
-datamaestro.
+Each datasets is uniquely identified by a qualified name such as `com.lecun.mnist`, which is usually the inversed path to the domain name of the website associated with the dataset.
 
-This software integrates with the [experimaestro](http://experimaestro.sf.net) experiment manager.
+The main repository only deals with very generic processing (downloading, basic pre-processing and data types). Plugins can then be registered that provide access to domain specific datasets.
+
+
+## List of repositories
+ 
+- [NLP and information access related dataset](https://github.com/experimaestro/datamaestro_text)
+- [image-related dataset](https://github.com/experimaestro/datamaestro_image)
+- [machine learning](https://github.com/experimaestro/datamaestro_ml) contains standard ML datasets
+
+# Detailed example
+
+## Python definition of datasets
+
+Each dataset (or a set of related datasets) is described in Python using a mix of declarative
+and imperative statements. Its syntax is described in the [documentation](http://experimaestro.github.io/datamaestro/).
+For MNIST, this gives
+
+```python
+from datamaestro_image.data import ImageClassification
+from datamaestro.data.tensor import IDX
+
+from datamaestro.download.single import DownloadFile
+from datamaestro.definitions import Data, Argument, Dataset
+
+
+@DownloadFile("train_images", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
+@DownloadFile("train_labels", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
+@DownloadFile("test_images", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
+@DownloadFile("test_labels", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
+@Dataset(ImageClassification, url="http://yann.lecun.com/exdb/mnist/")
+def MNIST(train_images, train_labels, test_images, test_labels):
+  """The MNIST database
+  
+  The MNIST database of handwritten digits, available from this page, has a
+  training set of 60,000 examples, and a test set of 10,000 examples. It is a
+  subset of a larger set available from NIST. The digits have been
+  size-normalized and centered in a fixed-size image. 
+  """
+  return {
+    "train": ImageClassification(
+      images=IDX(path=train_images.path),
+      labels=IDX(path=train_labels.path)
+    ),
+    "test": ImageClassification(
+      images=IDX(path=test_images.path),
+      labels=IDX(path=test_labels.path)
+    ),
+  }
+```
+
+## Retrieve and download
+
+The commmand line interface allows to download automatically the different resources. Datamaestro extensions can provide additional processing tools.
+
+```bash
+$ datamaestro search mnist   
+com.lecun.mnist
+
+$ datamaestro prepare com.lecun.mnist 
+INFO:root:Downloading http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-labels-idx1-ubyte
+INFO:root:Transforming file
+INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-labels-idx1-ubyte
+INFO:root:Downloading http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-images-idx3-ubyte
+INFO:root:Transforming file
+INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-images-idx3-ubyte
+INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-labels-idx1-ubyte
+INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz
+Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz: 32.8kB [00:00, 92.1kB/s]                                                                                              
+INFO:root:Transforming file
+INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-labels-idx1-ubyte
+INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-images-idx3-ubyte
+INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz
+Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz: 9.92MB [00:00, 10.6MB/s]                                                                                              
+INFO:root:Transforming file
+INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-images-idx3-ubyte
+...JSON...
+```
+
+The previous command also returns a JSON on standard output
+```json
+{
+  "train": {
+    "images": {
+      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-images-idx3-ubyte"
+    },
+    "labels": {
+      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-labels-idx1-ubyte"
+    }
+  },
+  "test": {
+    "images": {
+      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-images-idx3-ubyte"
+    },
+    "labels": {
+      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-labels-idx1-ubyte"
+    }
+  },
+  "id": "com.lecun.mnist"
+}
+```
+
+For those using Python, this is even better since the IDX format is supported
+
+```python
+In [1]: from datamaestro import prepare_dataset
+In [2]: ds = prepare_dataset("com.lecun.mnist") 
+In [3]: ds.train.images.data().dtype, ds.train.images.data().shape
+Out[3]: (dtype('uint8'), (60000, 28, 28))
+```
