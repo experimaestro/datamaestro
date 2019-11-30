@@ -86,7 +86,7 @@ class ConcatDownload(SingleDownload):
         self.name = Path(name) if name else self.transforms.path(Path(p.path))
 
     def _download(self, destination):
-        with NamedTemporaryFile("wb") as f,  self.dataset.downloadURL(self.url) as dl, tarfile.open(dl.path) as archive:
+        with NamedTemporaryFile("wb") as f,  self.context.downloadURL(self.url) as dl, tarfile.open(dl.path) as archive:
             destination.parent.mkdir(parents=True, exist_ok=True)
             with open(destination, "wb") as out:
                 for tarinfo in archive:
