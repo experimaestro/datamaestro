@@ -30,6 +30,7 @@ and imperative statements. Its syntax is described in the [documentation](http:/
 For MNIST, this gives
 
 ```python
+from datamaestro.data import Generic
 from datamaestro_image.data import ImageClassification
 from datamaestro.data.tensor import IDX
 
@@ -41,7 +42,7 @@ from datamaestro.definitions import Data, Argument, Dataset
 @FileDownloader("train_labels", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
 @FileDownloader("test_images", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
 @FileDownloader("test_labels", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
-@Dataset(ImageClassification, url="http://yann.lecun.com/exdb/mnist/")
+@Dataset(Generic, url="http://yann.lecun.com/exdb/mnist/")
 def MNIST(train_images, train_labels, test_images, test_labels):
   """The MNIST database
   
@@ -52,12 +53,12 @@ def MNIST(train_images, train_labels, test_images, test_labels):
   """
   return {
     "train": ImageClassification(
-      images=IDX(path=train_images.path),
-      labels=IDX(path=train_labels.path)
+      images=IDX(path=train_images),
+      labels=IDX(path=train_labels)
     ),
     "test": ImageClassification(
-      images=IDX(path=test_images.path),
-      labels=IDX(path=test_labels.path)
+      images=IDX(path=test_images),
+      labels=IDX(path=test_labels)
     ),
   }
 ```
