@@ -52,7 +52,7 @@ class DataDefinition():
                 self.description = lines[2]
 
         self.resources = {}
-
+    
     def update(self, base):
         self.tags.update(base.tags)
         self.tasks.update(base.tasks)
@@ -62,7 +62,7 @@ class DataDefinition():
 
 class DatasetDefinition(DataDefinition):
     def download(self, force=False):
-        """Download all the necessary resources"""
+        """Download all the necessar    y resources"""
         success = True
         for key, resource in self.resources.items():
             try:
@@ -77,7 +77,8 @@ class DatasetDefinition(DataDefinition):
         if download and not self.download(False):
             raise Exception("Could not load necessary resources")
         logging.debug("Building with data type %s and dataset %s", self.base, self.t)
-        data = self.base(**self.t(**self.resources))
+        resources = {key: value.prepare() for key, value in self.resources.items()}
+        data = self.base(**self.t(**resources))
         data.id = self.id
         return data
 
@@ -280,12 +281,13 @@ class Repository:
 
         # Search for the YAML file that might contain the definition
         components = name.split(".")
+        N = len(components)
         sub = None
         prefix = None
         path = self.configdir
         for i, c in enumerate(components):
             path = path.joinpath(c)
-            if path.with_suffix(".py").is_file():
+            if path.with_suffix(".py").is_file() or (i == N - 2 and (path / "__init__.py").is_file()):
                 prefix = ".".join(components[:i+1])
                 sub = ".".join(components[i+1:])
                 path = path.with_suffix(path.suffix + ".py")

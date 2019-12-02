@@ -46,7 +46,7 @@ class MainTest(TemporaryContext):
         repository = MyRepository(MainTest.context)
         
         url = "file:///" + str(Path(__file__).resolve())
-        downloader = single.DownloadFile("test", url)
+        downloader = single.FileDownloader("test", url)
         downloader.definition = Definition()
         downloader.definition.destpath = Path(self.__class__.dir)
         downloader.context = self.__class__.context

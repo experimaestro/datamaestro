@@ -8,23 +8,27 @@ import tarfile
 
 
 class ArchiveDownloader(Download):
-    def __init__(self, repository, definition):
-        super().__init__(repository, definition)
-        self.url = self.definition["url"]
-        self.subpath = self.definition.get("path", None)
-        self._files = self.definition.get("files", None)
+    def __init__(self, varname, url, subpath=None, files=None):
+        super().__init__(varname)
+        self.url = url
+        self.subpath = subpath
+        self._files = files
         if self.subpath and not self.subpath.endswith("/"):
             self.subpath = self.subpath + "/"
 
-    def resolve(self, path: Path) -> Path:
-        """Returns the destination path"""
         p = urllib3.util.parse_url(self.url)
-        return path.joinpath(Path(p.path).name)
+        self.name = Path(p.path).name
 
+    @property
+    def path(self):
+        return self.definition.destpath
 
+    def prepare(self):
+        return self.definition.destpath
 
-    def download(self, destination: Path):
+    def download(self, force=False):
         # Already downloaded
+        destination = self.definition.destpath
         if destination.is_dir(): return 
         logging.info("Downloading %s into %s", self.url, destination)
 
@@ -34,7 +38,7 @@ class ArchiveDownloader(Download):
             logging.warn("Removing temporary directory %s", tmpdestination)
             shutil.rmtree(tmpdestination)
 
-        with self.dataset.downloadURL(self.url) as file:
+        with self.context.downloadURL(self.url) as file:
             self.unarchive(file, tmpdestination)
 
         # Look at the content
@@ -50,13 +54,8 @@ class ArchiveDownloader(Download):
             shutil.move(tmpdestination, destination)
 
 
-class Zip(ArchiveDownloader):
+class ZipDownloader(ArchiveDownloader):
     """ZIP Archive handler"""
-        
-    def resolve(self, path: Path) -> Path:
-        """Returns the destination path"""
-        p = urllib3.util.parse_url(self.url)
-        return path.joinpath(Path(p.path).name)
 
     def unarchive(self, file, destination: Path):
         logging.info("Unzipping file")
@@ -77,11 +76,11 @@ class Zip(ArchiveDownloader):
         
 
 
-class Tar(ArchiveDownloader):
+class TarDownloader(ArchiveDownloader):
     """TAR archive handler"""
 
     def unarchive(self, file: Path, destination: Path):
         logging.info("Unarchiving file")
         if self.subpath: raise NotImplementedError()
         with tarfile.TarFile.open(file.path, mode="r:*") as tar:
-            tar.extractall(tmpdestination)
+            tar.extractall(destination)

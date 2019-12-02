@@ -31,14 +31,14 @@ For MNIST, this gives
 from datamaestro_image.data import ImageClassification
 from datamaestro.data.tensor import IDX
 
-from datamaestro.download.single import DownloadFile
+from datamaestro.download.single import FileDownloader
 from datamaestro.definitions import Data, Argument, Dataset
 
 
-@DownloadFile("train_images", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
-@DownloadFile("train_labels", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
-@DownloadFile("test_images", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
-@DownloadFile("test_labels", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
+@FileDownloader("train_images", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
+@FileDownloader("train_labels", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
+@FileDownloader("test_images", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
+@FileDownloader("test_labels", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
 @Dataset(ImageClassification, url="http://yann.lecun.com/exdb/mnist/")
 def MNIST(train_images, train_labels, test_images, test_labels):
   """The MNIST database

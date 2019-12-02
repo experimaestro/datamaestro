@@ -1,5 +1,5 @@
 from pathlib import Path
-from datamaestro.definitions import DataAnnotation
+from datamaestro.definitions import DataAnnotation, DatasetWrapper
 
 class Download(DataAnnotation):
     """
@@ -16,18 +16,44 @@ class Download(DataAnnotation):
 
         self.definition.resources[self.varname] = self
 
+    def postinit(self):
+        """Called when before using the object"""
+        pass
+
     def download(self, force=False):
         """Downloads the content"""
         raise NotImplementedError()
+
+
+class DatasetWrapper:
+    def __init__(self, annotation, t):
+        self.t = t
+        d = DatasetDefinition(t)
+        self.__datamaestro__ = d
+        d.base = annotation.base
+        d.update(annotation.base.__datamaestro__)
+        
+        # Removes module_name.config prefix
+        path = t.__module__.split(".", 2)[2]
+        d.id = "%s.%s" % (path, annotation.id or t.__name__.lower())
+        d.aliases.add(d.id)
+
+    def __call__(self, *args, **kwargs):
+        self.t(*args, **kwargs)
+
+    def __getattr__(self, key):
+        return FutureAttr(self.__datamaestro__, [key])
 
 class Reference(Download):
     def __init__(self, varname, reference):
         super().__init__(varname)
         self.reference = reference
 
-    @property
-    def value(self):
-        return self.reference.__datamaestro__.prepare()
+    def prepare(self):
+        v = self.reference.__datamaestro__.prepare()
+        if isinstance(v, DatasetWrapper):
+            return v().prepare()
+        return v
 
     def download(self, force=False):
         self.reference.__datamaestro__.download(force)

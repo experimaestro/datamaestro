@@ -6,3 +6,5 @@ urllib3
 mkdocs
 pymdown-extensions
 mkdocs-material
+
+numpy

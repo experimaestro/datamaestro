@@ -12,8 +12,9 @@ except ModuleNotFoundError:
             self.name = name
 
     class Argument:
-        def __init__(self, name, type, help=""):
+        def __init__(self, name, type, help="", default=None, required=True):
             self.help = help
+            self.required = required
         def __call__(self, t):
             return t
 

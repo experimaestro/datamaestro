@@ -27,12 +27,15 @@ class SingleDownload(Download):
     def path(self):
         return self.definition.destpath / self.name
 
+    def prepare(self):
+        return self.path
+
     def download(self, force=False):
         if not self.path.is_file():
             self._download(self.path)
         
 
-class DownloadFile(SingleDownload):
+class FileDownloader(SingleDownload):
     """Downloads a single file given by a URL"""
     
     def __init__(self, varname: str, url: str, name :str=None, transforms=None):
