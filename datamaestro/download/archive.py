@@ -21,14 +21,14 @@ class ArchiveDownloader(Download):
 
     @property
     def path(self):
-        return self.definition.destpath
+        return self.definition.datapath
 
     def prepare(self):
-        return self.definition.destpath
+        return self.definition.datapath
 
     def download(self, force=False):
         # Already downloaded
-        destination = self.definition.destpath
+        destination = self.definition.datapath
         if destination.is_dir(): return 
         logging.info("Downloading %s into %s", self.url, destination)
 

@@ -25,7 +25,7 @@ def open_ext(*args, **kwargs):
 class SingleDownload(Download):
     @property
     def path(self):
-        return self.definition.destpath / self.name
+        return self.definition.datapath / self.name
 
     def prepare(self):
         return self.path
@@ -85,15 +85,22 @@ class ConcatDownload(SingleDownload):
         p = urllib3.util.parse_url(self.url)
         path = Path(p.path)
 
-        self.transforms = transforms if transforms else Transform.createFromPath(path)
-        self.name = Path(name) if name else self.transforms.path(Path(p.path))
+        if path.suffix == ".gz":
+            path = Path(path.stem)
+
+        if path.suffix == ".tar":
+            path = Path(path.stem)
+
+        self.name = path.name
 
     def _download(self, destination):
         with NamedTemporaryFile("wb") as f,  self.context.downloadURL(self.url) as dl, tarfile.open(dl.path) as archive:
             destination.parent.mkdir(parents=True, exist_ok=True)
+
             with open(destination, "wb") as out:
                 for tarinfo in archive:
                     if tarinfo.isreg():
+                        transforms = Transform.createFromPath(Path(tarinfo.name))
                         logging.debug("Processing file %s", tarinfo.name)
-                        with self.transforms(archive.fileobject(archive, tarinfo)) as fp:
+                        with transforms(archive.fileobject(archive, tarinfo)) as fp:
                             shutil.copyfileobj(fp, out)

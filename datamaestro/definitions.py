@@ -107,20 +107,9 @@ class DatasetDefinition(DataDefinition):
 
 
     @property
-    def datadir(self):
-        """Path containing real data"""
-        datapath = self.module.repository.datapath
-        if "datapath" in self:
-            steps = self.id.split(".")
-            steps.extend(self["datapath"].split("/"))
-        else:
-            steps = self.id.split(".")
-        return datapath.joinpath(*steps)
-
-    @property
-    def destpath(self):
+    def datapath(self):
         """Returns the destination path for downloads"""
-        return self.repository.downloadpath.joinpath(self.path)
+        return self.repository.datapath / self.path 
 
 
 
@@ -153,6 +142,8 @@ DataTags = DataTagging(lambda d: d.tags)
 DataTasks = DataTagging(lambda d: d.tasks)
 
 def Data(description=None): 
+    if description is not None and not isinstance(description, str):
+        raise RuntimeError("@Data annotation should be written @Data()")
     def annotate(t):
         try:
             object.__getattribute__(t, "__datamaestro__")
@@ -166,7 +157,6 @@ def Data(description=None):
         assert data == "data", "A @Data object should be in the .data module (not %s.%s)" % (module, data)
         identifier = "%s.%s" % (module, path.lower())
         t = Type(identifier)(t)
-
         t.__datamaestro__ = DataDefinition(t)
         t.__datamaestro__.id = identifier
 
@@ -207,7 +197,10 @@ class DatasetWrapper:
         
         # Removes module_name.config prefix
         path = t.__module__.split(".", 2)[2]
-        d.id = "%s.%s" % (path, annotation.id or t.__name__.lower())
+        if annotation.id == "":
+            d.id = path
+        else:
+            d.id = "%s.%s" % (path, annotation.id or t.__name__.lower())
         d.aliases.add(d.id)
 
     def __call__(self, *args, **kwargs):
@@ -233,9 +226,13 @@ class Dataset():
 
 def datasets(module):
     for key, value in module.__dict__.items():
+        # Ensures it is annotated
         if hasattr(value, "__datamaestro__"):
+            # Ensures it is a dataset
             if value.__datamaestro__.aliases:
-                yield value
+                # Ensure it comes from the module
+                if module.__name__ == value.__datamaestro__.t.__module__:
+                    yield value
 
 class Repository:
     """A repository regroup a set of datasets and their corresponding specific handlers (downloading, filtering, etc.)"""
@@ -351,10 +348,6 @@ class Repository:
     @property
     def generatedpath(self):
         return self.basedir.joinpath("generated")
-
-    @property
-    def downloadpath(self):
-        return self.context.datapath.joinpath(self.id)
         
     @property
     def datapath(self):

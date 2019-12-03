@@ -81,6 +81,47 @@ def repositories():
         print("%s: %s" % (entry_point.name, repo_class.DESCRIPTION))
 
 
+
+# --- Cleanup
+
+
+@click.option("--size", is_flag=True, help="Show size")
+@cli.command(help="List (and remove) orphan directories")
+@pass_cfg
+def orphans(config: Config, size):
+    import subprocess
+
+    for repository in config.context.repositories():
+        paths = set()
+        ancestors = set()
+        for dataset in repository:
+            paths.add(dataset.datapath)
+            ancestor = dataset.datapath.parent
+            while ancestor not in ancestors:
+                ancestors.add(ancestor)
+                ancestor = ancestor.parent
+        
+        def lookup(path, prefix=[]):
+            if path in paths:
+                return
+            if path not in ancestors:
+                if size:
+                    print(subprocess.check_output(['du', '-hs', path.absolute()]).decode("utf-8").strip(),)
+                else:
+                    print(path)
+                return
+
+            for child in path.iterdir():
+                if child.is_dir():
+                    lookup(child, prefix + [child.name])
+                else:
+                    return True
+
+        lookup(repository.datapath)
+
+
+
+
 # --- Create a dataset
 
 DATASET_REGEX = re.compile(r"^\w[\w\.-]+\w$")

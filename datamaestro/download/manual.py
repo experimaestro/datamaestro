@@ -18,10 +18,12 @@ class LinkFolder(Download):
         self.name = name
         self.proposals = proposals
 
+    def prepare(self):
+        return self.path
 
     @property
     def path(self):
-        return self.definition.destpath / self.name
+        return self.definition.datapath / self.name
 
     def download(self, destination):
         if self.path.is_dir(): 

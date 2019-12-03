@@ -9,7 +9,10 @@ class Links(Download):
 
     @property
     def path(self):
-        return self.definition.destpath
+        return self.definition.datapath
+
+    def prepare(self):
+        return self.path
 
     def download(self, force=False):
         self.path.mkdir(exist_ok=True, parents=True)
