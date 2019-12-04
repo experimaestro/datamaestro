@@ -2,8 +2,7 @@ import logging
 import traceback
 import importlib
 
-from datamaestro.definitions import Repository
-from datamaestro.context import Context
+from datamaestro.context import Context, Repository
 
 import unittest
 
