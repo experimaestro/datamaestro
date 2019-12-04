@@ -13,7 +13,7 @@ from setuptools.command.install import install
 from pathlib import Path
 import re
 
-VERSION='0.5.5'
+VERSION='0.5.6'
 
 RE_BLANCK=re.compile(r"^\s*(#.*)?$")
 with (Path(__file__).parent / 'requirements.txt').open() as f:
