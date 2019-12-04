@@ -5,6 +5,7 @@ import importlib
 import os
 import hashlib
 import logging
+import inspect
 import urllib
 import shutil
 from .registry import Registry
@@ -13,6 +14,7 @@ import json
 import pkg_resources
 from tqdm import tqdm
 from .utils import CachedFile
+from typing import Iterable, List
 
 class Compression:
     @staticmethod
@@ -106,9 +108,8 @@ class Context:
             for dataset in repository:
                 yield dataset
 
-    def dataset(self, datasetid) -> ".data.DatasetDefinition":
+    def dataset(self, datasetid) -> "datamaestro.definitions.DatasetDefinition":
         """Get a dataset by ID"""
-        from .definitions import Repository
         for repository in self.repositories():
             dataset = repository.search(datasetid)
             if dataset is not None:
@@ -160,3 +161,154 @@ class Context:
 
         return CachedFile(dlpath, keep=self.keep_downloads)
         
+
+def datasets(module) -> Iterable["definitions.DatasetDefinition"]:
+    for key, value in module.__dict__.items():
+        # Ensures it is annotated
+        if hasattr(value, "__datamaestro__"):
+            # Ensures it is a dataset
+            if value.__datamaestro__.aliases:
+                # Ensure it comes from the module
+                if module.__name__ == value.__datamaestro__.t.__module__:
+                    yield value
+
+
+class Repository:
+    """A repository regroup a set of datasets and their corresponding specific handlers (downloading, filtering, etc.)"""
+
+    def __init__(self, context: Context):
+        """Initialize a new repository
+
+        :param context: The dataset main context
+        :param basedir: The base directory of the repository
+            (by default, the same as the repository class)
+        """
+        self.context = context
+        p = inspect.getabsfile(self.__class__)
+        self.basedir = Path(p).parent
+        self.configdir = self.basedir.joinpath("config")
+        self.id = self.__class__.NAMESPACE
+        self.name = self.id
+        self.module = self.__class__.__module__
+        self.__class__.INSTANCE = self
+
+    @classmethod
+    def instance(cls, context=None):
+        try:
+            return cls.__getattribute__(cls, "INSTANCE")
+        except AttributeError:
+            return cls(context if context else Context.instance())
+
+
+    def __repr__(self):
+        return "Repository(%s)" % self.basedir
+
+    def __hash__(self):
+        return self.basedir.__hash__()
+
+    def __eq__(self, other):
+        assert isinstance(other, Repository)
+        return self.basedir == other.basedir
+
+    def search(self, name: str):
+        """Search for a dataset in the definitions
+        """
+        logging.debug("Searching for %s in %s", name, self.configdir)
+
+        candidates: List[str] = []
+        components = name.split(".")
+        N = len(components)
+        sub = None
+        prefix = None
+        path = self.configdir
+        for i, c in enumerate(components):
+            path = path / c
+
+            if (path / "__init__.py").is_file():
+                candidates.append(".".join(components[:i+1]))
+
+            if path.with_suffix(".py").is_file():
+                candidates.append(".".join(components[:i+1]))
+
+            if not path.is_dir():
+                break
+
+        # Get the dataset
+        for candidate in candidates[::-1]:
+            logging.debug("Searching in module %s.config.%s", self.module, candidate)
+            module = importlib.import_module("%s.config.%s" % (self.module, candidate))
+            for value in datasets(module):
+                if name in value.__datamaestro__.aliases:
+                    return value.__datamaestro__
+
+        return None
+
+    def module(self, did):
+        """Returns a module given the its id"""
+        path = self.basedir.joinpath("config").joinpath(*did.split(".")).with_suffix(".py")
+        return module.create(self, did, path)
+
+    def modules(self):
+        """Iterates over all modules in this repository"""
+        for _, fid, package in self._modules():
+            try:
+                module = importlib.import_module(package)
+                yield datasets(module)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logging.error("Error while loading module %s: %s", package, e)
+
+    def _modules(self):
+        """Iterate over modules (without parsing them)"""
+        import pkgutil
+
+        for path in self.configdir.rglob("*.py"):
+            try:
+                relpath = path.relative_to(self.configdir)
+                c = [p.name for p in relpath.parents][:-1][::-1]
+                if path.name != "__init__.py":
+                    c.append(path.stem)
+                fid = ".".join(c)
+
+                package = ".".join([self.module, "config", *c])
+
+                yield self, fid, package
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                logging.error("Error while reading definitions file %s: %s", path, e)
+   
+    def __iter__(self):
+        """Iterates over all datasets in this repository"""
+        for datasets in self.modules():
+            for dataset in datasets:
+                yield dataset.__datamaestro__
+
+
+    @property
+    def generatedpath(self):
+        return self.basedir.joinpath("generated")
+        
+    @property
+    def datapath(self):
+        return self.context.datapath.joinpath(self.id)
+
+    @property
+    def extrapath(self):
+        """Path to the directory containing extra configuration files"""
+        return self.basedir.joinpath("data")
+
+
+
+
+def find_dataset(dataset_id: str):
+    """Find a dataset given its id"""
+    from .definitions import DatasetDefinition
+    return DatasetDefinition.find(dataset_id)
+
+def prepare_dataset(dataset_id: str):
+    """Find a dataset given its id"""
+    from .definitions import DatasetDefinition
+    ds = DatasetDefinition.find(dataset_id) 
+    return ds.prepare(download=True)

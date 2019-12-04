@@ -1,13 +1,15 @@
 import logging
-from datamaestro.download import Download
 from pathlib import Path
 import zipfile
 import shutil
 import urllib3
 import tarfile
-
+import re
+from datamaestro.download import Download
+from datamaestro.utils import CachedFile
 
 class ArchiveDownloader(Download):
+    """Abstract class for all archive related extractors"""
     def __init__(self, varname, url, subpath=None, files=None):
         super().__init__(varname)
         self.url = url
@@ -16,20 +18,25 @@ class ArchiveDownloader(Download):
         if self.subpath and not self.subpath.endswith("/"):
             self.subpath = self.subpath + "/"
 
+    def postinit(self):
+        # Define the path
         p = urllib3.util.parse_url(self.url)
-        self.name = Path(p.path).name
+        name = self._name(Path(p.path).name)
 
-    @property
-    def path(self):
-        return self.definition.datapath
+        if len(self.definition.resources) > 1:
+            self.path = self.definition.datapath / name
+        else:            
+            self.path = self.definition.datapath
 
     def prepare(self):
-        return self.definition.datapath
+        return self.path
 
     def download(self, force=False):
         # Already downloaded
         destination = self.definition.datapath
-        if destination.is_dir(): return 
+        if destination.is_dir(): 
+            return 
+
         logging.info("Downloading %s into %s", self.url, destination)
 
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -45,7 +52,7 @@ class ArchiveDownloader(Download):
         for ix, path in enumerate(tmpdestination.iterdir()):
             if ix > 1: break
         
-        # Just one file/folder: move
+        # Just one folder: move
         if ix == 0 and path.is_dir():
             logging.info("Moving single directory {} into destination {}".format(path, destination))
             shutil.move(str(path), str(destination))
@@ -56,6 +63,9 @@ class ArchiveDownloader(Download):
 
 class ZipDownloader(ArchiveDownloader):
     """ZIP Archive handler"""
+
+    def _name(self, name):
+        return re.sub(r"\.zip$", "", name)
 
     def unarchive(self, file, destination: Path):
         logging.info("Unzipping file")
@@ -78,9 +88,13 @@ class ZipDownloader(ArchiveDownloader):
 
 class TarDownloader(ArchiveDownloader):
     """TAR archive handler"""
+    def _name(self, name):
+        return re.sub(r"\.tar(\.gz|\.bz\|xz)?$", "", name)
 
-    def unarchive(self, file: Path, destination: Path):
+    def unarchive(self, file: CachedFile, destination: Path):
         logging.info("Unarchiving file")
-        if self.subpath: raise NotImplementedError()
+        if self.subpath: 
+            raise NotImplementedError()
+
         with tarfile.TarFile.open(file.path, mode="r:*") as tar:
             tar.extractall(destination)

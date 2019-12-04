@@ -30,8 +30,8 @@ and imperative statements. Its syntax is described in the [documentation](http:/
 For MNIST, this gives
 
 ```python
-from datamaestro.data import Generic
 from datamaestro_image.data import ImageClassification
+from datamaestro.data.ml import Supervised
 from datamaestro.data.tensor import IDX
 
 from datamaestro.download.single import FileDownloader

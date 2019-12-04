@@ -13,6 +13,7 @@ from pathlib import Path
 import shutil
 from .definitions import DatasetDefinition
 from .context import Context
+from typing import Set
 
 import click
 
@@ -21,6 +22,7 @@ logging.basicConfig(level=logging.INFO)
 class Config: 
     def __init__(self, context: Context):
         self.context = context
+        self.traceback = False
 
 
 def pass_cfg(f):
@@ -93,7 +95,7 @@ def orphans(config: Config, size):
 
     for repository in config.context.repositories():
         paths = set()
-        ancestors = set()
+        ancestors:Set[Path] = set()
         for dataset in repository:
             paths.add(dataset.datapath)
             ancestor = dataset.datapath.parent
@@ -167,7 +169,7 @@ def create_dataset(config: Config, repository_id: str, dataset_id: str):
 @pass_cfg
 def download(config: Config, dataset):
     """Download a dataset"""
-    dataset = DatasetDefinition.find(dataset, context=config.context)
+    dataset = DatasetDefinition.find(dataset)
     success = dataset.download()
     if not success:
         logging.error("One or more errors occured while downloading the dataset")

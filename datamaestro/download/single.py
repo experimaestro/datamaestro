@@ -8,6 +8,7 @@ import os.path as op, os
 import urllib3
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+import re
 
 from datamaestro.utils import rm_rf
 from datamaestro.stream import Transform
@@ -23,6 +24,10 @@ def open_ext(*args, **kwargs):
 
 
 class SingleDownload(Download):
+    def __init__(self, filename: str):
+        super().__init__(re.sub(r"\..*$", "", filename))
+        self.name = filename
+
     @property
     def path(self):
         return self.definition.datapath / self.name
@@ -38,18 +43,14 @@ class SingleDownload(Download):
 class FileDownloader(SingleDownload):
     """Downloads a single file given by a URL"""
     
-    def __init__(self, varname: str, url: str, name :str=None, transforms=None):
-        super().__init__(varname)
-  
+    def __init__(self, filename: str, url: str, transforms=None):
+        super().__init__(filename)  
         self.url = url
 
-        # Infer name and 
         p = urllib3.util.parse_url(self.url)
         path = Path(Path(p.path).name)
-
         self.transforms = transforms if transforms else Transform.createFromPath(path)
-        self.name = Path(name) if name else self.transforms.path(path)
-            
+
 
     def _download(self, destination):
         logging.info("Downloading %s into %s", self.url, destination)
@@ -76,31 +77,19 @@ class FileDownloader(SingleDownload):
 class ConcatDownload(SingleDownload):
     """Concatenate all files in an archive"""
 
-    def __init__(self, varname: str, url: str, name :str=None, transforms=None):
-        super().__init__(varname)
-  
+    def __init__(self, filename: str, url: str, transforms=None):
+        super().__init__(filename)
         self.url = url
-
-        # Infer name and 
-        p = urllib3.util.parse_url(self.url)
-        path = Path(p.path)
-
-        if path.suffix == ".gz":
-            path = Path(path.stem)
-
-        if path.suffix == ".tar":
-            path = Path(path.stem)
-
-        self.name = path.name
+        self.transforms = transforms
 
     def _download(self, destination):
-        with NamedTemporaryFile("wb") as f,  self.context.downloadURL(self.url) as dl, tarfile.open(dl.path) as archive:
+        with self.context.downloadURL(self.url) as dl, tarfile.open(dl.path) as archive:
             destination.parent.mkdir(parents=True, exist_ok=True)
 
             with open(destination, "wb") as out:
                 for tarinfo in archive:
                     if tarinfo.isreg():
-                        transforms = Transform.createFromPath(Path(tarinfo.name))
+                        transforms = self.transforms or Transform.createFromPath(Path(tarinfo.name))
                         logging.debug("Processing file %s", tarinfo.name)
                         with transforms(archive.fileobject(archive, tarinfo)) as fp:
                             shutil.copyfileobj(fp, out)

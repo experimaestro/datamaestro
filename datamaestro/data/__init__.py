@@ -14,9 +14,3 @@ class File(Generic):
     """A data file"""
     def open(self, mode):
         return self.path.open(mode)
-
-@Argument("train", type=Generic, help="The training dataset")
-@Argument("dev", type=Generic, help="The dev dataset", required=False)
-@Argument("test", type=Generic, help="The test dataset", required=False)
-@Data()
-class Supervised(Generic): pass
