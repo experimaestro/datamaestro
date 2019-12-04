@@ -7,6 +7,9 @@ workflows:
           version: "3.6"
           requires:
             - build
+          filters:
+            tags:
+              only: /.*/
       - test-python-install:
           version: "3.7"
           requires:
