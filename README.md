@@ -96,18 +96,18 @@ The previous command also returns a JSON on standard output
 {
   "train": {
     "images": {
-      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-images-idx3-ubyte"
+      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/train_images.idx"
     },
     "labels": {
-      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-labels-idx1-ubyte"
+      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/train_labels.idx"
     }
   },
   "test": {
     "images": {
-      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-images-idx3-ubyte"
+      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/test_images.idx"
     },
     "labels": {
-      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-labels-idx1-ubyte"
+      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/test_labels.idx"
     }
   },
   "id": "com.lecun.mnist"
