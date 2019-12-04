@@ -7,3 +7,4 @@ dist
 downloads
 site
 build
+.mypy_cache
