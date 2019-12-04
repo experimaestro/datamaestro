@@ -30,7 +30,7 @@ from .context import Context, DownloadReportHook
 class DataDefinition():
     """Object that stores the declarative part of a data(set) description
     """
-    def __init__(self, t):
+    def __init__(self, t, base=None):
         # Copy base type and find matching repository
         self.t = t
         module = importlib.import_module(t.__module__.split(".",1)[0])
@@ -38,18 +38,18 @@ class DataDefinition():
 
         # Dataset id (and all aliases)
         self.id = None
-        self.base = None
+        self.base = base
         self.aliases = set()
 
-        self.tags = set()
-        self.tasks = set()
+        self.tags = set(chain(*[c.__datamaestro__.tags for c in self.ancestors()]))
+        self.tasks = set(chain(*[c.__datamaestro__.tasks for c in self.ancestors()]))
 
         self.url = None
-        self.description = None
-        self.name = None
+        self.description:str = None
+        self.name:str = None
         self.version = None
         if t.__doc__:
-            lines = t.__doc__.split("\n", 3)
+            lines = t.__doc__.split("\n", 2)
             self.name = lines[0]
             if len(lines) > 1:
                 assert lines[1].strip() == "", "Second line should be blank"
@@ -57,19 +57,31 @@ class DataDefinition():
                 self.description = lines[2]
 
         self.resources = {}
-    
+
+    def ancestors(self):    
+        ancestors = []
+        if self.base:
+            ancestors.append(self.base)
+        if inspect.isclass(self.t):
+            ancestors.extend(c for c in self.t.__mro__ if hasattr(c, "__datamaestro__"))
+
+        return ancestors
+
 
 class DatasetDefinition(DataDefinition):
     """Specialization of DataDefinition for datasets
     
-    A dataset has a storage space
+    A dataset:
+
+    - has a unique ID (and aliases)
+    - can be searched for
+    - has a data storage space
     """
     def download(self, force=False):
         """Download all the necessary resources"""
         success = True
         for key, resource in self.resources.items():
             try:
-                resource.postinit()
                 resource.download(force)
             except:
                 logging.error("Could not download resource %s", key)
@@ -145,18 +157,19 @@ class DatasetWrapper:
         from datamaestro.data import Generic
 
         self.t = t
-        d = DatasetDefinition(t)
-        self.__datamaestro__ = d
 
         if annotation.base.__datamaestro__.base:
             # This must be a MetaDataset
-            d.base = annotation.base.__datamaestro__.base
+            base = annotation.base.__datamaestro__.base
         else:
-            d.base = annotation.base
+            base = annotation.base
 
-        assert d.base is not None
-        
-        
+        assert base is not None
+
+        d = DatasetDefinition(t, base)
+        self.__datamaestro__ = d
+
+            
         # Builds the ID:
         # Removes module_name.config prefix
         path = t.__module__.split(".", 2)[2]
@@ -194,14 +207,14 @@ class DataAnnotation():
 
 
 def DataTagging(f): 
-    class _Annotation(DataAnnotation):
+    class Annotation(DataAnnotation):
         """Define tags in a data definition"""
         def __init__(self, *tags):
             self.tags = tags
 
         def annotate(self):
-            f(self.definition).update(*self.tags)
-    return _Annotation
+            f(self.definition).update(self.tags)
+    return Annotation
 
 DataTags = DataTagging(lambda d: d.tags)
 DataTasks = DataTagging(lambda d: d.tasks)
@@ -256,9 +269,7 @@ def MetaDataset(base):
             raise AssertionError("@Data should only be called once")
         except AttributeError:
             pass
-        d = DataDefinition(t)
-        t.__datamaestro__ = d
-        d.base = base
+        t.__datamaestro__ = DataDefinition(t, base=base)
         return t
 
     return annotate

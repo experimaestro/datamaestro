@@ -70,8 +70,13 @@ def main():
 @pass_cfg
 def info(config: Config, dataset):
     dataset = DatasetDefinition.find(dataset)
+    print(dataset.name)
+    if dataset.tags:
+        print("Tags:", ", ".join(dataset.tags))
+    if dataset.tasks:
+        print("Tasks:", ", ".join(dataset.tasks))
+    print()
     print(dataset.description)
-    print(dataset.tags)
 
 # --- General information
 

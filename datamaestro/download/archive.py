@@ -5,7 +5,7 @@ import shutil
 import urllib3
 import tarfile
 import re
-from datamaestro.download import Download
+from datamaestro.download import Download, initialized
 from datamaestro.utils import CachedFile
 
 class ArchiveDownloader(Download):
@@ -28,9 +28,11 @@ class ArchiveDownloader(Download):
         else:            
             self.path = self.definition.datapath
 
+    @initialized
     def prepare(self):
         return self.path
 
+    @initialized
     def download(self, force=False):
         # Already downloaded
         destination = self.definition.datapath

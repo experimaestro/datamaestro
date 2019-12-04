@@ -1,6 +1,15 @@
 from pathlib import Path
 from datamaestro.definitions import DataAnnotation, DatasetWrapper
 
+def initialized(method):
+    """Ensure the object is initialized"""
+    def wrapper(self, *args, **kwargs):
+        if not self._post:
+            self._post = True
+            self.postinit()
+        return method(self, *args, **kwargs)
+    return wrapper
+
 class Download(DataAnnotation):
     """
     Base class for all download handlers
@@ -8,6 +17,8 @@ class Download(DataAnnotation):
     
     def __init__(self, varname: str):
         self.varname = varname
+        # Ensures that the object is initialized
+        self._post = False
 
     def annotate(self):
         # Register has a resource download
@@ -16,9 +27,7 @@ class Download(DataAnnotation):
 
         self.definition.resources[self.varname] = self
 
-    def postinit(self):
-        """Called when before using the object"""
-        pass
+    def postinit(self): pass
 
     def download(self, force=False):
         """Downloads the content"""
