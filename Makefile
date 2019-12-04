@@ -20,6 +20,7 @@ docs:
 	$(MAKE) -C docs html
 
 package:
+	pip install twine
 	python setup.py sdist
 
 test:
