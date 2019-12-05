@@ -21,16 +21,29 @@ The main repository only deals with very generic processing (downloading, basic 
 - [image-related dataset](https://github.com/experimaestro/datamaestro_image)
 - [machine learning](https://github.com/experimaestro/datamaestro_ml) contains standard ML datasets
 
-# Detailed example
 
+# Command line interface (CLI)
+
+
+The command line interface allows to interact with the datasets. The commands are listed below, help can be found by typing `datamaestro COMMAND --help`:
+
+- `search` search dataset by name, tags and/or tasks
+- `download` download files (if accessible on Internet) or ask for download path otherwise
+- `prepare` download dataset files and outputs a JSON containing path and other dataset information
+- `repositories` list the available repositories
+- `orphans` list data directories that do no correspond to any registered dataset (and allows to clean them up)
+- `create-dataset` creates a dataset definition
+
+
+# Example (CLI)
 
 ## Retrieve and download
 
 The commmand line interface allows to download automatically the different resources. Datamaestro extensions can provide additional processing tools.
 
 ```bash
-$ datamaestro search mnist   
-com.lecun.mnist
+$ datamaestro search tag:image
+[image] com.lecun.mnist
 
 $ datamaestro prepare com.lecun.mnist 
 INFO:root:Downloading http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-labels-idx1-ubyte
@@ -41,8 +54,7 @@ INFO:root:Transforming file
 INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-images-idx3-ubyte
 INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-labels-idx1-ubyte
 INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz
-Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz: 32.8kB [00:00, 92.1kB/s]                                                                                              
-INFO:root:Transforming file
+Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz: 32.8kB [00:00, 92.1kB/s]                                                            INFO:root:Transforming file
 INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-labels-idx1-ubyte
 INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-images-idx3-ubyte
 INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz
@@ -57,18 +69,18 @@ The previous command also returns a JSON on standard output
 {
   "train": {
     "images": {
-      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/train_images.idx"
+      "path": ".../data/image/com/lecun/mnist/train_images.idx"
     },
     "labels": {
-      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/train_labels.idx"
+      "path": ".../data/image/com/lecun/mnist/train_labels.idx"
     }
   },
   "test": {
     "images": {
-      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/test_images.idx"
+      "path": ".../data/image/com/lecun/mnist/test_images.idx"
     },
     "labels": {
-      "path": "/data/bpiwowar/datamaestro/data/image/com/lecun/mnist/test_labels.idx"
+      "path": ".../data/image/com/lecun/mnist/test_labels.idx"
     }
   },
   "id": "com.lecun.mnist"
@@ -88,23 +100,31 @@ Out[3]: (dtype('uint8'), (60000, 28, 28))
 ## Python definition of datasets
 
 Each dataset (or a set of related datasets) is described in Python using a mix of declarative
-and imperative statements. Its syntax is described in the [documentation](http://experimaestro.github.io/datamaestro/).
-For MNIST, this gives
+and imperative statements. This allows to quickly define how to download dataset using the
+datamaestro declarative API; the imperative part is used when creating the JSON output,
+and is integrated with [experimaestro](http://experimaestro.github.io/experimaestro).
+
+Its syntax is described in the [documentation](http://experimaestro.github.io/datamaestro/).
+
+
+For MNIST, this corresponds to.
 
 ```python
-from datamaestro_image.data import ImageClassification
-from datamaestro.data.ml import Supervised
+from datamaestro_image.data import ImageClassification, LabelledImages, Generic
 from datamaestro.data.tensor import IDX
 
 from datamaestro.download.single import FileDownloader
-from datamaestro.definitions import Data, Argument, Dataset
+from datamaestro.definitions import Data, Argument, Type, DataTasks, DataTags, Dataset
 
 
-@FileDownloader("train_images", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
-@FileDownloader("train_labels", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
-@FileDownloader("test_images", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
-@FileDownloader("test_labels", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
-@Dataset(Supervised, url="http://yann.lecun.com/exdb/mnist/")
+@FileDownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
+@FileDownloader("train_labels.idx", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
+@FileDownloader("test_images.idx", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
+@FileDownloader("test_labels.idx", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
+@Dataset(
+  ImageClassification,
+  url="http://yann.lecun.com/exdb/mnist/",
+)
 def MNIST(train_images, train_labels, test_images, test_labels):
   """The MNIST database
   
@@ -114,11 +134,11 @@ def MNIST(train_images, train_labels, test_images, test_labels):
   size-normalized and centered in a fixed-size image. 
   """
   return {
-    "train": ImageClassification(
+    "train": LabelledImages(
       images=IDX(path=train_images),
       labels=IDX(path=train_labels)
     ),
-    "test": ImageClassification(
+    "test": LabelledImages(
       images=IDX(path=test_images),
       labels=IDX(path=test_labels)
     ),
