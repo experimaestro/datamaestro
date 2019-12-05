@@ -24,6 +24,8 @@ pages:
     - Download: api/download.md
     - Data: api/data.md
 
+extra_css: [extra.css]
+
 markdown_extensions: 
   - pymdownx.details
   - pymdownx.superfences
@@ -35,6 +37,7 @@ markdown_extensions:
 # Automatic page generation for datasets
 plugins:
   - search
+  - datamaestro
   
 # Theme
 theme:

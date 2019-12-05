@@ -10,12 +10,11 @@ import mkdocs.plugins
 from mkdocs.structure.files import File as MkdocFile
 from mkdocs.structure.pages import Page as MkdocPage
 from mkdocs.structure.nav import Navigation as MkdocNavigation
+import importlib
+from ..context import Context, Repository, Datasets
 
-from ..context import Context
-from ..definitions import Repository
-
-# Custom URIs for tags and datafiles
-RE_DATAFILE = re.compile(r"^datamaestro/df/([^/]*)/(.*)\.md$")
+# Custom URIs for tags and modules
+RE_module = re.compile(r"^datamaestro/df/([^/]*)/(.*)\.md$")
 RE_TASK = re.compile(r"^datamaestro/task/([^/]*)\.md$")
 
 class Matcher:
@@ -74,7 +73,10 @@ class Classification:
             r.write("# %s\n\n" % item.name)
 
             for ds in item.values:
-                r.write("- [%s](../df/%s/%s.html)\n" % (ds.get("name", ds.id), ds.datafile.repository.id, ds.datafile.id))
+                meta = ds.__datamaestro__
+                
+                module = Datasets(importlib.import_module(meta.t.__module__))
+                r.write("- [%s](../df/%s/%s.html#%s)\n" % (meta.name or meta.id, meta.repository.id, module.id, meta.id))
 
             return r.getvalue()
             
@@ -120,7 +122,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
 
     def on_config(self, config):
         self.repository_id = self.config['repository']
-        self.datafiles = {}
+        self.modules = {}
 
         # Navigation
         nav = config["nav"]
@@ -133,16 +135,22 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         navdf = []
         nav.append({"Datasets": navdf})
 
-        for datafile in self.repository.datafiles():
-            path = "datamaestro/df/%s/%s.md" % (datafile.repository.id, datafile.id)
-            navdf.append({datafile.name: path})
-            self.datafiles[datafile.id] = datafile
-            for dataset in datafile:
-                for tag in dataset.tags:
+        for module in self.repository.modules():
+            if not module.id:
+                continue
+            path = "datamaestro/df/%s/%s.md" % (self.repository_id, module.id)
+            hasdataset = False
+            for dataset in module:
+                hasdataset = True
+                for tag in dataset.__datamaestro__.tags:
                     self.tags.add(tag, dataset)
-                for task in dataset.tasks:
+                for task in dataset.__datamaestro__.tasks:
                     self.tasks.add(task, dataset)
-        
+
+            if hasdataset:
+                self.modules[module.id] = module
+                navdf.append({module.id: path})
+
         for c in self.classifications:
             nav.append({c.name: c.nav})
 
@@ -150,15 +158,13 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
 
     def on_files(self, files, config):
         files.append(MkdocFile("datamaestro/tasks.md", "", config["site_dir"], False))
-
         for c in self.classifications:
             c.addFiles(files, config)
         
-        for datafile in self.repository.datafiles():
+        for module in self.modules.values():
             # Add a file for each dataset
-            f = MkdocFile("datamaestro/df/%s/%s.md" % (datafile.repository.id, datafile.id), "", config["site_dir"], False)
+            f = MkdocFile("datamaestro/df/%s/%s.md" % (self.repository_id, module.id), "", config["site_dir"], False)
             files.append(f)
-
         return files
 
 
@@ -174,24 +180,26 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
 
         # --- Dataset file documentation generation
 
-        m = RE_DATAFILE.match(path)
+        m = RE_module.match(path)
         if not m:
             return None
 
-        df = self.repository.datafile(m.group(2))
+        df = self.modules[m.group(2)]
         r = io.StringIO()
     
-        r.write("# %s\n" % df.name)
+        r.write("# %s\n" % df.id)
         r.write(df.description)
         
 
         r.write("\n\n")
-        if len(df) > 1: r.write("## List of datasets\n\n")
+        r.write("## List of datasets\n\n")
         for ds in df:
-            if not ds.isalias:
-                if len(df) > 1: r.write("### %s\n\n" % (ds.get("name", ds.id)))
-                if ds.tags: r.write("**Tags**: %s \n" % ", ".join(ds.tags))
-                if ds.tasks: r.write("**Tasks**: %s \n" % ", ".join(ds.tasks))
+            meta = ds.__datamaestro__
+            r.write("""<div class='dataset'>%s</div><a name="%s"></a>\n\n""" % (meta.id, meta.id))
+            if meta.name:
+                r.write("**%s**\n\n" % meta.name)
+            if ds.tags: r.write("**Tags**: %s \n" % ", ".join(meta.tags))
+            if ds.tasks: r.write("**Tasks**: %s \n" % ", ".join(meta.tasks))
 
         return r.getvalue()
 

@@ -99,7 +99,7 @@ class Context:
         if not l:
             raise Exception("No datasets repository named %s", repositoryid)
         if len(l) > 1:
-            raise Exception("Too many datasets repository named %s", repositoryid)
+            raise Exception("Too many datasets repository named %s (%d)", repositoryid, len(l))
         return l[0].load()(self)
 
     def datasets(self):
@@ -162,15 +162,27 @@ class Context:
         return CachedFile(dlpath, keep=self.keep_downloads)
         
 
-def datasets(module) -> Iterable["definitions.DatasetDefinition"]:
-    for key, value in module.__dict__.items():
-        # Ensures it is annotated
-        if hasattr(value, "__datamaestro__"):
-            # Ensures it is a dataset
-            if value.__datamaestro__.aliases:
-                # Ensure it comes from the module
-                if module.__name__ == value.__datamaestro__.t.__module__:
-                    yield value
+class Datasets():
+    def __init__(self, module):
+        self.module = module
+
+    @property
+    def id(self):
+        return ".".join(self.module.__name__.split(".", 2)[2:])
+
+    @property
+    def description(self):
+        return self.module.__doc__ or ""
+
+    def __iter__(self) -> Iterable["definitions.DatasetDefinition"]:
+        for key, value in self.module.__dict__.items():
+            # Ensures it is annotated
+            if hasattr(value, "__datamaestro__"):
+                # Ensures it is a dataset
+                if value.__datamaestro__.aliases:
+                    # Ensure it comes from the module
+                    if self.module.__name__ == value.__datamaestro__.t.__module__:
+                        yield value
 
 
 class Repository:
@@ -237,7 +249,7 @@ class Repository:
         for candidate in candidates[::-1]:
             logging.debug("Searching in module %s.config.%s", self.module, candidate)
             module = importlib.import_module("%s.config.%s" % (self.module, candidate))
-            for value in datasets(module):
+            for value in Datasets(module):
                 if name in value.__datamaestro__.aliases:
                     return value.__datamaestro__
 
@@ -253,7 +265,7 @@ class Repository:
         for _, fid, package in self._modules():
             try:
                 module = importlib.import_module(package)
-                yield datasets(module)
+                yield Datasets(module)
             except Exception as e:
                 import traceback
                 traceback.print_exc()
