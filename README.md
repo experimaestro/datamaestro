@@ -23,45 +23,6 @@ The main repository only deals with very generic processing (downloading, basic 
 
 # Detailed example
 
-## Python definition of datasets
-
-Each dataset (or a set of related datasets) is described in Python using a mix of declarative
-and imperative statements. Its syntax is described in the [documentation](http://experimaestro.github.io/datamaestro/).
-For MNIST, this gives
-
-```python
-from datamaestro_image.data import ImageClassification
-from datamaestro.data.ml import Supervised
-from datamaestro.data.tensor import IDX
-
-from datamaestro.download.single import FileDownloader
-from datamaestro.definitions import Data, Argument, Dataset
-
-
-@FileDownloader("train_images", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
-@FileDownloader("train_labels", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
-@FileDownloader("test_images", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
-@FileDownloader("test_labels", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
-@Dataset(Supervised, url="http://yann.lecun.com/exdb/mnist/")
-def MNIST(train_images, train_labels, test_images, test_labels):
-  """The MNIST database
-  
-  The MNIST database of handwritten digits, available from this page, has a
-  training set of 60,000 examples, and a test set of 10,000 examples. It is a
-  subset of a larger set available from NIST. The digits have been
-  size-normalized and centered in a fixed-size image. 
-  """
-  return {
-    "train": ImageClassification(
-      images=IDX(path=train_images),
-      labels=IDX(path=train_labels)
-    ),
-    "test": ImageClassification(
-      images=IDX(path=test_images),
-      labels=IDX(path=test_labels)
-    ),
-  }
-```
 
 ## Retrieve and download
 
@@ -121,4 +82,45 @@ In [1]: from datamaestro import prepare_dataset
 In [2]: ds = prepare_dataset("com.lecun.mnist") 
 In [3]: ds.train.images.data().dtype, ds.train.images.data().shape
 Out[3]: (dtype('uint8'), (60000, 28, 28))
+```
+
+
+## Python definition of datasets
+
+Each dataset (or a set of related datasets) is described in Python using a mix of declarative
+and imperative statements. Its syntax is described in the [documentation](http://experimaestro.github.io/datamaestro/).
+For MNIST, this gives
+
+```python
+from datamaestro_image.data import ImageClassification
+from datamaestro.data.ml import Supervised
+from datamaestro.data.tensor import IDX
+
+from datamaestro.download.single import FileDownloader
+from datamaestro.definitions import Data, Argument, Dataset
+
+
+@FileDownloader("train_images", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
+@FileDownloader("train_labels", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
+@FileDownloader("test_images", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
+@FileDownloader("test_labels", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
+@Dataset(Supervised, url="http://yann.lecun.com/exdb/mnist/")
+def MNIST(train_images, train_labels, test_images, test_labels):
+  """The MNIST database
+  
+  The MNIST database of handwritten digits, available from this page, has a
+  training set of 60,000 examples, and a test set of 10,000 examples. It is a
+  subset of a larger set available from NIST. The digits have been
+  size-normalized and centered in a fixed-size image. 
+  """
+  return {
+    "train": ImageClassification(
+      images=IDX(path=train_images),
+      labels=IDX(path=train_labels)
+    ),
+    "test": ImageClassification(
+      images=IDX(path=test_images),
+      labels=IDX(path=test_labels)
+    ),
+  }
 ```
