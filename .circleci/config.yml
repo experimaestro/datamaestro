@@ -3,10 +3,10 @@ workflows:
   build_and_deploy:
     jobs:
       - build:
-        context: PyPI
-        filters:
-            tags:
-              only: /.*/
+          context: PyPI
+          filters:
+              tags:
+                only: /.*/
       - test-python-install:
           version: "3.6"
           requires:
@@ -15,7 +15,6 @@ workflows:
           version: "3.7"
           requires:
             - build
-
 jobs:
   build:
     docker:
