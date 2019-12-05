@@ -2,6 +2,7 @@ from .definitions import DatasetDefinition
 import re
 
 RE_TAG = re.compile(r"^tag:(.*)")
+RE_TASK = re.compile(r"^task:(.*)")
 
 class Condition:
     def match(self, dataset: DatasetDefinition):
@@ -12,6 +13,10 @@ class Condition:
         m = RE_TAG.match(searchterm)
         if m:
             return TagCondition(m.group(1))
+        
+        m = RE_TASK.match(searchterm)
+        if m:
+            return TaskCondition(m.group(1))
 
         return IDCondition(searchterm)
 
@@ -36,6 +41,13 @@ class TagCondition(ReCondition):
     def match(self, dataset: DatasetDefinition):
         for tag in dataset.tags:
             if self.regex.search(tag):
+                return True
+        return False
+
+class TaskCondition(ReCondition):
+    def match(self, dataset: DatasetDefinition):
+        for task in dataset.tasks:
+            if self.regex.search(task):
                 return True
         return False
 
