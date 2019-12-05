@@ -71,6 +71,8 @@ def main():
 def info(config: Config, dataset):
     dataset = DatasetDefinition.find(dataset)
     print(dataset.name)
+    if dataset.url:
+        print(dataset.url)
     if dataset.tags:
         print("Tags:", ", ".join(dataset.tags))
     if dataset.tasks:
