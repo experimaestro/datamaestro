@@ -229,6 +229,6 @@ def search(config: Config, searchterms):
 
     for dataset in config.context.datasets():
         if condition.match(dataset):
-            print(dataset.id)
+            print("[%s] %s" % (dataset.repository.id, dataset.id))
 
 
