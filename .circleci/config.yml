@@ -3,7 +3,8 @@ workflows:
   build_and_deploy:
     jobs:
       - build:
-          filters:
+        context: PyPI
+        filters:
             tags:
               only: /.*/
       - test-python-install:
@@ -14,13 +15,7 @@ workflows:
           version: "3.7"
           requires:
             - build
-      - deploy:
-          context: PyPI
-          requires:
-            - build
-          filters:
-            tags:
-              only: /^[0-9]+(\.[0-9]+)*$/
+
 jobs:
   build:
     docker:
