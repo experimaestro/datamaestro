@@ -18,8 +18,8 @@ generate:
 
 # Main pages
 pages:
-  - Home: index.md << README.md
-  - Developping: developping.md << docs/developping.md
+  - Home: index.md
+  - Developping: developping.md
   - API:
     - Download: api/download.md
     - Data: api/data.md
