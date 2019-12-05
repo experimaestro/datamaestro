@@ -169,6 +169,8 @@ class DatasetWrapper:
         d = DatasetDefinition(t, base)
         self.__datamaestro__ = d
 
+        # Set some variables
+        d.url = annotation.url
             
         # Builds the ID:
         # Removes module_name.config prefix
