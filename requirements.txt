@@ -4,7 +4,7 @@ tqdm
 urllib3
 
 # Data definition
-experimaestro
+experimaestro>=0.5.5
 
 # Mkdocs
 mkdocs
