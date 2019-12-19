@@ -20,7 +20,7 @@ import json
 import traceback
 import yaml
 from typing import Union
-from .experimaestro import Argument, Type
+from .experimaestro import argument
 from .context import Context, DownloadReportHook
 
 
