@@ -1,10 +1,13 @@
+# Utilities
 click
 tqdm
 urllib3
+experimaestro
 
 # Mkdocs
 mkdocs
 pymdown-extensions
 mkdocs-material
 
+# For numerical things
 numpy

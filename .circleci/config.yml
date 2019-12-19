@@ -1,80 +1,52 @@
-version: 2.1
-workflows:
-  build_and_deploy:
-    jobs:
-      - build:
-          context: PyPI
-          filters:
-              tags:
-                only: /.*/
-      - test-python-install:
-          version: "3.6"
-          requires:
-            - build
-      - test-python-install:
-          version: "3.7"
-          requires:
-            - build
+version: 2
 jobs:
   build:
     docker:
-      - image: circleci/python:3.6
+    - image: quay.io/pypa/manylinux1_x86_64
     steps:
-      - checkout
-      - restore_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
-      - run:
-          name: install python dependencies
-          command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            make dev
-      - save_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
-          paths:
-            - "venv"
-      - run:
-          name: run tests
-          command: |
-            . venv/bin/activate
-            make test
-      - run: 
-          name: Upload
-          command: |
-            if [ "$CIRCLE_TAG" ]; then
-              echo "Uploading using twine"
-              echo -e "[pypi]" >> ~/.pypirc
-              echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
-              echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
-              . venv/bin/activate
-              python setup.py verify
-              make package
-              twine upload dist/*
-            fi
+    - checkout
+    - run:
+        name: Setup basic environment
+        command: |
+          echo "export PATH=/opt/python/cp37-cp37m/bin:/opt/python/cp38-cp38m/bin:/opt/python/cp36-cp36m/bin:$PATH" >> $BASH_ENV
+          /opt/python/cp37-cp37m/bin/pip install tox twine
+    - restore_cache:
+        key: v1-dependency-cache-{{ checksum "setup.cfg" }}-{{ checksum "tox.ini" }}
+    - run:
+        name: install python dependencies
+        command: |
+          tox --notest -e ALL
+    - save_cache:
+        key: v1-dependency-cache-{{ checksum "setup.cfg" }}-{{ checksum "tox.ini" }}
+        paths:
+        - .tox/py36
+        - .tox/py37
+        - .tox/py38
+    - run:
+        name: run tests
+        command: |
+          tox -e ALL
+    
+    - store_test_results:
+        path: test-reports
 
-  test-python-install:
-    parameters:
-      version:
-        type: string
-        default: latest
-    docker:
-      - image: circleci/python:<< parameters.version >>
-    steps:
-      - checkout
-      - restore_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
-      - run:
-          name: install python dependencies
-          command: |
-            python3 -m venv venv
-            . venv/bin/activate
-            make dev
-      - save_cache:
-          key: v1-dependency-cache-{{ checksum "setup.py" }}-{{ checksum "Makefile" }}
-          paths:
-            - "venv"
-      - run:
-          name: run tests
-          command: |
-            . venv/bin/activate
-            make test
+    - run:
+        name: Upload
+        command: |
+          if [ "$(python setup.py --version)" = "$CIRCLE_TAG" ]; then
+            echo "Uploading using twine"
+            echo -e "[pypi]" >> ~/.pypirc
+            echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
+            echo -e "password = $PYPI_PASSWORD" >> ~/.pypirc
+            python setup.py bdist_wheel
+            twine upload dist/experimaestro-*-none-any.whl
+          fi
+workflows:
+  build_and_deploy:
+    jobs:
+    - build:
+        filters:
+          tags:
+            only: /.*/
+        context: PyPI
+  version: 2

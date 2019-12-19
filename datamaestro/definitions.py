@@ -20,7 +20,7 @@ import json
 import traceback
 import yaml
 from typing import Union
-from .experimaestro import argument
+from experimaestro import argument
 from .context import Context, DownloadReportHook
 
 
@@ -232,7 +232,7 @@ def Data(description=None):
             pass
 
         # Determine the data type
-        from .experimaestro import Type
+        from experimaestro import Type
         module, data, path = ("%s.%s" % (t.__module__, t.__name__)).split(".", 2)
         assert data == "data", "A @Data object should be in the .data module (not %s.%s)" % (module, data)
         identifier = "%s.%s" % (module, path.lower())
