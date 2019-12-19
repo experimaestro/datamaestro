@@ -8,3 +8,5 @@ downloads
 site
 build
 .mypy_cache
+.tox
+test-reports/
