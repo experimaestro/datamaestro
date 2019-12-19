@@ -110,18 +110,17 @@ Its syntax is described in the [documentation](http://experimaestro.github.io/da
 For MNIST, this corresponds to.
 
 ```python
-from datamaestro_image.data import ImageClassification, LabelledImages, Generic
+from datamaestro_image.data import ImageClassification, LabelledImages, Generic, IDXImage
+from datamaestro.download.single import filedownloader
+from datamaestro.definitions import data, argument, datatasks, datatags, dataset
 from datamaestro.data.tensor import IDX
 
-from datamaestro.download.single import FileDownloader
-from datamaestro.definitions import Data, Argument, Type, DataTasks, DataTags, Dataset
 
-
-@FileDownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
-@FileDownloader("train_labels.idx", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
-@FileDownloader("test_images.idx", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
-@FileDownloader("test_labels.idx", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
-@Dataset(
+@filedownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
+@filedownloader("train_labels.idx", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
+@filedownloader("test_images.idx", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
+@filedownloader("test_labels.idx", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
+@dataset(
   ImageClassification,
   url="http://yann.lecun.com/exdb/mnist/",
 )
@@ -135,11 +134,11 @@ def MNIST(train_images, train_labels, test_images, test_labels):
   """
   return {
     "train": LabelledImages(
-      images=IDX(path=train_images),
+      images=IDXImage(path=train_images),
       labels=IDX(path=train_labels)
     ),
     "test": LabelledImages(
-      images=IDX(path=test_images),
+      images=IDXImage(path=test_images),
       labels=IDX(path=test_labels)
     ),
   }
