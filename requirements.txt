@@ -2,6 +2,8 @@
 click
 tqdm
 urllib3
+
+# Data definition
 experimaestro
 
 # Mkdocs
