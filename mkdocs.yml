@@ -10,7 +10,7 @@ generate:
   - api/download.md:
     - datamaestro.download++
     - datamaestro.download.single:
-      - datamaestro.download.single.FileDownloader+
+      - datamaestro.download.single.filedownloader+
     - datamaestro.download.archive++
     - datamaestro.download.links++
   - api/data.md:

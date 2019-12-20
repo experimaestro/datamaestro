@@ -63,7 +63,7 @@ class ArchiveDownloader(Download):
             shutil.move(tmpdestination, destination)
 
 
-class ZipDownloader(ArchiveDownloader):
+class zipdownloader(ArchiveDownloader):
     """ZIP Archive handler"""
 
     def _name(self, name):
@@ -88,7 +88,7 @@ class ZipDownloader(ArchiveDownloader):
         
 
 
-class TarDownloader(ArchiveDownloader):
+class tardownloader(ArchiveDownloader):
     """TAR archive handler"""
     def _name(self, name):
         return re.sub(r"\.tar(\.gz|\.bz\|xz)?$", "", name)

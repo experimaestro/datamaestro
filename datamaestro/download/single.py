@@ -40,7 +40,7 @@ class SingleDownload(Download):
             self._download(self.path)
         
 
-class FileDownloader(SingleDownload):
+class filedownloader(SingleDownload):
     """Downloads a single file given by a URL"""
     
     def __init__(self, filename: str, url: str, transforms=None):

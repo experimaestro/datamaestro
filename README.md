@@ -110,7 +110,7 @@ Its syntax is described in the [documentation](http://experimaestro.github.io/da
 For MNIST, this corresponds to.
 
 ```python
-from datamaestro_image.data import ImageClassification, LabelledImages, Generic, IDXImage
+from datamaestro_image.data import ImageClassification, LabelledImages, Base, IDXImage
 from datamaestro.download.single import filedownloader
 from datamaestro.definitions import data, argument, datatasks, datatags, dataset
 from datamaestro.data.tensor import IDX

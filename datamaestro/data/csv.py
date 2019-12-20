@@ -1,13 +1,13 @@
 from pathlib import Path
 from csv import reader as csv_reader
 
-from . import File, Data, Argument
+from . import File, data, argument
 
-@Argument("names_row", type=int, default=-1)
-@Argument("size_row", type=int, default=-1)
-@Argument("ignore", type=int, default=0)
-@Argument("target", type=str, default=None)
-@Data()
+@argument("names_row", type=int, default=-1)
+@argument("size_row", type=int, default=-1)
+@argument("ignore", type=int, default=0)
+@argument("target", type=str, default=None)
+@data()
 class Matrix(File): 
     def data(self):
         """Returns a couple (fields, matrix)"""

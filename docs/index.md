@@ -28,19 +28,19 @@ and imperative statements. Its syntax is described in the [documentation](http:/
 For MNIST, this gives
 
 ```python
-from datamaestro_image.data import ImageClassification, LabelledImages, Generic
+from datamaestro_image.data import ImageClassification, LabelledImages, Base
 from datamaestro.data.ml import Supervised
 from datamaestro.data.tensor import IDX
 
-from datamaestro.download.single import FileDownloader
-from datamaestro.definitions import Data, Argument, Type, DataTasks, DataTags, Dataset
+from datamaestro.download.single import filedownloader
+from datamaestro.definitions import data, argument, Type, datatasks, datatags, Dataset
 
 
-@FileDownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
-@FileDownloader("train_labels.idx", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
-@FileDownloader("test_images.idx", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
-@FileDownloader("test_labels.idx", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
-@Dataset(
+@filedownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
+@filedownloader("train_labels.idx", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
+@filedownloader("test_images.idx", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
+@filedownloader("test_labels.idx", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
+@dataset(
   ImageClassification,
   url="http://yann.lecun.com/exdb/mnist/",
 )

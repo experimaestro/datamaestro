@@ -154,12 +154,12 @@ class FutureAttr:
 class DatasetWrapper:
     """Represents a dataset"""
     def __init__(self, annotation, t: type):
-        from datamaestro.data import Generic
+        from datamaestro.data import Base
 
         self.t = t
 
         if annotation.base.__datamaestro__.base:
-            # This must be a MetaDataset
+            # This must be a metadataset
             base = annotation.base.__datamaestro__.base
         else:
             base = annotation.base
@@ -218,25 +218,25 @@ def DataTagging(f):
             f(self.definition).update(self.tags)
     return Annotation
 
-DataTags = DataTagging(lambda d: d.tags)
-DataTasks = DataTagging(lambda d: d.tasks)
+datatags = DataTagging(lambda d: d.tags)
+datatasks = DataTagging(lambda d: d.tasks)
 
-def Data(description=None): 
+def data(description=None): 
     if description is not None and not isinstance(description, str):
-        raise RuntimeError("@Data annotation should be written @Data()")
+        raise RuntimeError("@data annotation should be written @data()")
     def annotate(t):
         try:
             object.__getattribute__(t, "__datamaestro__")
-            raise AssertionError("@Data should only be called once")
+            raise AssertionError("@data should only be called once")
         except AttributeError:
             pass
 
         # Determine the data type
-        from experimaestro import Type
+        from experimaestro import config
         module, data, path = ("%s.%s" % (t.__module__, t.__name__)).split(".", 2)
-        assert data == "data", "A @Data object should be in the .data module (not %s.%s)" % (module, data)
+        assert data == "data", "A @data object should be in the .data module (not %s.%s)" % (module, data)
         identifier = "%s.%s" % (module, path.lower())
-        t = Type(identifier)(t)
+        t = config(identifier)(t)
         t.__datamaestro__ = DataDefinition(t)
         t.__datamaestro__.id = identifier
 
@@ -245,7 +245,7 @@ def Data(description=None):
 
 
 
-class Dataset():
+class dataset():
     def __init__(self, base, *, id=None, url=None): 
         self.base = base
         self.id = id
@@ -255,20 +255,20 @@ class Dataset():
     def __call__(self, t):
         try:
             object.__getattribute__(t, "__datamaestro__")
-            raise AssertionError("@Data should only be called once")
+            raise AssertionError("@data should only be called once")
         except AttributeError:
             pass
         
         return DatasetWrapper(self, t)
 
 
-def MetaDataset(base): 
+def metadataset(base): 
     """Annotation for object/functions which are abstract dataset definitions -- i.e. shared
     by more than one real dataset. This is useful to share tags, urls, etc."""
     def annotate(t):
         try:
             object.__getattribute__(t, "__datamaestro__")
-            raise AssertionError("@Data should only be called once")
+            raise AssertionError("@data should only be called once")
         except AttributeError:
             pass
         t.__datamaestro__ = DataDefinition(t, base=base)

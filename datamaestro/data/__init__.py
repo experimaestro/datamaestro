@@ -1,16 +1,22 @@
+import logging
 from pathlib import Path
-from datamaestro.definitions import Data, Argument
+from datamaestro.definitions import data, argument
 
-@Argument("id", type=str, help="The unique dataset ID")
-@Data()
-class Generic: 
-    def initialize(self):
-        """Method called before using the class"""
-        pass
+@argument("id", type=str, help="The unique dataset ID")
+@data()
+class Base:  pass
 
-@Argument("path", type=Path)
-@Data()
-class File(Generic): 
+@data()
+class Generic(Base): 
+    def __init__(self, **kwargs):
+        logging.warning("Generic should be avoided")
+        super().__init__()
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+@argument("path", type=Path)
+@data()
+class File(Base): 
     """A data file"""
     def open(self, mode):
         return self.path.open(mode)
