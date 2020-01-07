@@ -48,6 +48,7 @@ class DataDefinition():
         self.description:str = None
         self.name:str = None
         self.version = None
+        
         if t.__doc__:
             lines = t.__doc__.split("\n", 2)
             self.name = lines[0]
@@ -76,7 +77,13 @@ class DatasetDefinition(DataDefinition):
     - has a unique ID (and aliases)
     - can be searched for
     - has a data storage space
+    - has specific attributes:
+        - timestamp: whether the dataset version depends on the time of the download
     """
+    def __init__(self, t, base=None):
+        super().__init__(self, t, base=base)
+        self.timestamp = False
+
     def download(self, force=False):
         """Download all the necessary resources"""
         success = True
@@ -171,6 +178,7 @@ class DatasetWrapper:
 
         # Set some variables
         d.url = annotation.url
+        d.timestamp = annotation.timestamp
             
         # Builds the ID:
         # Removes module_name.config prefix
@@ -246,14 +254,27 @@ def data(description=None):
 
 
 class dataset():
-    def __init__(self, base, *, id=None, url=None): 
+    def __init__(self, base=None, *, timestamp=False, id=None, url=None): 
+        """
+        
+        Arguments:
+            base {[type]} -- The base type (or None if infered from type annotation)
+        
+        Keyword Arguments:
+            timestamp {bool} -- [description] (default: {False})
+            id {[type]} -- [description] (default: {None})
+            url {[type]} -- [description] (default: {None})
+        """
         self.base = base
+
         self.id = id
         self.url = url
         self.meta = False
 
     def __call__(self, t):
         try:
+            if self.base is None:
+                self.base = t.__annotations__["return"]
             object.__getattribute__(t, "__datamaestro__")
             raise AssertionError("@data should only be called once")
         except AttributeError:
