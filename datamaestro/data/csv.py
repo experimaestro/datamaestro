@@ -3,12 +3,32 @@ from csv import reader as csv_reader
 
 from . import File, data, argument
 
+
+@argument("ignore", type=int, default=0)
+@argument("names_row", type=int, default=-1)
+@data()
+class Generic(File): 
+    def columns(self):
+        """Returns a couple (fields, matrix)"""
+        if self.names_row < 0:
+            return None
+
+
+        with self.path.open("r") as fp:
+            for i in range(self.ignore):
+                fp.readline()
+
+            for ix, row in enumerate(csv_reader(fp)):
+                if ix == self.names_row:
+                    return row
+
+
+
 @argument("names_row", type=int, default=-1)
 @argument("size_row", type=int, default=-1)
-@argument("ignore", type=int, default=0)
 @argument("target", type=str, default=None)
 @data()
-class Matrix(File): 
+class Matrix(Generic): 
     def data(self):
         """Returns a couple (fields, matrix)"""
         import numpy as np
@@ -35,3 +55,5 @@ class Matrix(File):
         if self.size_row < 0:
             data = np.array(data)
         return fields, data
+
+
