@@ -11,6 +11,7 @@ experimaestro>=0.5.5
 mkdocs
 pymdown-extensions
 mkdocs-material
+docstring_parser
 
 # For numerical things
 numpy

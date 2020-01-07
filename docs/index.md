@@ -33,7 +33,7 @@ from datamaestro.data.ml import Supervised
 from datamaestro.data.tensor import IDX
 
 from datamaestro.download.single import filedownloader
-from datamaestro.definitions import data, argument, Type, datatasks, datatags, Dataset
+from datamaestro.definitions import dataset
 
 
 @filedownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")

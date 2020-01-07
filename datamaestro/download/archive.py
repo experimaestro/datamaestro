@@ -7,10 +7,20 @@ import tarfile
 import re
 from datamaestro.download import Download, initialized
 from datamaestro.utils import CachedFile
+from typing import List, Set
 
 class ArchiveDownloader(Download):
     """Abstract class for all archive related extractors"""
-    def __init__(self, varname, url, subpath=None, files=None):
+
+    def __init__(self, varname, url: str, subpath:str=None, files:Set[str]=None):
+        """Downloads and extract the content of the archive
+        
+        Args:
+            varname: The name of the variable when defining the dataset
+            url: The archive URL
+            subpath: A subpath in the archive; only files from this subpath will be extracted            
+            files: A set of files; if present, only download those
+        """
         super().__init__(varname)
         self.url = url
         self.subpath = subpath

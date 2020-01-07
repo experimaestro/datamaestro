@@ -3,6 +3,9 @@ import io
 import yaml
 import re
 from pathlib import Path
+import inspect
+import typing
+import importlib
 
 import mkdocs
 import mkdocs.config
@@ -10,7 +13,9 @@ import mkdocs.plugins
 from mkdocs.structure.files import File as MkdocFile
 from mkdocs.structure.pages import Page as MkdocPage
 from mkdocs.structure.nav import Navigation as MkdocNavigation
-import importlib
+
+from docstring_parser import parse as docstring_parse
+
 from ..context import Context, Repository, Datasets
 
 # Custom URIs for tags and modules
@@ -34,6 +39,53 @@ class ClassificationItem:
     def __init__(self, name):
         self.values = []
         self.name = name
+
+def document(match):
+    modulename, name = match.group(1).rsplit(".", 1)
+
+    try:
+        module = importlib.import_module(modulename)
+        object = getattr(module, name)
+
+        
+        if inspect.isclass(object):
+            docstring = object.__init__.__doc__
+            types = object.__init__.__annotations__
+            signature = str(inspect.signature(object.__init__)).replace("(self, ", "(")
+        else:
+            docstring = object.__doc__
+            types = object.__annotations__
+            signature = str(inspect.signature(object))
+
+        doc = docstring_parse(docstring)
+        
+        
+        if doc.short_description:
+            s = "### " + doc.short_description + "\n\n"
+        else:
+            s = "### %s\n\n" % name
+        
+        
+        s += "`@{}{}`\n\n".format(name, signature)
+
+        if doc.long_description:
+            s += doc.long_description
+
+        for param in doc.params:
+            type_name = param.type_name 
+            if not type_name and param.arg_name in types:
+                t = types[param.arg_name]
+                if isinstance(t, typing._Final):
+                    type_name = str(t).replace("typing.", "")
+                else:
+                    type_name =  types[param.arg_name].__name__
+            s += " - `{}` (`{}`): {}\n".format(param.arg_name, type_name or "?", param.description or "")
+
+        return s
+
+    except Exception as e:
+        logging.exception('Exception while generating the documentation for %s' % match.group(1))
+        return r"""<div class="error">Documentation error for {}</div>""".format(match.group(1))
 
 class Classification:
     def __init__(self, name):
@@ -122,7 +174,12 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
 
     def on_config(self, config):
         self.repository_id = self.config['repository']
+        self.classifications = []
         self.modules = {}
+
+        if not self.repository_id:
+            return
+
 
         # Navigation
         nav = config["nav"]
@@ -157,15 +214,24 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         return config
 
     def on_files(self, files, config):
-        files.append(MkdocFile("datamaestro/tasks.md", "", config["site_dir"], False))
-        for c in self.classifications:
-            c.addFiles(files, config)
-        
-        for module in self.modules.values():
-            # Add a file for each dataset
-            f = MkdocFile("datamaestro/df/%s/%s.md" % (self.repository_id, module.id), "", config["site_dir"], False)
-            files.append(f)
+        if self.repository_id:
+            files.append(MkdocFile("datamaestro/tasks.md", "", config["site_dir"], False))
+            for c in self.classifications:
+                c.addFiles(files, config)
+            
+            for module in self.modules.values():
+                # Add a file for each dataset
+                f = MkdocFile("datamaestro/df/%s/%s.md" % (self.repository_id, module.id), "", config["site_dir"], False)
+                files.append(f)
         return files
+
+
+    RE_APIGEN = re.compile(r"@@api:(.+)")
+
+    def on_page_markdown(self, markdown, page, config, **kwargs):
+        if page.url.startswith('api/'):
+            return DatasetGenerator.RE_APIGEN.sub(document, markdown)
+        return markdown
 
 
     def on_page_read_source(self, item, config, page: MkdocPage, **kwargs):

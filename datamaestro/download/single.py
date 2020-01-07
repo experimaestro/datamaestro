@@ -9,6 +9,7 @@ import urllib3
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 import re
+from docstring_parser import parse
 
 from datamaestro.utils import rm_rf
 from datamaestro.stream import Transform
@@ -41,9 +42,14 @@ class SingleDownload(Download):
         
 
 class filedownloader(SingleDownload):
-    """Downloads a single file given by a URL"""
-    
     def __init__(self, filename: str, url: str, transforms=None):
+        """Downloads a file given by a URL
+        
+        Args:
+            filename: The filename within the data folder; the variable name corresponds to the filename without the extension
+            url: The URL to download
+            transforms: Transform the file before storing it
+        """
         super().__init__(filename)  
         self.url = url
 
@@ -74,10 +80,17 @@ class filedownloader(SingleDownload):
         logging.info("Created file %s" % destination)
 
 
-class ConcatDownload(SingleDownload):
+class concatdownload(SingleDownload):
     """Concatenate all files in an archive"""
 
     def __init__(self, filename: str, url: str, transforms=None):
+        """Concat the files in an archive
+        
+        Args:
+            filename: The filename within the data folder; the variable name corresponds to the filename without the extension
+            url: The URL to download
+            transforms: Transform the file before storing it
+        """
         super().__init__(filename)
         self.url = url
         self.transforms = transforms

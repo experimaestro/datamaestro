@@ -5,22 +5,12 @@ site_description: datamaestro A dataset manager
 theme: readthedocs
 repo_url: https://github.com/bpiwowar/datamaestro
 
-# Generate API documentation
-generate:
-  - api/download.md:
-    - datamaestro.download++
-    - datamaestro.download.single:
-      - datamaestro.download.single.filedownloader+
-    - datamaestro.download.archive++
-    - datamaestro.download.links++
-  - api/data.md:
-    - datamaestro.data++
-
 # Main pages
 pages:
   - Home: index.md
   - Developping: developping.md
-  - API:
+  - API: 
+    - Overview: api/index.md
     - Download: api/download.md
     - Data: api/data.md
 
