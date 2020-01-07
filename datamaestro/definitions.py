@@ -81,7 +81,7 @@ class DatasetDefinition(DataDefinition):
         - timestamp: whether the dataset version depends on the time of the download
     """
     def __init__(self, t, base=None):
-        super().__init__(self, t, base=base)
+        super().__init__(t, base=base)
         self.timestamp = False
 
     def download(self, force=False):
@@ -178,7 +178,6 @@ class DatasetWrapper:
 
         # Set some variables
         d.url = annotation.url
-        d.timestamp = annotation.timestamp
             
         # Builds the ID:
         # Removes module_name.config prefix
@@ -270,6 +269,7 @@ class dataset():
         self.id = id
         self.url = url
         self.meta = False
+        self.timestamp = timestamp
 
     def __call__(self, t):
         try:
@@ -280,7 +280,11 @@ class dataset():
         except AttributeError:
             pass
         
-        return DatasetWrapper(self, t)
+        dw = DatasetWrapper(self, t)
+        print(dw.__datamaestro__)
+        dw.__datamaestro__.timestamp = self.timestamp
+
+        return dw
 
 
 def metadataset(base): 

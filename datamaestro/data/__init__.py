@@ -12,7 +12,7 @@ class Generic(Base):
         logging.warning("Generic should be avoided")
         super().__init__()
         for key, value in kwargs.items():
-            setattr(self, key, value)
+            object.__setattr__(self, key, value)
 
 @argument("path", type=Path)
 @data()
