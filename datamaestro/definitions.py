@@ -281,7 +281,6 @@ class dataset():
             pass
         
         dw = DatasetWrapper(self, t)
-        print(dw.__datamaestro__)
         dw.__datamaestro__.timestamp = self.timestamp
 
         return dw
