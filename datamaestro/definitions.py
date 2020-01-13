@@ -31,6 +31,8 @@ class DataDefinition():
     """Object that stores the declarative part of a data(set) description
     """
     def __init__(self, t, base=None):
+        assert base is None or not inspect.isclass(t)
+
         # Copy base type and find matching repository
         self.t = t
         module = importlib.import_module(t.__module__.split(".",1)[0])
@@ -39,6 +41,7 @@ class DataDefinition():
         # Dataset id (and all aliases)
         self.id = None
         self.base = base
+            
         self.aliases = set()
 
         self.tags = set(chain(*[c.__datamaestro__.tags for c in self.ancestors()]))
@@ -62,9 +65,11 @@ class DataDefinition():
     def ancestors(self):    
         ancestors = []
         if self.base:
-            ancestors.append(self.base)
-        if inspect.isclass(self.t):
-            ancestors.extend(c for c in self.t.__mro__ if hasattr(c, "__datamaestro__"))
+            baseclass = self.base
+        else:
+            baseclass = self.t
+
+        ancestors.extend(c for c in baseclass.__mro__ if hasattr(c, "__datamaestro__"))
 
         return ancestors
 

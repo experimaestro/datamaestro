@@ -65,6 +65,7 @@ def cli(ctx, quiet, debug, traceback, data, keep_downloads):
 def main():
     cli(obj=None)
 
+
 @cli.command(help="Prints the full information about a dataset")
 @click.argument("dataset", type=str)
 @pass_cfg
@@ -73,6 +74,9 @@ def info(config: Config, dataset):
     print(dataset.name)
     if dataset.url:
         print(dataset.url)
+
+    print("Types:", ", ".join(str(s.__xpm__.identifier) for s in dataset.ancestors()))
+    print("Types (class):", ", ".join(str(s.__module__ + "." + s.__name__) for s in dataset.ancestors()))
     if dataset.tags:
         print("Tags:", ", ".join(dataset.tags))
     if dataset.tasks:
