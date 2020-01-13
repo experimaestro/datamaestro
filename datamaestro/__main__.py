@@ -14,6 +14,7 @@ import shutil
 from .definitions import DatasetDefinition
 from .context import Context
 from typing import Set
+import datamaestro
 
 import click
 
@@ -93,6 +94,9 @@ def repositories():
         repo_class = entry_point.load()
         print("%s: %s" % (entry_point.name, repo_class.DESCRIPTION))
 
+@cli.command(help="Get version")
+def version():
+    print(datamaestro.__version__)
 
 
 # --- Cleanup
