@@ -48,7 +48,7 @@ for entry_point in pkg_resources.iter_entry_points('datamaestro.repositories'):
 @click.option("--keep-downloads", is_flag=True, help="Keep downloads")
 @click.option("--debug", is_flag=True, help="Be even more verbose (implies traceback)")
 @click.option("--traceback", is_flag=True, help="Display traceback if an exception occurs")
-@click.option("--data", type=click.Path(exists=True), help="Directory containing datasets", default=Context.MAINDIR)
+@click.option("--data", type=Path, help="Directory containing datasets", default=Context.MAINDIR)
 @click.pass_context
 def cli(ctx, quiet, debug, traceback, data, keep_downloads):
     if quiet:
