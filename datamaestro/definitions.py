@@ -18,7 +18,6 @@ from itertools import chain
 import importlib
 import json
 import traceback
-import yaml
 from typing import Union
 from experimaestro import argument
 from .context import Context, DownloadReportHook

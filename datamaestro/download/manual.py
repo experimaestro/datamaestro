@@ -11,7 +11,7 @@ def envreplace(value):
     return re.sub(r"%([^%]+)%", process, value)
 
 
-class LinkFolder(Download):
+class linkfolder(Download):
     """Just asks for the location of the file and link it"""
     def __init__(self, varname: str, name: str, proposals):
         super().__init__(varname)

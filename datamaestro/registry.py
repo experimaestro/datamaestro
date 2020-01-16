@@ -1,5 +1,4 @@
 from pathlib import Path
-import yaml
 import shutil
 from tempfile import NamedTemporaryFile
 

@@ -2,7 +2,7 @@
 click
 tqdm
 urllib3
-pyyaml
+marshmallow
 
 # Data definition
 experimaestro>=0.5.5

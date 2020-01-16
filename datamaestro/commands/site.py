@@ -1,6 +1,5 @@
 import logging
 import io
-import yaml
 import re
 from pathlib import Path
 import inspect

@@ -1,5 +1,4 @@
 from pathlib import Path
-import yaml
 import sys
 import importlib
 import os
@@ -8,13 +7,14 @@ import logging
 import inspect
 import urllib
 import shutil
-from .registry import Registry
 from itertools import chain
 import json
 import pkg_resources
 from tqdm import tqdm
-from .utils import CachedFile
 from typing import Iterable, List
+import marshmallow as mm
+from .registry import Registry
+from .utils import CachedFile
 
 class Compression:
     @staticmethod
@@ -49,6 +49,38 @@ def flatten_settings(settings, content, prefix=""):
         else:
             settings[key] = value
 
+
+
+class PathField(mm.fields.Field):
+    """Field that serializes to a title case string and deserializes
+    to a lower case string.
+    """
+    def _serialize(self, value, attr, obj, **kwargs):
+        return Path(value)
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        return str(value.absolute())
+
+class SettingsSchema(mm.Schema):
+    keys = mm.fields.Dict(keys=mm.fields.Str(), values=mm.fields.Str())
+    datafolders = mm.fields.Dict(keys=mm.fields.Str(), values=mm.fields.Str())
+    
+    @mm.post_load
+    def make_settings(self, data, **kwargs):
+        settings = Settings()
+        for key, value in data.items():
+            setattr(settings, key, value)
+        return settings
+
+class Settings:
+    """Global settings"""
+    def __init__(self):
+        self.keys: Dict[str, Any] = {}
+        self.datafolders: Dict[str, Path] = {}
+
+    def save(self):
+        self.path.write_text(SettingsSchema().dumps(self))
+
 class Context:
     """
     Represents the application context
@@ -64,16 +96,18 @@ class Context:
         self._path = path or Context.MAINDIR
         self._dpath = Path(__file__).parents[1]
         self._repository = None
-        self.registry = Registry(self.datapath / "registry.yaml")
+        # self.registry = Registry(self.datapath / "registry.yaml")
         self.keep_downloads = False
         self.traceback = False
 
         # Read preferences
-        self.settings = {}
-        settingsPath = self._path / "settings.yaml"
-        if settingsPath.is_file():
-            with settingsPath.open("r") as fp:
-                flatten_settings(self.settings, yaml.load(fp, Loader=yaml.SafeLoader))
+        path = self._path / "settings.json"
+        self.settings = None
+        if path.is_file():
+            self.settings = SettingsSchema().loads(path.read_text())
+        else:
+            self.settings = Settings()
+        self.settings.path = path
                    
     @staticmethod
     def instance():
@@ -116,11 +150,6 @@ class Context:
                 return dataset
         
         raise Exception("Dataset {} not found".format(datasetid))
-
-    def preference(self, key, default=None):
-        return self.settings.get(key, default)
-
-
 
     def downloadURL(self, url):
         """Downloads an URL"""

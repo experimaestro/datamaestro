@@ -137,6 +137,26 @@ def orphans(config: Config, size):
         lookup(repository.datapath)
 
 
+# --- Manage external data folders
+
+
+@cli.group(help="Manage external data folders")
+def datafolders(): pass
+
+@datafolders.command("list", help="List of external data folders")
+@pass_cfg
+def datafolder_list(config: Config): 
+    for key, value in config.context.settings.datafolders.items():
+        print("%s\t%s" % (key, value))
+
+@click.argument("path", type=Path)
+@click.argument("key", type=str)
+@datafolders.command("set", help="List of external data folders")
+@pass_cfg
+def datafolder_set(config: Config, key: str, path: Path):
+    settings = config.context.settings
+    settings.datafolders[key] = path
+    settings.save()
 
 
 # --- Create a dataset
@@ -157,22 +177,23 @@ def dataset_id_check(ctx, param, value):
 
 @click.argument("dataset-id", callback=dataset_id_check)
 @click.argument("repository-id", type=click.Choice(REPOSITORIES.keys()))
-@cli.command(help="Create a new dataset in the repository repository-id")
+@cli.command()
 @pass_cfg
 def create_dataset(config: Config, repository_id: str, dataset_id: str):
+    """Create a new dataset in the repository repository-id"""
     # Construct the path of the new dataset definition
     repo_class = REPOSITORIES[repository_id].load()
     path = repo_class(config).configdir # type: Path
     names = dataset_id.split(".")
     for name in names:
         path = path / name
-    path = path.with_suffix(".yaml")
+    path = path.with_suffix(".py")
 
     if path.is_file():
         print("File {} already exists - not overwritting".format(path))
         sys.exit(1)
 
-    template_path = Path(__file__).parent / "templates" / "dataset.yaml"
+    template_path = Path(__file__).parent / "templates" / "dataset.py"
     path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(template_path, path)
     print("Created file {}".format(path))
