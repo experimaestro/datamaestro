@@ -1,4 +1,6 @@
-[![CircleCI](https://circleci.com/gh/experimaestro/datamaestro.svg?style=svg)](https://circleci.com/gh/experimaestro/datamaestro) [![PyPI version](https://badge.fury.io/py/datamaestro.svg)](https://badge.fury.io/py/datamaestro)
+[![CircleCI](https://circleci.com/gh/experimaestro/datamaestro.svg?style=svg)](https://circleci.com/gh/experimaestro/datamaestro) [![PyPI version](https://badge.fury.io/py/datamaestro.svg)](https://badge.fury.io/py/datamaestro) [![DOI](https://zenodo.org/badge/4573876.svg)](https://zenodo.org/badge/latestdoi/4573876)
+
+
 
 # Introduction
 
