@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 import inspect
 import typing
+from typing import Optional
 import importlib
 
 import mkdocs
@@ -17,9 +18,13 @@ from docstring_parser import parse as docstring_parse
 
 from ..context import Context, Repository, Datasets
 
+
+
+
 # Custom URIs for tags and modules
-RE_module = re.compile(r"^datamaestro/df/([^/]*)/(.*)\.md$")
+RE_MODULE = re.compile(r"^datamaestro/df/([^/]*)/(.*)\.md$")
 RE_TASK = re.compile(r"^datamaestro/task/([^/]*)\.md$")
+RE_APIGEN = re.compile(r"@@api:(.+)")
 
 class Matcher:
     def __init__(self):
@@ -140,9 +145,16 @@ class Classification:
 
 
 class DatasetGenerator(mkdocs.plugins.BasePlugin):
-    CONF = None
-    REPOSITORY = None
+    """Mkdocs plugin for datamaestro submodules
     
+    See:
+        https://www.mkdocs.org/user-guide/plugins/ for mkdocs plugins
+
+    Arguments:
+        mkdocs {[type]} -- [description]
+    """
+    CONF : Optional[Context] = None
+    REPOSITORY : Optional[Repository] = None
 
     config_scheme = (
         ('repository', mkdocs.config.config_options.Type(mkdocs.utils.text_type)),
@@ -224,12 +236,11 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
                 files.append(f)
         return files
 
-
-    RE_APIGEN = re.compile(r"@@api:(.+)")
-
     def on_page_markdown(self, markdown, page, config, **kwargs):
         if page.url.startswith('api/'):
             return DatasetGenerator.RE_APIGEN.sub(document, markdown)
+        if page.url == '':
+            return ("Documentation for datamaestro module **%s (version %s)**\n\n" % (self.repository.NAMESPACE, self.repository.version())) + markdown
         return markdown
 
 
@@ -245,7 +256,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
 
         # --- Dataset file documentation generation
 
-        m = RE_module.match(path)
+        m = RE_MODULE.match(path)
         if not m:
             return None
 

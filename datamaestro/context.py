@@ -241,6 +241,14 @@ class Repository:
             return cls(context if context else Context.instance())
 
 
+    @classmethod
+    def version(cls):
+        from pkg_resources import get_distribution, DistributionNotFound
+        try:
+            return get_distribution(cls.__module__).version
+        except DistributionNotFound:
+            __version__ = None
+
     def __repr__(self):
         return "Repository(%s)" % self.basedir
 
