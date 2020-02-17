@@ -9,14 +9,14 @@ repo_url: https://github.com/bpiwowar/datamaestro
 pages:
   - Home: index.md
   - Developping: developping.md
-  - API: 
+  - API:
     - Overview: api/index.md
     - Download: api/download.md
     - Data: api/data.md
 
 extra_css: [extra.css]
 
-markdown_extensions: 
+markdown_extensions:
   - pymdownx.details
   - pymdownx.superfences
   - footnotes
@@ -28,7 +28,7 @@ markdown_extensions:
 plugins:
   - search
   - datamaestro
-  
+
 # Theme
 theme:
     name: material

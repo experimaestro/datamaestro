@@ -1,4 +1,4 @@
-# Developing 
+# Developing
 
 ## Main library
 

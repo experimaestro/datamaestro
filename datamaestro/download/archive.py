@@ -9,16 +9,17 @@ from datamaestro.download import Download, initialized
 from datamaestro.utils import CachedFile
 from typing import List, Set
 
+
 class ArchiveDownloader(Download):
     """Abstract class for all archive related extractors"""
 
-    def __init__(self, varname, url: str, subpath:str=None, files:Set[str]=None):
+    def __init__(self, varname, url: str, subpath: str = None, files: Set[str] = None):
         """Downloads and extract the content of the archive
-        
+
         Args:
             varname: The name of the variable when defining the dataset
             url: The archive URL
-            subpath: A subpath in the archive; only files from this subpath will be extracted            
+            subpath: A subpath in the archive; only files from this subpath will be extracted
             files: A set of files; if present, only download those
         """
         super().__init__(varname)
@@ -35,7 +36,7 @@ class ArchiveDownloader(Download):
 
         if len(self.definition.resources) > 1:
             self.path = self.definition.datapath / name
-        else:            
+        else:
             self.path = self.definition.datapath
 
     @initialized
@@ -46,8 +47,8 @@ class ArchiveDownloader(Download):
     def download(self, force=False):
         # Already downloaded
         destination = self.definition.datapath
-        if destination.is_dir(): 
-            return 
+        if destination.is_dir():
+            return
 
         logging.info("Downloading %s into %s", self.url, destination)
 
@@ -62,11 +63,16 @@ class ArchiveDownloader(Download):
 
         # Look at the content
         for ix, path in enumerate(tmpdestination.iterdir()):
-            if ix > 1: break
-        
+            if ix > 1:
+                break
+
         # Just one folder: move
         if ix == 0 and path.is_dir():
-            logging.info("Moving single directory {} into destination {}".format(path, destination))
+            logging.info(
+                "Moving single directory {} into destination {}".format(
+                    path, destination
+                )
+            )
             shutil.move(str(path), str(destination))
             shutil.rmtree(tmpdestination)
         else:
@@ -92,20 +98,27 @@ class zipdownloader(ArchiveDownloader):
                         if zip_info.is_dir():
                             (destination / name).mkdir()
                         else:
-                            logging.info("File %s (%s) to %s", zip_info.filename, name, destination /name)
-                            with zip.open(zip_info) as fp, (destination / name).open("wb") as out:
+                            logging.info(
+                                "File %s (%s) to %s",
+                                zip_info.filename,
+                                name,
+                                destination / name,
+                            )
+                            with zip.open(zip_info) as fp, (destination / name).open(
+                                "wb"
+                            ) as out:
                                 shutil.copyfileobj(fp, out)
-        
 
 
 class tardownloader(ArchiveDownloader):
     """TAR archive handler"""
+
     def _name(self, name):
         return re.sub(r"\.tar(\.gz|\.bz\|xz)?$", "", name)
 
     def unarchive(self, file: CachedFile, destination: Path):
         logging.info("Unarchiving file")
-        if self.subpath: 
+        if self.subpath:
             raise NotImplementedError()
 
         with tarfile.TarFile.open(file.path, mode="r:*") as tar:

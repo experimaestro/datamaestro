@@ -5,4 +5,4 @@ include setup.py
 include LICENSE
 include README.md
 include requirements.txt
-include mkdocs.yml 
+include mkdocs.yml

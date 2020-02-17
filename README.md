@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/experimaestro/datamaestro.svg?style=svg)](https://circleci.com/gh/experimaestro/datamaestro) [![PyPI version](https://badge.fury.io/py/datamaestro.svg)](https://badge.fury.io/py/datamaestro) [![DOI](https://zenodo.org/badge/4573876.svg)](https://zenodo.org/badge/latestdoi/4573876)
+[![CircleCI](https://circleci.com/gh/experimaestro/datamaestro.svg?style=svg)](https://circleci.com/gh/experimaestro/datamaestro) [![PyPI version](https://badge.fury.io/py/datamaestro.svg)](https://badge.fury.io/py/datamaestro) [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit) [![DOI](https://zenodo.org/badge/4573876.svg)](https://zenodo.org/badge/latestdoi/4573876)
 
 
 
@@ -18,7 +18,7 @@ The main repository only deals with very generic processing (downloading, basic 
 
 
 ## List of repositories
- 
+
 - [NLP and information access related dataset](https://github.com/experimaestro/datamaestro_text)
 - [image-related dataset](https://github.com/experimaestro/datamaestro_image)
 - [machine learning](https://github.com/experimaestro/datamaestro_ml) contains standard ML datasets
@@ -47,7 +47,7 @@ The commmand line interface allows to download automatically the different resou
 $ datamaestro search tag:image
 [image] com.lecun.mnist
 
-$ datamaestro prepare com.lecun.mnist 
+$ datamaestro prepare com.lecun.mnist
 INFO:root:Downloading http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-labels-idx1-ubyte
 INFO:root:Transforming file
 INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-labels-idx1-ubyte
@@ -60,7 +60,7 @@ Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz: 32.8kB 
 INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-labels-idx1-ubyte
 INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-images-idx3-ubyte
 INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz
-Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz: 9.92MB [00:00, 10.6MB/s]                                                                                              
+Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz: 9.92MB [00:00, 10.6MB/s]
 INFO:root:Transforming file
 INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-images-idx3-ubyte
 ...JSON...
@@ -93,7 +93,7 @@ For those using Python, this is even better since the IDX format is supported
 
 ```python
 In [1]: from datamaestro import prepare_dataset
-In [2]: ds = prepare_dataset("com.lecun.mnist") 
+In [2]: ds = prepare_dataset("com.lecun.mnist")
 In [3]: ds.train.images.data().dtype, ds.train.images.data().shape
 Out[3]: (dtype('uint8'), (60000, 28, 28))
 ```
@@ -128,11 +128,11 @@ from datamaestro.data.tensor import IDX
 )
 def MNIST(train_images, train_labels, test_images, test_labels):
   """The MNIST database
-  
+
   The MNIST database of handwritten digits, available from this page, has a
   training set of 60,000 examples, and a test set of 10,000 examples. It is a
   subset of a larger set available from NIST. The digits have been
-  size-normalized and centered in a fixed-size image. 
+  size-normalized and centered in a fixed-size image.
   """
   return {
     "train": LabelledImages(

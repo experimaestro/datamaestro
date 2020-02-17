@@ -3,7 +3,7 @@ from struct import Struct
 from . import File
 
 
-class IDX(File): 
+class IDX(File):
     """IDX File format
      the IDX file format is a simple format for vectors and multidimensional matrices of various numerical types.
 
@@ -31,17 +31,21 @@ class IDX(File):
 
     The sizes in each dimension are 4-byte integers (MSB first, high endian, like in most non-Intel processors).
 
-    The data is stored like in a C array, i.e. the index in the last dimension changes the fastest. 
+    The data is stored like in a C array, i.e. the index in the last dimension changes the fastest.
     """
+
     MAGIC_NUMBER = Struct(">HBB")
     DIM = Struct(">I")
+
     def data(self):
         """Returns the tensor"""
         import numpy as np
-       
+
         with self.open("rb") as fp:
-            zero, magic, size = IDX.MAGIC_NUMBER.unpack_from(fp.read(IDX.MAGIC_NUMBER.size))
-            if zero != 0: 
+            zero, magic, size = IDX.MAGIC_NUMBER.unpack_from(
+                fp.read(IDX.MAGIC_NUMBER.size)
+            )
+            if zero != 0:
                 raise IOError("File format not IDX (the two first bytes are not zero)")
 
             if magic == 0x08:
@@ -56,5 +60,5 @@ class IDX(File):
             size = np.prod(shape)
             # Could use np.fromfile... if it were not broken - see https://github.com/numpy/numpy/issues/7989
             data = np.frombuffer(fp.read(), dtype=dtype, count=size)
-            data = data.reshape(shape, order='C')
+            data = data.reshape(shape, order="C")
         return data

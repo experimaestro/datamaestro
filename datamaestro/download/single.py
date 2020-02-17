@@ -39,24 +39,23 @@ class SingleDownload(Download):
     def download(self, force=False):
         if not self.path.is_file():
             self._download(self.path)
-        
+
 
 class filedownloader(SingleDownload):
     def __init__(self, filename: str, url: str, transforms=None):
         """Downloads a file given by a URL
-        
+
         Args:
             filename: The filename within the data folder; the variable name corresponds to the filename without the extension
             url: The URL to download
             transforms: Transform the file before storing it
         """
-        super().__init__(filename)  
+        super().__init__(filename)
         self.url = url
 
         p = urllib3.util.parse_url(self.url)
         path = Path(Path(p.path).name)
         self.transforms = transforms if transforms else Transform.createFromPath(path)
-
 
     def _download(self, destination):
         logging.info("Downloading %s into %s", self.url, destination)
@@ -70,12 +69,13 @@ class filedownloader(SingleDownload):
             # Transform if need be
             if self.transforms:
                 logging.info("Transforming file")
-                with self.transforms(file.path.open("rb")) as stream, destination.open("wb") as out:
+                with self.transforms(file.path.open("rb")) as stream, destination.open(
+                    "wb"
+                ) as out:
                     shutil.copyfileobj(stream, out)
             else:
                 logging.info("Keeping original downloaded file %s", file.path)
                 (shutil.copy if file.keep else shutil.move)(file.path, destination)
-
 
         logging.info("Created file %s" % destination)
 
@@ -85,7 +85,7 @@ class concatdownload(SingleDownload):
 
     def __init__(self, filename: str, url: str, transforms=None):
         """Concat the files in an archive
-        
+
         Args:
             filename: The filename within the data folder; the variable name corresponds to the filename without the extension
             url: The URL to download
@@ -102,7 +102,9 @@ class concatdownload(SingleDownload):
             with open(destination, "wb") as out:
                 for tarinfo in archive:
                     if tarinfo.isreg():
-                        transforms = self.transforms or Transform.createFromPath(Path(tarinfo.name))
+                        transforms = self.transforms or Transform.createFromPath(
+                            Path(tarinfo.name)
+                        )
                         logging.debug("Processing file %s", tarinfo.name)
                         with transforms(archive.fileobject(archive, tarinfo)) as fp:
                             shutil.copyfileobj(fp, out)

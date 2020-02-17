@@ -14,27 +14,29 @@ def rm_rf(d):
             os.unlink(path)
     os.rmdir(d)
 
+
 class TemporaryDirectory:
     def __init__(self, path: Path):
         self.delete = True
         self.path = path
-    
+
     def __enter__(self):
         logging.debug("Creating directory %s", self.path)
         self.path.mkdir(parents=True, exist_ok=True)
         return self
-    
-    def __exit__(self ,type, value, traceback):
+
+    def __exit__(self, type, value, traceback):
         if self.delete:
             rm_rf(self.path)
 
 
-class CachedFile():
+class CachedFile:
     """Represents a downloaded file that has been cached"""
+
     def __init__(self, path, keep=False):
         self.path = path
         self.keep = keep
-    
+
     def __enter__(self):
         return self
 
@@ -45,10 +47,13 @@ class CachedFile():
         except Exception as e:
             logging.warning("Could not delete cached file %s [%s]", self.path, e)
 
+
 # --- JSON
+
 
 class JsonContext:
     pass
+
 
 class BaseJSONEncoder(json.JSONEncoder):
     def __init__(self):
@@ -56,24 +61,27 @@ class BaseJSONEncoder(json.JSONEncoder):
         self.context = JsonContext()
 
     def default(self, o):
-        return {key: value for key, value in o.__dict__.items() if not key.startswith("__")}
+        return {
+            key: value for key, value in o.__dict__.items() if not key.startswith("__")
+        }
+
 
 class JsonEncoder(BaseJSONEncoder):
     """Default JSON encoder"""
+
     def default(self, o):
         if isinstance(o, PosixPath):
             return str(o.resolve())
         return super().default(o)
 
+
 class XPMEncoder(BaseJSONEncoder):
     """Experimaestro encoder"""
+
     def default(self, o):
         if isinstance(o, PosixPath):
-            return {
-                "$type": "path",
-                "$value": str(o.resolve())
-            }
-        
+            return {"$type": "path", "$value": str(o.resolve())}
+
         # Data object
         if hasattr(o.__class__, "__datamaestro__"):
             m = super().default(o)
@@ -81,4 +89,3 @@ class XPMEncoder(BaseJSONEncoder):
             return m
 
         return super().default(o)
-

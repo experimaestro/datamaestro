@@ -7,12 +7,11 @@ from . import File, data, argument
 @argument("ignore", type=int, default=0)
 @argument("names_row", type=int, default=-1)
 @data()
-class Generic(File): 
+class Generic(File):
     def columns(self):
         """Returns a couple (fields, matrix)"""
         if self.names_row < 0:
             return None
-
 
         with self.path.open("r") as fp:
             for i in range(self.ignore):
@@ -23,12 +22,11 @@ class Generic(File):
                     return row
 
 
-
 @argument("names_row", type=int, default=-1)
 @argument("size_row", type=int, default=-1)
 @argument("target", type=str, default=None)
 @data()
-class Matrix(Generic): 
+class Matrix(Generic):
     def data(self):
         """Returns a couple (fields, matrix)"""
         import numpy as np
@@ -55,5 +53,3 @@ class Matrix(Generic):
         if self.size_row < 0:
             data = np.array(data)
         return fields, data
-
-

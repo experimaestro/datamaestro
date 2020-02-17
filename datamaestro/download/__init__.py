@@ -1,20 +1,24 @@
 from pathlib import Path
 from datamaestro.definitions import DataAnnotation, DatasetWrapper
 
+
 def initialized(method):
     """Ensure the object is initialized"""
+
     def wrapper(self, *args, **kwargs):
         if not self._post:
             self._post = True
             self.postinit()
         return method(self, *args, **kwargs)
+
     return wrapper
+
 
 class Download(DataAnnotation):
     """
     Base class for all download handlers
     """
-    
+
     def __init__(self, varname: str):
         self.varname = varname
         # Ensures that the object is initialized
@@ -27,7 +31,8 @@ class Download(DataAnnotation):
 
         self.definition.resources[self.varname] = self
 
-    def postinit(self): pass
+    def postinit(self):
+        pass
 
     def download(self, force=False):
         """Downloads the content"""
@@ -41,7 +46,7 @@ class DatasetWrapper:
         self.__datamaestro__ = d
         d.base = annotation.base
         d.update(annotation.base.__datamaestro__)
-        
+
         # Removes module_name.config prefix
         path = t.__module__.split(".", 2)[2]
         d.id = "%s.%s" % (path, annotation.id or t.__name__.lower())
@@ -52,6 +57,7 @@ class DatasetWrapper:
 
     def __getattr__(self, key):
         return FutureAttr(self.__datamaestro__, [key])
+
 
 class Reference(Download):
     def __init__(self, varname, reference):

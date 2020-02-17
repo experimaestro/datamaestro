@@ -8,6 +8,7 @@ from datamaestro.download import Download
 
 class List(Download):
     """Download multiple files or directories given by a list"""
+
     def __init__(self, dataset: DatasetDefinition, definition: object):
         super().__init__(dataset, definition)
         self.list = self.definition
@@ -32,6 +33,7 @@ class List(Download):
 
 class Datasets(Download):
     """Use links to dataset files"""
+
     def __init__(self, dataset: DatasetDefinition, definition: object):
         super().__init__(dataset, definition)
         self.list = self.definition
@@ -45,7 +47,9 @@ class Datasets(Download):
 
                 if isinstance(files, Path):
                     if not files.is_dir():
-                        raise AssertionError("Dataset path is not a directory: %s", files)
+                        raise AssertionError(
+                            "Dataset path is not a directory: %s", files
+                        )
                     path = destination / key
                     if not path.exists():
                         if path.is_symlink():
