@@ -1,7 +1,6 @@
 from datamaestro.download import Download
 from pathlib import Path
 import os
-import re
 import logging
 
 
@@ -17,9 +16,8 @@ def envreplace(value):
 class linkfolder(Download):
     """Just asks for the location of the file and link it"""
 
-    def __init__(self, varname: str, name: str, proposals):
+    def __init__(self, varname: str, proposals):
         super().__init__(varname)
-        self.name = name
         self.proposals = proposals
 
     def prepare(self):
@@ -27,31 +25,32 @@ class linkfolder(Download):
 
     @property
     def path(self):
-        return self.definition.datapath / self.name
+        return self.definition.datapath / self.varname
 
     def download(self, destination):
         if self.path.is_dir():
             return
+
         if self.path.is_symlink():
-            raise AssertionError("Symlink exists but does not point to a directory")
+            logging.warning("Removing dandling symlink %s", self.path)
+            self.path.unlink()
 
         path = None
 
         # Check a folder given by an environment variable
         for searchpath in self.proposals:
-            logging.debug("Trying path %s", searchpath)
+            logging.info("Trying path %s", searchpath)
             try:
-                dir = envreplace(searchpath)
-                path = Path(dir) / self.name
+                path = Path(self.context.datafolder_process(searchpath))
                 if path.is_dir():
                     break
-                logging.info("Folder %s not found within %s", self.name, dir)
+                logging.info("Folder %s not found", path)
             except KeyError:
                 logging.info("Could not expand path %s", searchpath)
 
         # Ask the user
         while path is None or not path.is_dir():
-            path = Path(input("Path to %s: " % self.name))
+            path = Path(input("Path to %s: " % self.varname))
         assert path.name
 
         logging.debug("Linking %s to %s", path, self.path)

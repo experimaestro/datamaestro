@@ -12,6 +12,7 @@ import json
 import pkg_resources
 from tqdm import tqdm
 from typing import Iterable, List
+import re
 import marshmallow as mm
 from .registry import Registry
 from .utils import CachedFile
@@ -205,6 +206,14 @@ class Context:
                 raise
 
         return CachedFile(dlpath, keep=self.keep_downloads)
+
+    def datafolder_process(self, value):
+        """Process a data folder path"""
+
+        def process(var):
+            return self.settings.datafolders[var.group(1)]
+
+        return re.sub(r"{{([^}]+)}}", process, value)
 
 
 class Datasets:

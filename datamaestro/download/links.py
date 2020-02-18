@@ -24,4 +24,7 @@ class Links(Download):
             dest = self.path / key
 
             if not dest.exists():
+                if dest.is_symlink():
+                    logging.info("Removing dandling symlink %s", dest)
+                    dest.unlink()
                 os.symlink(path, dest)
