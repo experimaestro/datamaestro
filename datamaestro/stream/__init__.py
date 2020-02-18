@@ -2,11 +2,13 @@ import io
 import logging
 from pathlib import Path
 
+
 class Transform:
     @staticmethod
     def createFromPath(path: Path):
         if path.suffix == ".gz":
-            from .compress import Gunzip 
+            from .compress import Gunzip
+
             return Gunzip()
         return Identity()
 
@@ -14,7 +16,9 @@ class Transform:
         return path
 
     def __call__(self, input):
-        raise NotImplementedError("__call__ should be implemented in subclass %s" % type(self))
+        raise NotImplementedError(
+            "__call__ should be implemented in subclass %s" % type(self)
+        )
 
 
 class Identity(Transform):
@@ -38,4 +42,3 @@ class TransformList(Transform):
         for item in self.list:
             fileobj = item(fileobj)
         return fileobj
-

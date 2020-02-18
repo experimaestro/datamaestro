@@ -4,15 +4,19 @@ import os
 import re
 import logging
 
+
 def envreplace(value):
     """Replace %...% by the value of the environment variable"""
+
     def process(var):
         return os.environ[var.group(1)]
+
     return re.sub(r"%([^%]+)%", process, value)
 
 
 class linkfolder(Download):
     """Just asks for the location of the file and link it"""
+
     def __init__(self, varname: str, name: str, proposals):
         super().__init__(varname)
         self.name = name
@@ -26,11 +30,11 @@ class linkfolder(Download):
         return self.definition.datapath / self.name
 
     def download(self, destination):
-        if self.path.is_dir(): 
+        if self.path.is_dir():
             return
         if self.path.is_symlink():
             raise AssertionError("Symlink exists but does not point to a directory")
-            
+
         path = None
 
         # Check a folder given by an environment variable

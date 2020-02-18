@@ -1,5 +1,5 @@
 """
-Contains 
+Contains
 """
 
 import sys
@@ -26,31 +26,34 @@ from .context import Context, DownloadReportHook
 # --- Objects holding information into classes/function
 
 
-class DataDefinition():
+class DataDefinition:
     """Object that stores the declarative part of a data(set) description
     """
+
     def __init__(self, t, base=None):
         assert base is None or not inspect.isclass(t)
 
         # Copy base type and find matching repository
         self.t = t
-        module = importlib.import_module(t.__module__.split(".",1)[0])
-        self.repository = module.Repository.instance() if module.__name__ != "datamaestro" else None
+        module = importlib.import_module(t.__module__.split(".", 1)[0])
+        self.repository = (
+            module.Repository.instance() if module.__name__ != "datamaestro" else None
+        )
 
         # Dataset id (and all aliases)
         self.id = None
         self.base = base
-            
+
         self.aliases = set()
 
         self.tags = set(chain(*[c.__datamaestro__.tags for c in self.ancestors()]))
         self.tasks = set(chain(*[c.__datamaestro__.tasks for c in self.ancestors()]))
 
         self.url = None
-        self.description:str = None
-        self.name:str = None
+        self.description: str = None
+        self.name: str = None
         self.version = None
-        
+
         if t.__doc__:
             lines = t.__doc__.split("\n", 2)
             self.name = lines[0]
@@ -61,7 +64,7 @@ class DataDefinition():
 
         self.resources = {}
 
-    def ancestors(self):    
+    def ancestors(self):
         ancestors = []
         if self.base:
             baseclass = self.base
@@ -75,7 +78,7 @@ class DataDefinition():
 
 class DatasetDefinition(DataDefinition):
     """Specialization of DataDefinition for datasets
-    
+
     A dataset:
 
     - has a unique ID (and aliases)
@@ -84,6 +87,7 @@ class DatasetDefinition(DataDefinition):
     - has specific attributes:
         - timestamp: whether the dataset version depends on the time of the download
     """
+
     def __init__(self, t, base=None):
         super().__init__(t, base=base)
         self.timestamp = False
@@ -124,8 +128,8 @@ class DatasetDefinition(DataDefinition):
     @property
     def datapath(self):
         """Returns the destination path for downloads"""
-        return self.repository.datapath / self.path 
-        
+        return self.repository.datapath / self.path
+
     @staticmethod
     def find(name: str) -> "DataDefinition":
         """Find a dataset given its name"""
@@ -138,9 +142,9 @@ class DatasetDefinition(DataDefinition):
         raise Exception("Could not find the dataset %s" % (name))
 
 
-
 class FutureAttr:
     """Allows to access a dataset subproperty"""
+
     def __init__(self, definition, keys):
         self.definition = definition
         self.keys = keys
@@ -155,15 +159,16 @@ class FutureAttr:
             value = getattr(value, key)
         return value
 
-
     def __getattr__(self, key):
         return FutureAttr(self.definition, self.keys + [key])
 
     def download(self, force=False):
         self.definition.download(force)
 
+
 class DatasetWrapper:
     """Represents a dataset"""
+
     def __init__(self, annotation, t: type):
         from datamaestro.data import Base
 
@@ -182,7 +187,7 @@ class DatasetWrapper:
 
         # Set some variables
         d.url = annotation.url
-            
+
         # Builds the ID:
         # Removes module_name.config prefix
         path = t.__module__.split(".", 2)[2]
@@ -199,17 +204,17 @@ class DatasetWrapper:
         return FutureAttr(self.__datamaestro__, [key])
 
 
-
 # --- Annotations
 
 
-
-class DataAnnotation():
+class DataAnnotation:
     def __call__(self, t):
         # Set some useful members
-        self.definition = t.__datamaestro__ # type: DataDefinition
-        self.repository = self.definition.repository # type: Repository
-        self.context = self.definition.repository.context if self.definition.repository else None
+        self.definition = t.__datamaestro__  # type: DataDefinition
+        self.repository = self.definition.repository  # type: Repository
+        self.context = (
+            self.definition.repository.context if self.definition.repository else None
+        )
 
         # Annotate
         self.annotate()
@@ -219,22 +224,27 @@ class DataAnnotation():
         raise NotImplementedError("Method annotate for class %s" % self.__class__)
 
 
-def DataTagging(f): 
+def DataTagging(f):
     class Annotation(DataAnnotation):
         """Define tags in a data definition"""
+
         def __init__(self, *tags):
             self.tags = tags
 
         def annotate(self):
             f(self.definition).update(self.tags)
+
     return Annotation
+
 
 datatags = DataTagging(lambda d: d.tags)
 datatasks = DataTagging(lambda d: d.tasks)
 
-def data(description=None): 
+
+def data(description=None):
     if description is not None and not isinstance(description, str):
         raise RuntimeError("@data annotation should be written @data()")
+
     def annotate(t):
         try:
             object.__getattribute__(t, "__datamaestro__")
@@ -244,25 +254,28 @@ def data(description=None):
 
         # Determine the data type
         from experimaestro import config
+
         module, data, path = ("%s.%s" % (t.__module__, t.__name__)).split(".", 2)
-        assert data == "data", "A @data object should be in the .data module (not %s.%s)" % (module, data)
+        assert (
+            data == "data"
+        ), "A @data object should be in the .data module (not %s.%s)" % (module, data)
         identifier = "%s.%s" % (module, path.lower())
         t = config(identifier)(t)
         t.__datamaestro__ = DataDefinition(t)
         t.__datamaestro__.id = identifier
 
         return t
+
     return annotate
 
 
-
-class dataset():
-    def __init__(self, base=None, *, timestamp=False, id=None, url=None): 
+class dataset:
+    def __init__(self, base=None, *, timestamp=False, id=None, url=None):
         """
-        
+
         Arguments:
             base {[type]} -- The base type (or None if infered from type annotation)
-        
+
         Keyword Arguments:
             timestamp {bool} -- [description] (default: {False})
             id {[type]} -- [description] (default: {None})
@@ -283,16 +296,17 @@ class dataset():
             raise AssertionError("@data should only be called once")
         except AttributeError:
             pass
-        
+
         dw = DatasetWrapper(self, t)
         dw.__datamaestro__.timestamp = self.timestamp
 
         return dw
 
 
-def metadataset(base): 
+def metadataset(base):
     """Annotation for object/functions which are abstract dataset definitions -- i.e. shared
     by more than one real dataset. This is useful to share tags, urls, etc."""
+
     def annotate(t):
         try:
             object.__getattribute__(t, "__datamaestro__")
@@ -303,4 +317,3 @@ def metadataset(base):
         return t
 
     return annotate
-

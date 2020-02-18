@@ -6,7 +6,8 @@ from datamaestro.context import Context, Repository
 
 import unittest
 
-class DatasetTests():
+
+class DatasetTests:
     @classmethod
     def setUpClass(cls):
         context = Context.instance()
@@ -25,7 +26,7 @@ class DatasetTests():
 
     def test_datasets(self):
         """Check datasets integrity by preparing them (without downloading)
-        
+
         Arguments:
             repository {Repository} -- The repository to check
         """

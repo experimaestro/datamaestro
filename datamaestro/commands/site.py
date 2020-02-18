@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 import inspect
 import typing
+from typing import Optional
 import importlib
 
 import mkdocs
@@ -17,9 +18,12 @@ from docstring_parser import parse as docstring_parse
 
 from ..context import Context, Repository, Datasets
 
+
 # Custom URIs for tags and modules
-RE_module = re.compile(r"^datamaestro/df/([^/]*)/(.*)\.md$")
+RE_MODULE = re.compile(r"^datamaestro/df/([^/]*)/(.*)\.md$")
 RE_TASK = re.compile(r"^datamaestro/task/([^/]*)\.md$")
+RE_APIGEN = re.compile(r"@@api:(.+)")
+
 
 class Matcher:
     def __init__(self):
@@ -32,12 +36,15 @@ class Matcher:
     def group(self, *args):
         return self.match.group(*args)
 
+
 MATCHER = Matcher()
+
 
 class ClassificationItem:
     def __init__(self, name):
         self.values = []
         self.name = name
+
 
 def document(match):
     modulename, name = match.group(1).rsplit(".", 1)
@@ -46,7 +53,6 @@ def document(match):
         module = importlib.import_module(modulename)
         object = getattr(module, name)
 
-        
         if inspect.isclass(object):
             docstring = object.__init__.__doc__
             types = object.__init__.__annotations__
@@ -57,44 +63,48 @@ def document(match):
             signature = str(inspect.signature(object))
 
         doc = docstring_parse(docstring)
-        
-        
+
         if doc.short_description:
             s = "### " + doc.short_description + "\n\n"
         else:
             s = "### %s\n\n" % name
-        
-        
+
         s += "`@{}{}`\n\n".format(name, signature)
 
         if doc.long_description:
             s += doc.long_description
 
         for param in doc.params:
-            type_name = param.type_name 
+            type_name = param.type_name
             if not type_name and param.arg_name in types:
                 t = types[param.arg_name]
                 if isinstance(t, typing._Final):
                     type_name = str(t).replace("typing.", "")
                 else:
-                    type_name =  types[param.arg_name].__name__
-            s += " - `{}` (`{}`): {}\n".format(param.arg_name, type_name or "?", param.description or "")
+                    type_name = types[param.arg_name].__name__
+            s += " - `{}` (`{}`): {}\n".format(
+                param.arg_name, type_name or "?", param.description or ""
+            )
 
         return s
 
     except Exception as e:
-        logging.exception('Exception while generating the documentation for %s' % match.group(1))
-        return r"""<div class="error">Documentation error for {}</div>""".format(match.group(1))
+        logging.exception(
+            "Exception while generating the documentation for %s" % match.group(1)
+        )
+        return r"""<div class="error">Documentation error for {}</div>""".format(
+            match.group(1)
+        )
+
 
 class Classification:
     def __init__(self, name):
         self.id = name.lower()
         self.name = name
-        # Maps keys to couple 
+        # Maps keys to couple
         self.map = {}
 
         self.re = re.compile(r"^datamaestro/%s/([^/]*)\.md$" % (self.id))
-
 
     def add(self, name, value):
         key = name.lower()
@@ -103,9 +113,18 @@ class Classification:
         self.map[key].values.append(value)
 
     def addFiles(self, files, config):
-        files.append(MkdocFile("datamaestro/%s.md" % self.id, "", config["site_dir"], False))
+        files.append(
+            MkdocFile("datamaestro/%s.md" % self.id, "", config["site_dir"], False)
+        )
         for key in self.map.keys():
-            files.append(MkdocFile("datamaestro/%s/%s.md" % (self.id, key), "", config["site_dir"], False))
+            files.append(
+                MkdocFile(
+                    "datamaestro/%s/%s.md" % (self.id, key),
+                    "",
+                    config["site_dir"],
+                    False,
+                )
+            )
 
     def match(self, path):
 
@@ -125,27 +144,38 @@ class Classification:
 
             for ds in item.values:
                 meta = ds.__datamaestro__
-                
+
                 module = Datasets(importlib.import_module(meta.t.__module__))
-                r.write("- [%s](../df/%s/%s.html#%s)\n" % (meta.name or meta.id, meta.repository.id, module.id, meta.id))
+                r.write(
+                    "- [%s](../df/%s/%s.html#%s)\n"
+                    % (meta.name or meta.id, meta.repository.id, module.id, meta.id)
+                )
 
             return r.getvalue()
-            
+
     @property
     def nav(self):
-        nav = [{ "List of %s" % self.id : "datamaestro/%s.md" % self.id }]
+        nav = [{"List of %s" % self.id: "datamaestro/%s.md" % self.id}]
         for key, item in self.map.items():
-            nav.append({ item.name: "datamaestro/%s/%s.md" % (self.id, key) })
+            nav.append({item.name: "datamaestro/%s/%s.md" % (self.id, key)})
         return nav
 
 
 class DatasetGenerator(mkdocs.plugins.BasePlugin):
-    CONF = None
-    REPOSITORY = None
-    
+    """Mkdocs plugin for datamaestro submodules
+
+    See:
+        https://www.mkdocs.org/user-guide/plugins/ for mkdocs plugins
+
+    Arguments:
+        mkdocs {[type]} -- [description]
+    """
+
+    CONF: Optional[Context] = None
+    REPOSITORY: Optional[Repository] = None
 
     config_scheme = (
-        ('repository', mkdocs.config.config_options.Type(mkdocs.utils.text_type)),
+        ("repository", mkdocs.config.config_options.Type(mkdocs.utils.text_type)),
     )
 
     @staticmethod
@@ -157,7 +187,9 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
     @property
     def repository(self) -> Repository:
         if DatasetGenerator.REPOSITORY is None:
-            DatasetGenerator.REPOSITORY = DatasetGenerator.configuration().repository(self.repository_id)
+            DatasetGenerator.REPOSITORY = DatasetGenerator.configuration().repository(
+                self.repository_id
+            )
         return DatasetGenerator.REPOSITORY
 
     def parse_nav(self, nav):
@@ -170,15 +202,13 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
             else:
                 yield value
 
-
     def on_config(self, config):
-        self.repository_id = self.config['repository']
+        self.repository_id = self.config["repository"]
         self.classifications = []
         self.modules = {}
 
         if not self.repository_id:
             return
-
 
         # Navigation
         nav = config["nav"]
@@ -187,7 +217,6 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         self.tasks = Classification("Tasks")
         self.classifications = [self.tags, self.tasks]
 
-        
         navdf = []
         nav.append({"Datasets": navdf})
 
@@ -214,24 +243,32 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
 
     def on_files(self, files, config):
         if self.repository_id:
-            files.append(MkdocFile("datamaestro/tasks.md", "", config["site_dir"], False))
+            files.append(
+                MkdocFile("datamaestro/tasks.md", "", config["site_dir"], False)
+            )
             for c in self.classifications:
                 c.addFiles(files, config)
-            
+
             for module in self.modules.values():
                 # Add a file for each dataset
-                f = MkdocFile("datamaestro/df/%s/%s.md" % (self.repository_id, module.id), "", config["site_dir"], False)
+                f = MkdocFile(
+                    "datamaestro/df/%s/%s.md" % (self.repository_id, module.id),
+                    "",
+                    config["site_dir"],
+                    False,
+                )
                 files.append(f)
         return files
 
-
-    RE_APIGEN = re.compile(r"@@api:(.+)")
-
     def on_page_markdown(self, markdown, page, config, **kwargs):
-        if page.url.startswith('api/'):
+        if page.url.startswith("api/"):
             return DatasetGenerator.RE_APIGEN.sub(document, markdown)
+        if page.url == "":
+            return (
+                "Documentation for datamaestro module **%s (version %s)**\n\n"
+                % (self.repository.NAMESPACE, self.repository.version())
+            ) + markdown
         return markdown
-
 
     def on_page_read_source(self, item, config, page: MkdocPage, **kwargs):
         """Generate pages"""
@@ -240,31 +277,34 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         # --- Classifications
         for c in self.classifications:
             r = c.match(path)
-            if r: 
+            if r:
                 return r
 
         # --- Dataset file documentation generation
 
-        m = RE_module.match(path)
+        m = RE_MODULE.match(path)
         if not m:
             return None
 
         df = self.modules[m.group(2)]
         r = io.StringIO()
-    
+
         r.write("# %s\n" % df.id)
         r.write(df.description)
-        
 
         r.write("\n\n")
         r.write("## List of datasets\n\n")
         for ds in df:
             meta = ds.__datamaestro__
-            r.write("""<div class='dataset'>%s</div><a name="%s"></a>\n\n""" % (meta.id, meta.id))
+            r.write(
+                """<div class='dataset'>%s</div><a name="%s"></a>\n\n"""
+                % (meta.id, meta.id)
+            )
             if meta.name:
                 r.write("**%s**\n\n" % meta.name)
-            if ds.tags: r.write("**Tags**: %s \n" % ", ".join(meta.tags))
-            if ds.tasks: r.write("**Tasks**: %s \n" % ", ".join(meta.tasks))
+            if ds.tags:
+                r.write("**Tags**: %s \n" % ", ".join(meta.tags))
+            if ds.tasks:
+                r.write("**Tasks**: %s \n" % ", ".join(meta.tasks))
 
         return r.getvalue()
-

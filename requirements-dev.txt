@@ -3,3 +3,7 @@ tqdm
 pyyaml
 coverage
 twine
+
+# Pre-commit hooks
+# https://pre-commit.com/
+pre-commit

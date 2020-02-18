@@ -16,10 +16,11 @@ import marshmallow as mm
 from .registry import Registry
 from .utils import CachedFile
 
+
 class Compression:
     @staticmethod
     def extension(definition):
-        if not definition: 
+        if not definition:
             return ""
         if definition == "gzip":
             return ".gz"
@@ -27,19 +28,20 @@ class Compression:
         raise Exception("Not handled compression definition: %s" % definition)
 
 
-
 class DownloadReportHook(tqdm):
     """Report hook for tqdm when downloading from the Web"""
+
     def __init__(self, **kwargs):
         kwargs.setdefault("unit", "B")
         kwargs.setdefault("unit_scale", True)
         kwargs.setdefault("miniters", 1)
         super().__init__(**kwargs)
+
     def __call__(self, b=1, bsize=1, tsize=None):
         if tsize is not None:
             self.total = tsize
         self.update(b * bsize - self.n)  # will also set self.n = b * bsize
-        
+
 
 def flatten_settings(settings, content, prefix=""):
     for key, value in content.items():
@@ -50,21 +52,22 @@ def flatten_settings(settings, content, prefix=""):
             settings[key] = value
 
 
-
 class PathField(mm.fields.Field):
     """Field that serializes to a title case string and deserializes
     to a lower case string.
     """
+
     def _serialize(self, value, attr, obj, **kwargs):
         return Path(value)
 
     def _deserialize(self, value, attr, data, **kwargs):
         return str(value.absolute())
 
+
 class SettingsSchema(mm.Schema):
     keys = mm.fields.Dict(keys=mm.fields.Str(), values=mm.fields.Str())
     datafolders = mm.fields.Dict(keys=mm.fields.Str(), values=mm.fields.Str())
-    
+
     @mm.post_load
     def make_settings(self, data, **kwargs):
         settings = Settings()
@@ -72,8 +75,10 @@ class SettingsSchema(mm.Schema):
             setattr(settings, key, value)
         return settings
 
+
 class Settings:
     """Global settings"""
+
     def __init__(self):
         self.keys: Dict[str, Any] = {}
         self.datafolders: Dict[str, Path] = {}
@@ -81,15 +86,18 @@ class Settings:
     def save(self):
         self.path.write_text(SettingsSchema().dumps(self))
 
+
 class Context:
     """
     Represents the application context
     """
+
     MAINDIR = Path(os.environ.get("DATAMAESTRO_DIR", "~/datamaestro")).expanduser()
 
-    INSTANCE=None
+    INSTANCE = None
 
     """Main settings"""
+
     def __init__(self, path: Path = None):
         assert not Context.INSTANCE
 
@@ -108,32 +116,39 @@ class Context:
         else:
             self.settings = Settings()
         self.settings.path = path
-                   
+
     @staticmethod
     def instance():
         if Context.INSTANCE is None:
             Context.INSTANCE = Context()
         return Context.INSTANCE
-        
+
     @property
     def datapath(self):
         return self._path.joinpath("data")
-        
+
     @property
     def cachepath(self) -> Path:
         return self._path.joinpath("cache")
 
     def repositories(self):
         """Returns an iterator over repositories"""
-        for entry_point in pkg_resources.iter_entry_points('datamaestro.repositories'):
+        for entry_point in pkg_resources.iter_entry_points("datamaestro.repositories"):
             yield entry_point.load().instance()
 
     def repository(self, repositoryid):
-        l = [x for x in pkg_resources.iter_entry_points('datamaestro.repositories', repositoryid)]
+        l = [
+            x
+            for x in pkg_resources.iter_entry_points(
+                "datamaestro.repositories", repositoryid
+            )
+        ]
         if not l:
             raise Exception("No datasets repository named %s", repositoryid)
         if len(l) > 1:
-            raise Exception("Too many datasets repository named %s (%d)", repositoryid, len(l))
+            raise Exception(
+                "Too many datasets repository named %s (%d)", repositoryid, len(l)
+            )
         return l[0].load()(self)
 
     def datasets(self):
@@ -148,7 +163,7 @@ class Context:
             dataset = repository.search(datasetid)
             if dataset is not None:
                 return dataset
-        
+
         raise Exception("Dataset {} not found".format(datasetid))
 
     def downloadURL(self, url):
@@ -161,11 +176,13 @@ class Context:
             path = self.cachepath.joinpath(hasher.hexdigest())
             urlpath = path.with_suffix(".url")
             dlpath = path.with_suffix(".dl")
-        
+
             if urlpath.is_file():
                 if urlpath.read_text() != url:
                     # TODO: do something better
-                    raise Exception("Cached URL hash does not match. Clear cache to resolve")
+                    raise Exception(
+                        "Cached URL hash does not match. Clear cache to resolve"
+                    )
             return urlpath, dlpath
 
         hasher = hashlib.sha256(json.dumps(url).encode("utf-8"))
@@ -187,11 +204,10 @@ class Context:
                 tmppath.unlink()
                 raise
 
-
         return CachedFile(dlpath, keep=self.keep_downloads)
-        
 
-class Datasets():
+
+class Datasets:
     def __init__(self, module):
         self.module = module
 
@@ -240,6 +256,14 @@ class Repository:
         except AttributeError:
             return cls(context if context else Context.instance())
 
+    @classmethod
+    def version(cls):
+        from pkg_resources import get_distribution, DistributionNotFound
+
+        try:
+            return get_distribution(cls.__module__).version
+        except DistributionNotFound:
+            __version__ = None
 
     def __repr__(self):
         return "Repository(%s)" % self.basedir
@@ -266,10 +290,10 @@ class Repository:
             path = path / c
 
             if (path / "__init__.py").is_file():
-                candidates.append(".".join(components[:i+1]))
+                candidates.append(".".join(components[: i + 1]))
 
             if path.with_suffix(".py").is_file():
-                candidates.append(".".join(components[:i+1]))
+                candidates.append(".".join(components[: i + 1]))
 
             if not path.is_dir():
                 break
@@ -286,7 +310,9 @@ class Repository:
 
     def module(self, did):
         """Returns a module given the its id"""
-        path = self.basedir.joinpath("config").joinpath(*did.split(".")).with_suffix(".py")
+        path = (
+            self.basedir.joinpath("config").joinpath(*did.split(".")).with_suffix(".py")
+        )
         return module.create(self, did, path)
 
     def modules(self):
@@ -297,6 +323,7 @@ class Repository:
                 yield Datasets(module)
             except Exception as e:
                 import traceback
+
                 traceback.print_exc()
                 logging.error("Error while loading module %s: %s", package, e)
 
@@ -317,20 +344,20 @@ class Repository:
                 yield self, fid, package
             except Exception as e:
                 import traceback
+
                 traceback.print_exc()
                 logging.error("Error while reading definitions file %s: %s", path, e)
-   
+
     def __iter__(self):
         """Iterates over all datasets in this repository"""
         for datasets in self.modules():
             for dataset in datasets:
                 yield dataset.__datamaestro__
 
-
     @property
     def generatedpath(self):
         return self.basedir.joinpath("generated")
-        
+
     @property
     def datapath(self):
         return self.context.datapath.joinpath(self.id)
@@ -341,15 +368,16 @@ class Repository:
         return self.basedir.joinpath("data")
 
 
-
-
 def find_dataset(dataset_id: str):
     """Find a dataset given its id"""
     from .definitions import DatasetDefinition
+
     return DatasetDefinition.find(dataset_id)
+
 
 def prepare_dataset(dataset_id: str):
     """Find a dataset given its id"""
     from .definitions import DatasetDefinition
-    ds = DatasetDefinition.find(dataset_id) 
+
+    ds = DatasetDefinition.find(dataset_id)
     return ds.prepare(download=True)

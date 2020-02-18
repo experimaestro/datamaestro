@@ -1,4 +1,3 @@
-
 import unittest
 import contextlib
 import logging
@@ -12,6 +11,7 @@ from datamaestro import Repository, Context
 
 TEST_PATH = Path(__file__).parent
 
+
 @contextlib.contextmanager
 def make_temporary():
     temp_dir = tempfile.mkdtemp()
@@ -19,6 +19,7 @@ def make_temporary():
         yield temp_dir
     finally:
         shutil.rmtree(temp_dir)
+
 
 class TemporaryContext(unittest.TestCase):
     @classmethod
@@ -32,19 +33,22 @@ class TemporaryContext(unittest.TestCase):
     def tearDownClass(cls):
         "Hook method for deconstructing the class fixture after running all tests in the class."
         cls._dir.__exit__(None, cls.dir, None)
-        
+
+
 class MyRepository(Repository):
     NAMESPACE = "test-simple"
     AUTHOR = """Benjamin Piwowarski <benjamin@piwowarski.fr>"""
     DESCRIPTION = """Repository with tests"""
 
-class Definition: pass
+
+class Definition:
+    pass
+
 
 class MainTest(TemporaryContext):
-
     def test_single_(self):
         repository = MyRepository(MainTest.context)
-        
+
         url = "file:///" + str(Path(__file__).resolve())
         downloader = single.filedownloader("test", url)
         downloader.definition = Definition()
@@ -53,8 +57,9 @@ class MainTest(TemporaryContext):
         downloader.download()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+
     global context
     with make_temporary() as dir:
         logging.info("Using %s as data directory", dir)
