@@ -207,13 +207,32 @@ class Context:
 
         return CachedFile(dlpath, keep=self.keep_downloads)
 
-    def datafolder_process(self, value):
-        """Process a data folder path"""
 
-        def process(var):
-            return self.settings.datafolders[var.group(1)]
+class ResolvablePath:
+    """An object than can be resolved into a Path"""
 
-        return re.sub(r"{{([^}]+)}}", process, value)
+    @staticmethod
+    def resolve(context, path):
+        if isinstance(path, ResolvablePath):
+            return path(context)
+        return Path(path)
+
+    """Class that returns a path"""
+
+    def __call__(self, context: Context) -> Path:
+        raise NotImplementedError()
+
+
+class DatafolderPath(ResolvablePath):
+    def __init__(self, folderid, path):
+        self.folderid = folderid
+        self.path = path
+
+    def __str__(self):
+        return "datafolder-path({folderid}):{path}".format(**self.__dict__)
+
+    def __call__(self, context: Context) -> Path:
+        return Path(context.settings.datafolders[self.folderid]) / self.path
 
 
 class Datasets:

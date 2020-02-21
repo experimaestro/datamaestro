@@ -20,7 +20,7 @@ import json
 import traceback
 from typing import Union
 from experimaestro import argument
-from .context import Context, DownloadReportHook
+from .context import Context, DownloadReportHook, DatafolderPath
 
 
 # --- Objects holding information into classes/function

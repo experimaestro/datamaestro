@@ -1,4 +1,5 @@
 from datamaestro.download import Download
+from datamaestro.context import ResolvablePath
 from pathlib import Path
 import os
 import logging
@@ -41,7 +42,7 @@ class linkfolder(Download):
         for searchpath in self.proposals:
             logging.info("Trying path %s", searchpath)
             try:
-                path = Path(self.context.datafolder_process(searchpath))
+                path = ResolvablePath.resolve(self.context, searchpath)
                 if path.is_dir():
                     break
                 logging.info("Folder %s not found", path)
