@@ -3,7 +3,7 @@ from pathlib import Path
 from datamaestro.definitions import data, argument
 
 
-@argument("id", type=str, help="The unique dataset ID")
+@argument("id", type=str, help="The unique dataset ID", required=False)
 @data()
 class Base:
     pass
