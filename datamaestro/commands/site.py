@@ -210,6 +210,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         if not self.repository_id:
             return
 
+        config["extra_css"].insert(0, "mainstyle.css")
         # Navigation
         nav = config["nav"]
 
@@ -241,7 +242,19 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
 
         return config
 
+    def on_post_build(self, config):
+        """Called after the build"""
+        import importlib.resources
+        import shutil
+
+        path = Path(config["site_dir"]) / "mainstyle.css"
+        with importlib.resources.open_binary(
+            "datamaestro.commands", "mainstyle.css"
+        ) as source, path.open("wb") as dest:
+            shutil.copyfileobj(source, dest)
+
     def on_files(self, files, config):
+        """Called when list of files has been read"""
         if self.repository_id:
             files.append(
                 MkdocFile("datamaestro/tasks.md", "", config["site_dir"], False)
@@ -297,14 +310,26 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         for ds in df:
             meta = ds.__datamaestro__
             r.write(
-                """<div class='dataset'>%s</div><a name="%s"></a>\n\n"""
+                """<div class="dataset-entry"><div class='dataset-id'>%s<a name="%s"></a></div>\n\n"""
                 % (meta.id, meta.id)
             )
             if meta.name:
-                r.write("**%s**\n\n" % meta.name)
+                r.write("<div class='dataset-name'>%s</div>\n\n" % meta.name)
             if ds.tags:
-                r.write("**Tags**: %s \n" % ", ".join(meta.tags))
+                r.write(
+                    "".join("<span class='tag'>%s</span>" % tag for tag in meta.tags)
+                )
             if ds.tasks:
-                r.write("**Tasks**: %s \n" % ", ".join(meta.tasks))
+                r.write(
+                    "".join(
+                        "<span class='task'>%s</span>" % task for task in meta.tasks
+                    )
+                )
+
+            if meta.url:
+                r.write("""<div><a href="{0}">{0}</a></div>""".format(meta.url))
+            if meta.description:
+                r.write("<div class='description'>%s</div>" % meta.description)
+            r.write("</div>")
 
         return r.getvalue()
