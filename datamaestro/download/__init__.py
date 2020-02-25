@@ -1,5 +1,6 @@
 from pathlib import Path
 from datamaestro.definitions import DataAnnotation, DatasetWrapper
+from datamaestro.utils import deprecated
 
 
 def initialized(method):
@@ -59,7 +60,7 @@ class DatasetWrapper:
         return FutureAttr(self.__datamaestro__, [key])
 
 
-class Reference(Download):
+class reference(Download):
     def __init__(self, varname, reference):
         super().__init__(varname)
         self.reference = reference
@@ -72,3 +73,6 @@ class Reference(Download):
 
     def download(self, force=False):
         self.reference.__datamaestro__.download(force)
+
+
+Reference = deprecated("Use @reference instead of @Reference", reference)

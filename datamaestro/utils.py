@@ -48,6 +48,19 @@ class CachedFile:
             logging.warning("Could not delete cached file %s [%s]", self.path, e)
 
 
+def deprecated(message, f):
+    from inspect import getframeinfo, stack
+
+    def wrapped(*args, **kwargs):
+        caller = getframeinfo(stack()[1][0])
+        logging.warning(
+            "called at %s:%d - %s" % (caller.filename, caller.lineno, message)
+        )
+        return f(*args, **kwargs)
+
+    return wrapped
+
+
 # --- JSON
 
 

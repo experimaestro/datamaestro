@@ -1,9 +1,10 @@
 import logging
 import os
 from datamaestro.download import Download
+from datamaestro.utils import deprecated
 
 
-class Links(Download):
+class links(Download):
     def __init__(self, varname, **links):
         super().__init__(varname)
         self.links = links
@@ -28,3 +29,7 @@ class Links(Download):
                     logging.info("Removing dandling symlink %s", dest)
                     dest.unlink()
                 os.symlink(path, dest)
+
+
+# Deprecated
+Links = deprecated("Use @links instead of @Links", links)
