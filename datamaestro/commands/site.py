@@ -16,6 +16,8 @@ from mkdocs.structure.nav import Navigation as MkdocNavigation
 
 from docstring_parser import parse as docstring_parse
 
+from experimaestro.api import ObjectType
+
 from ..context import Context, Repository, Datasets
 
 
@@ -46,17 +48,74 @@ class ClassificationItem:
         self.name = name
 
 
+def method_documentation(doc, types):
+    s = ""
+    for param in doc.params:
+        type_name = param.type_name
+        if not type_name and param.arg_name in types:
+            t = types[param.arg_name]
+            if isinstance(t, typing._Final):
+                type_name = str(t).replace("typing.", "")
+            else:
+                type_name = types[param.arg_name].__name__
+        s += " - `{}` (`{}`): {}\n".format(
+            param.arg_name, type_name or "?", param.description or ""
+        )
+    return s
+
+
+def document_data(datatype: ObjectType):
+    xpm = datatype.__xpm__
+    s = "### %s\n\nClass `%s.%s`\n\n" % (
+        xpm.identifier,
+        datatype.__module__,
+        datatype.__name__,
+    )
+
+    supertypes = ", ".join(str(parent.identifier) for parent in xpm.parents())
+    if supertypes:
+        s += "**Supertypes**: %s\n\n" % supertypes
+
+    s += "#### Arguments\n\n"
+    for name, argument in xpm.arguments.items():
+        s += "- **%s**: %s\n" % (name, argument.help)
+
+    for name, method in inspect.getmembers(datatype):
+        if inspect.isfunction(method) and hasattr(method, "__datamaestro_doc__"):
+            doc = docstring_parse(method.__doc__)
+
+            signature = re.sub(r"\(self,?", "(", str(inspect.signature(method)))
+            s += "#### %s%s\n" % (name, signature)
+
+            if doc.short_description:
+                s += doc.short_description + "\n"
+            if doc.long_description:
+                s += doc.long_description + "\n"
+            s += method_documentation(doc, method.__annotations__)
+
+    return s
+
+
 def document(match):
+    """Generate the documentation"""
+
     modulename, name = match.group(1).rsplit(".", 1)
 
     try:
         module = importlib.import_module(modulename)
         object = getattr(module, name)
 
+        from datamaestro.data import Base
+
+        # Get the documentation
         if inspect.isclass(object):
+            if issubclass(object, Base):
+                return document_data(object)
+
             docstring = object.__init__.__doc__
             types = object.__init__.__annotations__
             signature = str(inspect.signature(object.__init__)).replace("(self, ", "(")
+
         else:
             docstring = object.__doc__
             types = object.__annotations__
@@ -64,8 +123,8 @@ def document(match):
 
         doc = docstring_parse(docstring)
 
-        if doc.short_description:
-            s = "### " + doc.short_description + "\n\n"
+        if doc.short_description or short_description:
+            s = "### " + (doc.short_description or short_description) + "\n\n"
         else:
             s = "### %s\n\n" % name
 
@@ -74,17 +133,7 @@ def document(match):
         if doc.long_description:
             s += doc.long_description
 
-        for param in doc.params:
-            type_name = param.type_name
-            if not type_name and param.arg_name in types:
-                t = types[param.arg_name]
-                if isinstance(t, typing._Final):
-                    type_name = str(t).replace("typing.", "")
-                else:
-                    type_name = types[param.arg_name].__name__
-            s += " - `{}` (`{}`): {}\n".format(
-                param.arg_name, type_name or "?", param.description or ""
-            )
+        s += method_documentation(doc, types)
 
         return s
 
@@ -273,10 +322,46 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
                 files.append(f)
         return files
 
+    def on_serve(self, server, config):
+        """Refresh when changing source code"""
+        import datamaestro
+
+        path = (
+            self.repository.basedir
+            if self.repository
+            else str(Path(datamaestro.__file__).parent)
+        )
+        basemodule = (
+            "%s." % self.repository.module if self.repository else "datamaestro."
+        )
+
+        # See https://github.com/mkdocs/mkdocs/issues/1952
+        builder = list(server.watcher._tasks.values())[0]["func"]
+
+        def rebuild():
+            import sys
+
+            # Clear-up loaded module
+            toremove = [
+                module for module in sys.modules if module.startswith(basemodule)
+            ]
+            for module in toremove:
+                del sys.modules[module]
+
+            # Remove defined data
+            from experimaestro.api import ObjectType
+
+            ObjectType.REGISTERED = {}
+
+            builder()
+
+        logging.info("Watching %s", path)
+        server.watch(path, rebuild)
+
     def on_page_markdown(self, markdown, page, config, **kwargs):
         if page.url.startswith("api/"):
-            return DatasetGenerator.RE_APIGEN.sub(document, markdown)
-        if page.url == "":
+            return RE_APIGEN.sub(document, markdown)
+        if self.repository and page.url == "":
             return (
                 "Documentation for datamaestro module **%s (version %s)**\n\n"
                 % (self.repository.NAMESPACE, self.repository.version())

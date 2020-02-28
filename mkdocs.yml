@@ -2,11 +2,10 @@
 
 site_name: Datamaestro
 site_description: datamaestro A dataset manager
-theme: readthedocs
 repo_url: https://github.com/bpiwowar/datamaestro
 
 # Main pages
-pages:
+nav:
   - Home: index.md
   - Developping: developping.md
   - API:
@@ -14,7 +13,7 @@ pages:
     - Download: api/download.md
     - Data: api/data.md
 
-extra_css: [extra.css]
+extra_css: [style.css]
 
 markdown_extensions:
   - pymdownx.details

@@ -3,6 +3,12 @@ from pathlib import Path
 from datamaestro.definitions import data, argument
 
 
+def documentation(method):
+    """Indicates that the method should be included in the documentation"""
+    method.__datamaestro_doc__ = True
+    return method
+
+
 @argument("id", type=str, help="The unique dataset ID", required=False)
 @data()
 class Base:

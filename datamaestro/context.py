@@ -138,6 +138,9 @@ class Context:
             yield entry_point.load().instance()
 
     def repository(self, repositoryid):
+        if repositoryid is None:
+            return None
+
         l = [
             x
             for x in pkg_resources.iter_entry_points(
@@ -148,7 +151,7 @@ class Context:
             raise Exception("No datasets repository named %s", repositoryid)
         if len(l) > 1:
             raise Exception(
-                "Too many datasets repository named %s (%d)", repositoryid, len(l)
+                "Too many datasets repository named %s (%d)" % (repositoryid, len(l))
             )
         return l[0].load()(self)
 

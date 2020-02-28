@@ -2,10 +2,23 @@ import logging
 import os
 from datamaestro.download import Download
 from datamaestro.utils import deprecated
+from datamaestro.definitions import DatasetDefinition
+from typing import List
+from datamaestro.download import Download
+from datamaestro.context import ResolvablePath
+from pathlib import Path
+import os
+import logging
 
 
 class links(Download):
-    def __init__(self, varname, **links):
+    def __init__(self, varname: str, **links: List[DatasetDefinition]):
+        """Link with another dataset path
+
+        Args:
+            varname: The name of the variable when defining the dataset
+            links: A list of
+        """
         super().__init__(varname)
         self.links = links
 
@@ -33,3 +46,53 @@ class links(Download):
 
 # Deprecated
 Links = deprecated("Use @links instead of @Links", links)
+
+
+class linkfolder(Download):
+    """Just asks for the location of the file and link it"""
+
+    def __init__(self, varname: str, proposals):
+        """Link to a folder
+
+        Args:
+            varname: Name of the variable
+            proposals: List of potential paths
+        """
+        super().__init__(varname)
+        self.proposals = proposals
+
+    def prepare(self):
+        return self.path
+
+    @property
+    def path(self):
+        return self.definition.datapath / self.varname
+
+    def download(self, destination):
+        if self.path.is_dir():
+            return
+
+        if self.path.is_symlink():
+            logging.warning("Removing dandling symlink %s", self.path)
+            self.path.unlink()
+
+        path = None
+
+        for searchpath in self.proposals:
+            logging.info("Trying path %s", searchpath)
+            try:
+                path = ResolvablePath.resolve(self.context, searchpath)
+                if path.is_dir():
+                    break
+                logging.info("Folder %s not found", path)
+            except KeyError:
+                logging.info("Could not expand path %s", searchpath)
+
+        # Ask the user
+        while path is None or not path.is_dir():
+            path = Path(input("Path to %s: " % self.varname))
+        assert path.name
+
+        logging.debug("Linking %s to %s", path, self.path)
+        self.path.parent.mkdir(exist_ok=True, parents=True)
+        os.symlink(path, self.path)

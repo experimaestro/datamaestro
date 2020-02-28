@@ -9,7 +9,7 @@ at being
 
 1. a reference for available resources, listing datasets
 1. a tool to automatically download and process resources (when freely available)
-1. optional integration with the [experimaestro](http://experimaestro.github.io/experimaestro/) experiment manager.
+1. integration with the [experimaestro](http://experimaestro.github.io/experimaestro-python/) experiment manager.
 1. (planned) a tool that allows to copy data from one computer to another
 
 Each datasets is uniquely identified by a qualified name such as `com.lecun.mnist`, which is usually the inversed path to the domain name of the website associated with the dataset.
@@ -104,7 +104,7 @@ Out[3]: (dtype('uint8'), (60000, 28, 28))
 Each dataset (or a set of related datasets) is described in Python using a mix of declarative
 and imperative statements. This allows to quickly define how to download dataset using the
 datamaestro declarative API; the imperative part is used when creating the JSON output,
-and is integrated with [experimaestro](http://experimaestro.github.io/experimaestro).
+and is integrated with [experimaestro](http://experimaestro.github.io/experimaestro-python).
 
 Its syntax is described in the [documentation](http://experimaestro.github.io/datamaestro/).
 

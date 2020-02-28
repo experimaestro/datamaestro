@@ -1,15 +1,19 @@
 from pathlib import Path
 from csv import reader as csv_reader
 
-from . import File, data, argument
+from . import File, data, argument, documentation
+from typing import Tuple, List
 
 
 @argument("ignore", type=int, default=0)
 @argument("names_row", type=int, default=-1)
 @data()
 class Generic(File):
+    """A generic CSV file"""
+
+    @documentation
     def columns(self):
-        """Returns a couple (fields, matrix)"""
+        """Returns the list of field names (if any) or None"""
         if self.names_row < 0:
             return None
 
@@ -27,8 +31,16 @@ class Generic(File):
 @argument("target", type=str, default=None)
 @data()
 class Matrix(Generic):
-    def data(self):
-        """Returns a couple (fields, matrix)"""
+    """A numerical dataset"""
+
+    @documentation
+    def data(self) -> Tuple[List[str], "numpy.array"]:
+        """Returns the list of fields and the numeric data
+
+
+        Returns:
+            [type]: List of fields
+        """
         import numpy as np
 
         fields = []

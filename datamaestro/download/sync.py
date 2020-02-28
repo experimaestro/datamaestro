@@ -1,17 +1,23 @@
 import logging
 from pathlib import Path
 
-from datamaestro import DatasetDefinition
 from datamaestro.download import Download
+from datamaestro.definitions import DatasetDefinition
 
 from subprocess import run
 
 
-class GSync(Download):
+class gsync(Download):
     """Google sync call"""
 
-    def __init__(self, repository, definition):
-        super().__init__(repository, definition)
+    def __init__(self, varname: str, url: str):
+        """Synchronize with Google sync
+
+        Args:
+            varname: Variable name
+            url: The google sync URL (`gs://...`)
+        """
+        super().__init__(varname)
         self.url = self.definition["url"]
 
     def download(self, destination: Path):

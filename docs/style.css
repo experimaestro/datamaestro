@@ -1,0 +1,8 @@
+h1, h2, h3, h4 {
+    color: blue
+}
+
+h2 {
+    border-left: 10px solid blue;
+    padding-left: 10px;
+}
