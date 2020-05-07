@@ -3,17 +3,8 @@ import os
 import os.path as op
 import json
 from pathlib import PosixPath, Path
-
-
-def rm_rf(d):
-    logging.debug("Removing directory %s" % d)
-    for path in (op.join(d, f) for f in os.listdir(d)):
-        if op.isdir(path):
-            rm_rf(path)
-        else:
-            os.unlink(path)
-    os.rmdir(d)
-
+from shutil import rmtree
+import hashlib
 
 class TemporaryDirectory:
     def __init__(self, path: Path):
@@ -27,7 +18,25 @@ class TemporaryDirectory:
 
     def __exit__(self, type, value, traceback):
         if self.delete:
-            rm_rf(self.path)
+            rmtree(self.path)
+
+class HashCheck:
+    """Check a file against a hash"""
+    def __init__(self, hashstr: str, hasher=hashlib.md5):
+        self.hashstr = hashstr
+        self.hasher = hasher
+
+    def check(self, path: Path) -> bool:
+        """Check the given file
+
+        returns true if OK
+        """        
+        with path.open() as fp:
+            hasher = self.hasher()
+            hasher.update(fp)
+        s = hasher.hexdigest()
+        if s != self.hashstr:
+            raise Exception(f"Digest do not match ({self.hashcheck} vs {s})")
 
 
 class CachedFile:
