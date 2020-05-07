@@ -5,26 +5,29 @@ import shutil
 import urllib3
 import tarfile
 import re
-from datamaestro.download import Download, initialized
-from datamaestro.utils import CachedFile
+import hashlib
 from typing import List, Set
+from datamaestro.download import Download, initialized
+from datamaestro.utils import CachedFile, HashCheck, FileChecker
 
 
 class ArchiveDownloader(Download):
     """Abstract class for all archive related extractors"""
 
-    def __init__(self, varname, url: str, subpath: str = None, files: Set[str] = None):
+    def __init__(self, varname, url: str, subpath: str = None, checker: FileChecker = None, files: Set[str] = None):
         """Downloads and extract the content of the archive
 
         Args:
             varname: The name of the variable when defining the dataset
             url: The archive URL
+            checker: the hash check for the downloaded file, composed of two 
             subpath: A subpath in the archive; only files from this subpath will be extracted
             files: A set of files; if present, only download those
         """
         super().__init__(varname)
         self.url = url
         self.subpath = subpath
+        self.checker = checker
         self._files = files
         if self.subpath and not self.subpath.endswith("/"):
             self.subpath = self.subpath + "/"
@@ -59,6 +62,7 @@ class ArchiveDownloader(Download):
             shutil.rmtree(tmpdestination)
 
         with self.context.downloadURL(self.url) as file:
+            self.checker.check(file.path)
             self.unarchive(file, tmpdestination)
 
         # Look at the content

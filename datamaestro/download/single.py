@@ -11,7 +11,6 @@ from tempfile import NamedTemporaryFile
 import re
 from docstring_parser import parse
 
-from datamaestro.utils import rm_rf
 from datamaestro.stream import Transform
 from datamaestro.download import Download
 
@@ -76,7 +75,7 @@ class filedownloader(SingleDownload):
             else:
                 logging.info("Keeping original downloaded file %s", file.path)
                 (shutil.copy if file.keep else shutil.move)(file.path, destination)
-
+            
         logging.info("Created file %s" % destination)
 
 

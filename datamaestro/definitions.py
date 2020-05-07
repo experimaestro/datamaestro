@@ -18,9 +18,9 @@ from itertools import chain
 import importlib
 import json
 import traceback
-from typing import Union
+from typing import Union, Callable
 from experimaestro import argument
-from .context import Context, DownloadReportHook, DatafolderPath
+from .context import Context, DatafolderPath
 
 
 # --- Objects holding information into classes/function
@@ -30,15 +30,12 @@ class DataDefinition:
     """Object that stores the declarative part of a data(set) description
     """
 
-    def __init__(self, t, base=None):
+    def __init__(self, repository, t, base=None):
         assert base is None or not inspect.isclass(t)
 
         # Copy base type and find matching repository
         self.t = t
-        module = importlib.import_module(t.__module__.split(".", 1)[0])
-        self.repository = (
-            module.Repository.instance() if module.__name__ != "datamaestro" else None
-        )
+        self.repository = repository
 
         # Dataset id (and all aliases)
         self.id = None
@@ -54,6 +51,12 @@ class DataDefinition:
         self.name: str = None
         self.version = None
 
+        # Hooks
+        self.hooks = {
+            "pre-use": [],
+            "pre-download": []
+        } 
+
         if t.__doc__:
             lines = t.__doc__.split("\n", 2)
             self.name = lines[0]
@@ -63,6 +66,35 @@ class DataDefinition:
                 self.description = lines[2]
 
         self.resources = {}
+
+    def register_hook(self, hookname: str, hook: Callable):
+        self.hooks[hookname].append(hook)
+
+    @staticmethod
+    def repository_relpath(t: type):
+        """Find the repository of the current data or dataset definition"""
+        map = Context.instance().repositorymap
+
+        fullname = f"{t.__module__}.{t.__name__}"
+        components = fullname.split(".")
+
+        current = None
+        longest_ix = -1
+        repository = None
+        for ix, c in enumerate(components):
+            current = f"{current}.{c}" if current else c
+            if current in map:
+                longest_ix = ix
+                repository = map[current]
+
+        if repository is None:
+            if components[0] == "datamaestro":
+                longest_ix = 0
+            elif repository is None:
+                raise Exception(f"Could not find the repository for {fullname}")    
+        
+        return repository, components[(longest_ix+1):]
+
 
     def ancestors(self):
         ancestors = []
@@ -88,8 +120,8 @@ class DatasetDefinition(DataDefinition):
         - timestamp: whether the dataset version depends on the time of the download
     """
 
-    def __init__(self, t, base=None):
-        super().__init__(t, base=base)
+    def __init__(self, repository, t, base=None):
+        super().__init__(repository, t, base=base)
         self.timestamp = False
 
     def download(self, force=False):
@@ -108,6 +140,9 @@ class DatasetDefinition(DataDefinition):
         if download and not self.download(False):
             raise Exception("Could not load necessary resources")
         logging.debug("Building with data type %s and dataset %s", self.base, self.t)
+        for hook in self.hooks["pre-use"]:
+            hook(self)
+            
         resources = {key: value.prepare() for key, value in self.resources.items()}
         data = self.base(**self.t(**resources))
         data.id = self.id
@@ -182,7 +217,9 @@ class DatasetWrapper:
 
         assert base is not None
 
-        d = DatasetDefinition(t, base)
+        repository, components = DataDefinition.repository_relpath(t)
+
+        d = DatasetDefinition(repository, t, base)
         self.__datamaestro__ = d
 
         # Set some variables
@@ -190,11 +227,17 @@ class DatasetWrapper:
 
         # Builds the ID:
         # Removes module_name.config prefix
-        path = t.__module__.split(".", 2)[2]
+        assert (
+            components[0] == "config"
+        ), f"A @dataset object should be in the .config module (not {t.__module__})"
+
+        path = ".".join(components[1:-1])
         if annotation.id == "":
+            # id is empty string = use the module id
             d.id = path
         else:
             d.id = "%s.%s" % (path, annotation.id or t.__name__.lower())
+
         d.aliases.add(d.id)
 
     def __call__(self, *args, **kwargs):
@@ -222,6 +265,29 @@ class DataAnnotation:
 
     def annotate(self):
         raise NotImplementedError("Method annotate for class %s" % self.__class__)
+
+
+def hook(name: str):
+    """Annotate a method of a DataAnnotation class to be a hook"""
+    class HookAnnotation(DataAnnotation):
+        def __init__(self, callable: Callable, args, kwargs):
+            self.callable = callable
+            self.args = args
+            self.kwargs = kwargs
+
+        def annotate(self):
+            self.definition.register_hook(name, self._hook)
+
+        def _hook(self, definition: DataDefinition):
+            self.callable(definition, *self.args, **self.kwargs)
+
+    def annotate(callable: Callable):
+        def collect(*args, **kwargs):
+            return HookAnnotation(callable, args, kwargs)
+        return collect
+
+    return annotate
+    
 
 
 def DataTagging(f):
@@ -254,14 +320,15 @@ def data(description=None):
 
         # Determine the data type
         from experimaestro import config
-
-        module, data, path = ("%s.%s" % (t.__module__, t.__name__)).split(".", 2)
+        
+        repository, components = DataDefinition.repository_relpath(t)
         assert (
-            data == "data"
-        ), "A @data object should be in the .data module (not %s.%s)" % (module, data)
-        identifier = "%s.%s" % (module, path.lower())
+            components[0] == "data"
+        ), f"A @data object should be in the .data module (not {t.__module__})"
+
+        identifier = f"{repository.NAMESPACE if repository else 'datamaestro'}." + ".".join(components[1:]).lower()
         t = config(identifier)(t)
-        t.__datamaestro__ = DataDefinition(t)
+        t.__datamaestro__ = DataDefinition(repository, t)
         t.__datamaestro__.id = identifier
 
         return t
@@ -313,7 +380,7 @@ def metadataset(base):
             raise AssertionError("@data should only be called once")
         except AttributeError:
             pass
-        t.__datamaestro__ = DataDefinition(t, base=base)
+        t.__datamaestro__ = DataDefinition(None, t, base=base)
         return t
 
     return annotate

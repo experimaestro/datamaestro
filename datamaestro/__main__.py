@@ -188,8 +188,9 @@ from urllib.parse import urlparse
 
 def dataset_id_check(ctx, param, value):
     try:
-        value = urlparse(value)
-        return ".".join(value.hostname.split(".")[::-1] + value.path[1:].split("/"))
+        url = urlparse(value)
+        if url.scheme:
+            return ".".join(url.hostname.split(".")[::-1] + url.path[1:].split("/"))
     except:
         raise
 

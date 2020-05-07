@@ -1,4 +1,5 @@
 from pathlib import Path
+from cached_property import cached_property
 import sys
 import importlib
 import os
@@ -11,12 +12,11 @@ from itertools import chain
 import json
 import pkg_resources
 from tqdm import tqdm
-from typing import Iterable, List
+from typing import Iterable, List, Dict
 import re
-import marshmallow as mm
 from .registry import Registry
-from .utils import CachedFile
-
+from .utils import CachedFile, downloadURL
+from .settings import UserSettings, Settings
 
 class Compression:
     @staticmethod
@@ -27,65 +27,6 @@ class Compression:
             return ".gz"
 
         raise Exception("Not handled compression definition: %s" % definition)
-
-
-class DownloadReportHook(tqdm):
-    """Report hook for tqdm when downloading from the Web"""
-
-    def __init__(self, **kwargs):
-        kwargs.setdefault("unit", "B")
-        kwargs.setdefault("unit_scale", True)
-        kwargs.setdefault("miniters", 1)
-        super().__init__(**kwargs)
-
-    def __call__(self, b=1, bsize=1, tsize=None):
-        if tsize is not None:
-            self.total = tsize
-        self.update(b * bsize - self.n)  # will also set self.n = b * bsize
-
-
-def flatten_settings(settings, content, prefix=""):
-    for key, value in content.items():
-        key = "%s.%s" % (prefix, key) if prefix else key
-        if isinstance(value, dict):
-            flatten_settings(settings, value, key)
-        else:
-            settings[key] = value
-
-
-class PathField(mm.fields.Field):
-    """Field that serializes to a title case string and deserializes
-    to a lower case string.
-    """
-
-    def _serialize(self, value, attr, obj, **kwargs):
-        return Path(value)
-
-    def _deserialize(self, value, attr, data, **kwargs):
-        return str(value.absolute())
-
-
-class SettingsSchema(mm.Schema):
-    keys = mm.fields.Dict(keys=mm.fields.Str(), values=mm.fields.Str())
-    datafolders = mm.fields.Dict(keys=mm.fields.Str(), values=mm.fields.Str())
-
-    @mm.post_load
-    def make_settings(self, data, **kwargs):
-        settings = Settings()
-        for key, value in data.items():
-            setattr(settings, key, value)
-        return settings
-
-
-class Settings:
-    """Global settings"""
-
-    def __init__(self):
-        self.keys: Dict[str, Any] = {}
-        self.datafolders: Dict[str, Path] = {}
-
-    def save(self):
-        self.path.write_text(SettingsSchema().dumps(self))
 
 
 class Context:
@@ -102,6 +43,7 @@ class Context:
     def __init__(self, path: Path = None):
         assert not Context.INSTANCE
 
+        Context.INSTANCE = self
         self._path = path or Context.MAINDIR
         self._dpath = Path(__file__).parents[1]
         self._repository = None
@@ -109,14 +51,13 @@ class Context:
         self.keep_downloads = False
         self.traceback = False
 
-        # Read preferences
-        path = self._path / "settings.json"
-        self.settings = None
-        if path.is_file():
-            self.settings = SettingsSchema().loads(path.read_text())
-        else:
-            self.settings = Settings()
-        self.settings.path = path
+        # Read global preferences
+        self.settings = Settings.load(self._path / "settings.json")
+
+        # Read user preferences
+        path = Path("~").expanduser() / ".config" / "datamaestro" / "user.json"
+        self.user_settings = UserSettings.load(path)
+
 
     @staticmethod
     def instance():
@@ -132,7 +73,11 @@ class Context:
     def cachepath(self) -> Path:
         return self._path.joinpath("cache")
 
-    def repositories(self):
+    @cached_property
+    def repositorymap(self) -> Dict[str, "Repository"]:
+        return {repository.basemodule(): repository for repository in self.repositories()}
+            
+    def repositories(self) -> Iterable["Repository"]:
         """Returns an iterator over repositories"""
         for entry_point in pkg_resources.iter_entry_points("datamaestro.repositories"):
             yield entry_point.load().instance()
@@ -200,15 +145,18 @@ class Context:
 
             logging.info("Downloading %s", url)
             tmppath = dlpath.with_suffix(".tmp")
-            try:
-                with DownloadReportHook(desc="Downloading %s" % url) as reporthook:
-                    urllib.request.urlretrieve(url, tmppath, reporthook.__call__)
-                shutil.move(tmppath, dlpath)
-            except:
-                tmppath.unlink()
-                raise
 
-        return CachedFile(dlpath, keep=self.keep_downloads)
+            downloadURL(url, tmppath, tmppath.is_file())
+
+        return CachedFile(dlpath, keep=self.keep_downloads, others=[urlpath])
+
+    def ask(self, question: str, options: Dict[str, str]):
+        """Ask a question to the user"""
+        print(question)
+        answer = None
+        while answer not in options:
+            answer = input().strip().lower()
+        return options[answer]
 
 
 class ResolvablePath:
@@ -279,6 +227,11 @@ class Repository:
         self.name = self.id
         self.module = self.__class__.__module__
         self.__class__.INSTANCE = self
+
+
+    @classmethod
+    def basemodule(cls):
+        return cls.__module__
 
     @classmethod
     def instance(cls, context=None):
