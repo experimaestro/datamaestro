@@ -16,7 +16,7 @@ from mkdocs.structure.nav import Navigation as MkdocNavigation
 
 from docstring_parser import parse as docstring_parse
 
-from experimaestro.api import ObjectType
+from experimaestro.types import ObjectType
 
 from ..context import Context, Repository, Datasets
 
@@ -349,7 +349,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
                 del sys.modules[module]
 
             # Remove defined data
-            from experimaestro.api import ObjectType
+            from experimaestro.types import ObjectType
 
             ObjectType.REGISTERED = {}
 
