@@ -7,7 +7,7 @@ cached_property
 pycurl
 
 # Data definition
-experimaestro>=0.5.5
+experimaestro>=0.6.0
 
 # Mkdocs
 mkdocs

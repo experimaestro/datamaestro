@@ -148,6 +148,9 @@ class Context:
 
             downloadURL(url, tmppath, tmppath.is_file())
 
+            # Now, rename to original
+            tmppath.rename(dlpath)
+
         return CachedFile(dlpath, keep=self.keep_downloads, others=[urlpath])
 
     def ask(self, question: str, options: Dict[str, str]):

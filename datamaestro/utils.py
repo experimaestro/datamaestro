@@ -113,8 +113,7 @@ def downloadURL(url: str, path: Path, resume: bool=False):
             c.setopt(pycurl.MAXREDIRS, 5)
             c.setopt(pycurl.XFERINFOFUNCTION, reporthook)
             c.perform()
-            fp.close()
-            shutil.move(path, dlpath)
+            fp.close()        
     except pycurl.error as e:
         code = e.args[0]
         message = e.args[1]
