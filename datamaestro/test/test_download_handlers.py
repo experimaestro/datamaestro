@@ -49,7 +49,7 @@ class MainTest(TemporaryContext):
     def test_single_(self):
         repository = MyRepository(MainTest.context)
 
-        url = "file:///" + str(Path(__file__).resolve())
+        url = "http://httpbin.org/html"
         downloader = single.filedownloader("test", url)
         downloader.definition = Definition()
         downloader.definition.datapath = Path(self.__class__.dir)

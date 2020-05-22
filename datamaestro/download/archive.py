@@ -14,13 +14,20 @@ from datamaestro.utils import CachedFile, HashCheck, FileChecker
 class ArchiveDownloader(Download):
     """Abstract class for all archive related extractors"""
 
-    def __init__(self, varname, url: str, subpath: str = None, checker: FileChecker = None, files: Set[str] = None):
+    def __init__(
+        self,
+        varname,
+        url: str,
+        subpath: str = None,
+        checker: FileChecker = None,
+        files: Set[str] = None,
+    ):
         """Downloads and extract the content of the archive
 
         Args:
             varname: The name of the variable when defining the dataset
             url: The archive URL
-            checker: the hash check for the downloaded file, composed of two 
+            checker: the hash check for the downloaded file, composed of two
             subpath: A subpath in the archive; only files from this subpath will be extracted
             files: A set of files; if present, only download those
         """
@@ -62,7 +69,8 @@ class ArchiveDownloader(Download):
             shutil.rmtree(tmpdestination)
 
         with self.context.downloadURL(self.url) as file:
-            self.checker.check(file.path)
+            if self.checker:
+                self.checker.check(file.path)
             self.unarchive(file, tmpdestination)
 
         # Look at the content

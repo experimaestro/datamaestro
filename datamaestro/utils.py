@@ -8,6 +8,7 @@ import shutil
 import hashlib
 from tqdm import tqdm
 
+
 class TemporaryDirectory:
     def __init__(self, path: Path):
         self.delete = True
@@ -22,13 +23,16 @@ class TemporaryDirectory:
         if self.delete:
             rmtree(self.path)
 
-class FileChecker():
+
+class FileChecker:
     def check(self, path: Path):
         """Check if the file is correct and throws an exception if not"""
         raise NotImplementedError()
 
+
 class HashCheck(FileChecker):
     """Check a file against a hash"""
+
     def __init__(self, hashstr: str, hasher=hashlib.md5):
         self.hashstr = hashstr
         self.hasher = hasher
@@ -37,7 +41,7 @@ class HashCheck(FileChecker):
         """Check the given file
 
         returns true if OK
-        """        
+        """
         with path.open("rb") as fp:
             hasher = self.hasher()
             chunk = fp.read(8192)
@@ -51,7 +55,7 @@ class HashCheck(FileChecker):
 
 class CachedFile:
     """Represents a downloaded file that has been cached
-    
+
     The file is automatically deleted when closed if keep is False
     and used is True
     """
@@ -84,44 +88,47 @@ class CachedFile:
         except Exception as e:
             logging.warning("Could not delete cached file %s [%s]", self.path, e)
 
-class CurlDownloadReportHook(tqdm):
-    """Report hook for tqdm when downloading from the Web with PyCURL"""
 
-    def __init__(self, **kwargs):
-        kwargs.setdefault("unit", "B")
-        kwargs.setdefault("unit_scale", True)
-        kwargs.setdefault("miniters", 1)
-        super().__init__(**kwargs)
+def downloadURL(url: str, path: Path, resume: bool = False):
+    import requests
 
-    def __call__(self, download_total, downloaded, upload_total, uploaded):
-        """PyCURL callback"""
-        if download_total is not None:
-            self.total = download_total
-        self.update(downloaded - self.n)  # will also set self.n = b * bsize
-
-def downloadURL(url: str, path: Path, resume: bool=False):
-    import pycurl
-    try:
-        with path.open(f"ab") as fp, CurlDownloadReportHook(desc="Downloading %s" % url) as reporthook:
-            c = pycurl.Curl()
-            c.setopt(pycurl.URL, url)
-            if resume:
-                c.setopt(pycurl.RESUME_FROM, os.path.getsize(path))
-            c.setopt(pycurl.WRITEDATA, fp)
-            c.setopt(pycurl.NOPROGRESS, 0)
-            c.setopt(pycurl.FOLLOWLOCATION, 1)
-            c.setopt(pycurl.MAXREDIRS, 5)
-            c.setopt(pycurl.XFERINFOFUNCTION, reporthook)
-            c.perform()
-            fp.close()        
-    except pycurl.error as e:
-        code = e.args[0]
-        message = e.args[1]
-        if code == pycurl.E_RANGE_ERROR:
-            logging.error("Cannot resume download (%s) - starting all over", message)
+    response = None
+    pos = 0
+    if path.is_file():
+        pos = path.stat().st_size
+        if resume and pos > 0:
+            logging.warning("Trying to resume download from position %d", pos)
+            response = requests.get(
+                url, headers={"Range": f"bytes={pos}-"}, stream=True
+            )
+            if (
+                response.status_code != requests.codes.PARTIAL_CONTENT
+                or response.headers["Content-Range"] is None
+            ):
+                # Re-start with new request
+                logging.warning("Could not resume download (range request failed)")
+                path.unlink()
+                response.close()
+                response = None
+                pos = 0
+        else:
             path.unlink()
-            downloadURL(url, path, False)
-        raise
+
+    if response is None:
+        response = requests.get(url, stream=True)
+    total_size = int(response.headers.get("content-length", 0))
+    if total_size > 0:
+        total_size += pos
+
+    CHUNK_SIZE = 1024
+    with path.open("ab") as f, tqdm(
+        initial=pos, total=total_size, unit_scale=True, unit="B"
+    ) as t:
+        for data in response.iter_content(chunk_size=CHUNK_SIZE):
+            f.write(data)
+            t.update(len(data))
+
+        return
 
 
 def deprecated(message, f):
