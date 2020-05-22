@@ -52,10 +52,7 @@ class DataDefinition:
         self.version = None
 
         # Hooks
-        self.hooks = {
-            "pre-use": [],
-            "pre-download": []
-        } 
+        self.hooks = {"pre-use": [], "pre-download": []}
 
         if t.__doc__:
             lines = t.__doc__.split("\n", 2)
@@ -91,10 +88,9 @@ class DataDefinition:
             if components[0] == "datamaestro":
                 longest_ix = 0
             elif repository is None:
-                raise Exception(f"Could not find the repository for {fullname}")    
-        
-        return repository, components[(longest_ix+1):]
+                raise Exception(f"Could not find the repository for {fullname}")
 
+        return repository, components[(longest_ix + 1) :]
 
     def ancestors(self):
         ancestors = []
@@ -142,7 +138,7 @@ class DatasetDefinition(DataDefinition):
         logging.debug("Building with data type %s and dataset %s", self.base, self.t)
         for hook in self.hooks["pre-use"]:
             hook(self)
-            
+
         resources = {key: value.prepare() for key, value in self.resources.items()}
         data = self.base(**self.t(**resources))
         data.id = self.id
@@ -236,7 +232,10 @@ class DatasetWrapper:
             # id is empty string = use the module id
             d.id = path
         else:
-            d.id = "%s.%s" % (path, annotation.id or t.__name__.lower())
+            d.id = "%s.%s" % (
+                path,
+                annotation.id or t.__name__.lower().replace("_", "."),
+            )
 
         d.aliases.add(d.id)
 
@@ -269,6 +268,7 @@ class DataAnnotation:
 
 def hook(name: str):
     """Annotate a method of a DataAnnotation class to be a hook"""
+
     class HookAnnotation(DataAnnotation):
         def __init__(self, callable: Callable, args, kwargs):
             self.callable = callable
@@ -284,10 +284,10 @@ def hook(name: str):
     def annotate(callable: Callable):
         def collect(*args, **kwargs):
             return HookAnnotation(callable, args, kwargs)
+
         return collect
 
     return annotate
-    
 
 
 def DataTagging(f):
@@ -320,13 +320,16 @@ def data(description=None):
 
         # Determine the data type
         from experimaestro import config
-        
+
         repository, components = DataDefinition.repository_relpath(t)
         assert (
             components[0] == "data"
         ), f"A @data object should be in the .data module (not {t.__module__})"
 
-        identifier = f"{repository.NAMESPACE if repository else 'datamaestro'}." + ".".join(components[1:]).lower()
+        identifier = (
+            f"{repository.NAMESPACE if repository else 'datamaestro'}."
+            + ".".join(components[1:]).lower()
+        )
         t = config(identifier)(t)
         t.__datamaestro__ = DataDefinition(repository, t)
         t.__datamaestro__.id = identifier
