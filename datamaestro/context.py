@@ -18,6 +18,7 @@ from .registry import Registry
 from .utils import CachedFile, downloadURL
 from .settings import UserSettings, Settings
 
+
 class Compression:
     @staticmethod
     def extension(definition):
@@ -58,12 +59,34 @@ class Context:
         path = Path("~").expanduser() / ".config" / "datamaestro" / "user.json"
         self.user_settings = UserSettings.load(path)
 
-
     @staticmethod
     def instance():
         if Context.INSTANCE is None:
             Context.INSTANCE = Context()
         return Context.INSTANCE
+
+    @staticmethod
+    def remote(host, pythonpath, datapath=None):
+        """Create a remote context by connecting to a given host"""
+        from experimaestro.rpyc import client
+
+        client = client(hostname=host, pythonpath=pythonpath).__enter__()
+        context = client.connection.modules.datamaestro.context.Context(datapath)
+        return context
+
+    @staticmethod
+    def frompath(path: Path):
+        context = Context.instance()
+
+        class ContextManager:
+            def __enter__(self):
+                self.previous = Context.INSTANCE
+                return context
+
+            def __exit__(self, exc_type, exc_val, exc_tb):
+                Context.INSTANCE = self.previous
+
+        return ContextManager()
 
     @property
     def datapath(self):
@@ -75,8 +98,10 @@ class Context:
 
     @cached_property
     def repositorymap(self) -> Dict[str, "Repository"]:
-        return {repository.basemodule(): repository for repository in self.repositories()}
-            
+        return {
+            repository.basemodule(): repository for repository in self.repositories()
+        }
+
     def repositories(self) -> Iterable["Repository"]:
         """Returns an iterator over repositories"""
         for entry_point in pkg_resources.iter_entry_points("datamaestro.repositories"):
@@ -230,7 +255,6 @@ class Repository:
         self.name = self.id
         self.module = self.__class__.__module__
         self.__class__.INSTANCE = self
-
 
     @classmethod
     def basemodule(cls):

@@ -25,6 +25,7 @@ class Config:
     def __init__(self, context: Context):
         self.context = context
         self.traceback = False
+        self.host = None
 
 
 def pass_cfg(f):
@@ -51,6 +52,13 @@ for entry_point in pkg_resources.iter_entry_points("datamaestro.repositories"):
 @click.option("--quiet", is_flag=True, help="Be quiet")
 @click.option("--keep-downloads", is_flag=True, help="Keep downloads")
 @click.option("--debug", is_flag=True, help="Be even more verbose (implies traceback)")
+@click.option("--host", type=str, help="Remote hostname", default=None)
+@click.option(
+    "--pythonpath",
+    type=str,
+    help="Remote python path (default python)",
+    default="python",
+)
 @click.option(
     "--traceback", is_flag=True, help="Display traceback if an exception occurs"
 )
@@ -58,18 +66,24 @@ for entry_point in pkg_resources.iter_entry_points("datamaestro.repositories"):
     "--data", type=Path, help="Directory containing datasets", default=Context.MAINDIR
 )
 @click.pass_context
-def cli(ctx, quiet, debug, traceback, data, keep_downloads):
+def cli(ctx, quiet, debug, traceback, data, keep_downloads, host, pythonpath):
     if quiet:
         logging.getLogger().setLevel(logging.WARN)
     elif debug:
         logging.getLogger().setLevel(logging.DEBUG)
 
-    context = Context(data)
-    ctx.obj = Config(context)
+    if host:
+        context = Context.remote(host, pythonpath, data)
+    else:
+        context = Context(data)
+
+    context.keep_downloads = keep_downloads
     context.traceback = traceback
+
+    ctx.obj = Config(context)
     ctx.obj.traceback = traceback
     ctx.obj.debug = debug
-    context.keep_downloads = keep_downloads
+    ctx.obj.host = host
 
 
 def main():
@@ -252,7 +266,9 @@ def download(config: Config, dataset):
 @pass_cfg
 def prepare(config: Config, datasetid, encoder, no_downloads):
     """Download a dataset and returns information in json format"""
-    dataset = config.context.dataset(datasetid)
+    dataset = config.context.dataset(
+        datasetid
+    )  # type: datamaestro.definitions.DatasetDefinition
 
     if not no_downloads:
         success = dataset.download()
@@ -260,18 +276,8 @@ def prepare(config: Config, datasetid, encoder, no_downloads):
             logging.error("One or more errors occured while downloading the dataset")
             sys.exit(1)
 
-    s = dataset.prepare()
     try:
-        if encoder == "normal":
-            from .utils import JsonEncoder
-
-            print(JsonEncoder().encode(s))
-        elif encoder == "xpm":
-            from .utils import XPMEncoder
-
-            print(XPMEncoder().encode(s))
-        else:
-            raise Exception("Unhandled encoder: {encoder}")
+        print(dataset.format(encoder))
     except:
         if config.traceback:
             tb.print_exc()

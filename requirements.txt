@@ -7,7 +7,7 @@ cached_property
 requests
 
 # Data definition
-experimaestro>=0.6.0
+experimaestro>=0.7.2
 
 # Mkdocs
 mkdocs

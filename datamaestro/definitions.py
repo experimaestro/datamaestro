@@ -172,6 +172,19 @@ class DatasetDefinition(DataDefinition):
                 return dataset
         raise Exception("Could not find the dataset %s" % (name))
 
+    def format(self, encoder: str) -> str:
+        s = self.prepare()
+        if encoder == "normal":
+            from .utils import JsonEncoder
+
+            return JsonEncoder().encode(s)
+        elif encoder == "xpm":
+            from .utils import XPMEncoder
+
+            return XPMEncoder().encode(s)
+        else:
+            raise Exception("Unhandled encoder: {encoder}")
+
 
 class FutureAttr:
     """Allows to access a dataset subproperty"""

@@ -6,7 +6,7 @@ import urllib3
 import tarfile
 import re
 import hashlib
-from typing import List, Set
+from typing import List, Set, Optional
 from datamaestro.download import Download, initialized
 from datamaestro.utils import CachedFile, HashCheck, FileChecker
 
@@ -29,13 +29,13 @@ class ArchiveDownloader(Download):
             url: The archive URL
             checker: the hash check for the downloaded file, composed of two
             subpath: A subpath in the archive; only files from this subpath will be extracted
-            files: A set of files; if present, only download those
+            files: A set of files; if present, only extract those
         """
         super().__init__(varname)
         self.url = url
         self.subpath = subpath
         self.checker = checker
-        self._files = files
+        self._files = set(files) if files else None
         if self.subpath and not self.subpath.endswith("/"):
             self.subpath = self.subpath + "/"
 
@@ -52,6 +52,25 @@ class ArchiveDownloader(Download):
     @initialized
     def prepare(self):
         return self.path
+
+    @property
+    def extractall(self):
+        """Returns whether everything can be extracted"""
+        return self._files is None and self.subpath is None
+
+    def filter(self, iterable, getname):
+        L = len(self.subpath) if self.subpath else 0
+
+        for info in iterable:
+            name = getname(info)
+            logging.debug("Looking at %s", name)
+            if self._files and not (name in self._files):
+                continue
+
+            if self.subpath and path.startswith(self.subpath):
+                yield info, name[L:]
+
+            yield info, name
 
     @initialized
     def download(self, force=False):
@@ -81,7 +100,7 @@ class ArchiveDownloader(Download):
         # Just one folder: move
         if ix == 0 and path.is_dir():
             logging.info(
-                "Moving single directory {} into destination {}".format(
+                "Moving single file/directory {} into destination {}".format(
                     path, destination
                 )
             )
@@ -100,26 +119,25 @@ class zipdownloader(ArchiveDownloader):
     def unarchive(self, file, destination: Path):
         logging.info("Unzipping file")
         with zipfile.ZipFile(file.path) as zip:
-            if self.subpath is None:
+            if self.extractall:
                 zip.extractall(destination)
             else:
-                L = len(self.subpath)
-                for zip_info in zip.infolist():
-                    if zip_info.filename.startswith(self.subpath):
-                        name = zip_info.filename[L:]
-                        if zip_info.is_dir():
-                            (destination / name).mkdir()
-                        else:
-                            logging.info(
-                                "File %s (%s) to %s",
-                                zip_info.filename,
-                                name,
-                                destination / name,
-                            )
-                            with zip.open(zip_info) as fp, (destination / name).open(
-                                "wb"
-                            ) as out:
-                                shutil.copyfileobj(fp, out)
+                for zip_info, name in self.filter(
+                    zip.infolist(), lambda zip_info: zip_info.filename
+                ):
+                    if zip_info.is_dir():
+                        (destination / name).mkdir()
+                    else:
+                        logging.info(
+                            "File %s (%s) to %s",
+                            zip_info.filename,
+                            name,
+                            destination / name,
+                        )
+                        with zip.open(zip_info) as fp, (destination / name).open(
+                            "wb"
+                        ) as out:
+                            shutil.copyfileobj(fp, out)
 
 
 class tardownloader(ArchiveDownloader):
@@ -133,5 +151,16 @@ class tardownloader(ArchiveDownloader):
         if self.subpath:
             raise NotImplementedError()
 
-        with tarfile.TarFile.open(file.path, mode="r:*") as tar:
-            tar.extractall(destination)
+        with tarfile.TarFile.open(file.path) as tar:
+            if self.extractall:
+                tar.extractall(destination)
+            else:
+                for info, name in self.filter(tar, lambda info: info.name):
+                    if info.isdir():
+                        (destination / name).mkdir()
+                    else:
+                        logging.info(
+                            "File %s (%s) to %s", info.name, name, destination / name,
+                        )
+                        logging.info("Extracting into %s", destination / name)
+                        tar.extract(info, destination / name)
