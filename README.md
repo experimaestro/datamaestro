@@ -16,6 +16,8 @@ Each datasets is uniquely identified by a qualified name such as `com.lecun.mnis
 
 The main repository only deals with very generic processing (downloading, basic pre-processing and data types). Plugins can then be registered that provide access to domain specific datasets.
 
+The documentation can be found at https://experimaestro.github.io/datamaestro/.
+
 
 ## List of repositories
 
