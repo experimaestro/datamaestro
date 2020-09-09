@@ -1,9 +1,11 @@
+import logging
 from datamaestro.definitions import DataAnnotation, DatasetDefinition, hook
 
 @hook("pre-use")
-def useragreement(definition: DatasetDefinition, message):
+def useragreement(definition: DatasetDefinition, message, id=None):
     settings = definition.context.user_settings
-    answer = settings.agreements.get(definition.id, "no")
+    id = id or definition.id
+    answer = settings.agreements.get(id, "no")
     if answer == "yes":
         return
     
@@ -13,7 +15,7 @@ def useragreement(definition: DatasetDefinition, message):
     })
 
     if answer == "yes":
-        settings.agreements[definition.id] = "yes"
+        settings.agreements[id] = "yes"
         settings.save()
     else:
         raise ValueError("Agreement not accepted")
