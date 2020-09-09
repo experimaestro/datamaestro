@@ -142,10 +142,9 @@ class DatasetDefinition(DataDefinition):
         resources = {key: value.prepare() for key, value in self.resources.items()}
         dict = self.t(**resources)
         if dict is None:
-            name = t.__name__
+            name = self.t.__name__
             filename = inspect.getfile(self.t)
-            lineno = inspect.getlineno(self.t)
-            raise Exception("The dataset method {name} defined at {filename}:{lineno} returned a null object")
+            raise Exception(f"The dataset method {name} defined in {filename} returned a null object")
         data = self.base(**dict)
         data.id = self.id
         return data
@@ -359,7 +358,7 @@ def data(description=None):
 
 
 class dataset:
-    def __init__(self, base=None, *, timestamp=False, id=None, url=None):
+    def __init__(self, base=None, *, timestamp=False, id=None, url=None, size=None):
         """
 
         Arguments:
@@ -369,6 +368,7 @@ class dataset:
             timestamp {bool} -- [description] (default: {False})
             id {[type]} -- [description] (default: {None})
             url {[type]} -- [description] (default: {None})
+            size {str} -- The size (should be a parsable format)
         """
         self.base = base
 
@@ -376,6 +376,7 @@ class dataset:
         self.url = url
         self.meta = False
         self.timestamp = timestamp
+        self.size = size
 
     def __call__(self, t):
         try:

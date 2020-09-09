@@ -278,10 +278,10 @@ def prepare(config: Config, datasetid, encoder, no_downloads):
 
     try:
         print(dataset.format(encoder))
-    except:
+    except Exception as e:
         if config.traceback:
             tb.print_exc()
-        logging.error("Error encoding to JSON: %s", s)
+        logging.error("Error encoding to JSON: %s", e)
         sys.exit(1)
 
 
