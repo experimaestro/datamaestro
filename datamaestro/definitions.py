@@ -140,7 +140,13 @@ class DatasetDefinition(DataDefinition):
             hook(self)
 
         resources = {key: value.prepare() for key, value in self.resources.items()}
-        data = self.base(**self.t(**resources))
+        dict = self.t(**resources)
+        if dict is None:
+            name = t.__name__
+            filename = inspect.getfile(self.t)
+            lineno = inspect.getlineno(self.t)
+            raise Exception("The dataset method {name} defined at {filename}:{lineno} returned a null object")
+        data = self.base(**dict)
         data.id = self.id
         return data
 
