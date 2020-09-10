@@ -24,18 +24,28 @@ class TemporaryDirectory:
             rmtree(self.path)
 
 
+def copyfileobjs(fsrc, fdsts, length=0):
+    """copy data from file-like object fsrc to file-like objects fdst
+
+    Based on shutil.copyfileobj
+    """
+    # Localize variable access to minimize overhead.
+    if not length:
+        length = shutil.COPY_BUFSIZE
+    fsrc_read = fsrc.read
+    fdst_writes = [fdst.write for fdst in fdsts]
+    while True:
+        buf = fsrc_read(length)
+        if not buf:
+            break
+        for fdst_write in fdst_writes:
+            fdst_write(buf)
+
+
 class FileChecker:
     def check(self, path: Path):
         """Check if the file is correct and throws an exception if not"""
         raise NotImplementedError()
-
-
-class HashCheck(FileChecker):
-    """Check a file against a hash"""
-
-    def __init__(self, hashstr: str, hasher=hashlib.md5):
-        self.hashstr = hashstr
-        self.hasher = hasher
 
     def check(self, path: Path):
         """Check the given file
@@ -43,14 +53,45 @@ class HashCheck(FileChecker):
         returns true if OK
         """
         with path.open("rb") as fp:
-            hasher = self.hasher()
+            writer = self.write
             chunk = fp.read(8192)
             while chunk:
-                hasher.update(chunk)
+                writer(chunk)
                 chunk = fp.read(8192)
-        s = hasher.hexdigest()
+            self.close()
+
+    @property
+    def write(self):
+        raise NotImplementedError()
+
+    def close(self):
+        raise NotImplementedError()
+
+
+class HashCheck(FileChecker):
+    """Check a file against a hash"""
+
+    def __init__(self, hashstr: str, hasherfn=hashlib.md5):
+        self.hashstr = hashstr
+        self.hasherfn = hasherfn
+        self.hasher = None
+
+    @property
+    def write(self):
+        """Generates a write-like handle"""
+        if self.hasher is None:
+            self.hasher = self.hasherfn()
+
+        def write(chunk):
+            self.hasher.update(chunk)
+
+        return write
+
+    def close(self):
+        s = self.hasher.hexdigest()
         if s != self.hashstr:
-            raise IOError(f"Digest do not match ({self.hashstr} vs {s})")
+            raise IOError(f"Digest do not match (expected {self.hashstr}, got {s})")
+        logging.info("Hash check OK [%s]", s)
 
 
 class CachedFile:

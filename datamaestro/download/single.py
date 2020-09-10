@@ -10,7 +10,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 import re
 from docstring_parser import parse
-
+from datamaestro.utils import copyfileobjs
 from datamaestro.stream import Transform
 from datamaestro.download import Download
 
@@ -41,7 +41,7 @@ class SingleDownload(Download):
 
 
 class filedownloader(SingleDownload):
-    def __init__(self, filename: str, url: str, transforms=None):
+    def __init__(self, filename: str, url: str, transforms=None, checker=None):
         """Downloads a file given by a URL
 
         Args:
@@ -51,6 +51,7 @@ class filedownloader(SingleDownload):
         """
         super().__init__(filename)
         self.url = url
+        self.checker = checker
 
         p = urllib3.util.parse_url(self.url)
         path = Path(Path(p.path).name)
@@ -71,11 +72,17 @@ class filedownloader(SingleDownload):
                 with self.transforms(file.path.open("rb")) as stream, destination.open(
                     "wb"
                 ) as out:
-                    shutil.copyfileobj(stream, out)
+                    if self.checker:
+                        copyfileobjs(stream, [out, self.checker])
+                        self.checker.close()
+                    else:
+                        shutil.copyfileobj(stream, out)
             else:
                 logging.info("Keeping original downloaded file %s", file.path)
+                if self.checker:
+                    self.checker.check(file.path)
                 (shutil.copy if file.keep else shutil.move)(file.path, destination)
-            
+
         logging.info("Created file %s" % destination)
 
 
