@@ -49,7 +49,6 @@ def context(tmp_path_factory):
     logging.info("Created datamaestro test directory %s", dir)
 
     repository = MyRepository(context)
-    logging.warning("Repository map", Context.instance().repositorymap)
 
     yield context
 
