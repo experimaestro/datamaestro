@@ -32,7 +32,7 @@ jobs:
     - run:
         name: Upload
         command: |
-          if [ "v$(python setup.py --version)" = "$CIRCLE_TAG" ]; then
+          if [ "$(python setup.py --version)" = "$CIRCLE_TAG" ]; then
             echo "Uploading using twine"
             echo -e "[pypi]" >> ~/.pypirc
             echo -e "username = $PYPI_USERNAME" >> ~/.pypirc
