@@ -133,8 +133,11 @@ class DatasetDefinition(DataDefinition):
         return success
 
     def prepare(self, download=False):
-        if download and not self.download(False):
-            raise Exception("Could not load necessary resources")
+        if download:
+            for hook in self.hooks["pre-download"]:
+                hook(self)
+            if not self.download(False):
+                raise Exception("Could not load necessary resources")
         logging.debug("Building with data type %s and dataset %s", self.base, self.t)
         for hook in self.hooks["pre-use"]:
             hook(self)
@@ -144,7 +147,9 @@ class DatasetDefinition(DataDefinition):
         if dict is None:
             name = self.t.__name__
             filename = inspect.getfile(self.t)
-            raise Exception(f"The dataset method {name} defined in {filename} returned a null object")
+            raise Exception(
+                f"The dataset method {name} defined in {filename} returned a null object"
+            )
         data = self.base(**dict)
         data.id = self.id
         return data

@@ -125,6 +125,10 @@ class Context:
             )
         return l[0].load()(self)
 
+    @property
+    def running_test(self):
+        return "PYTEST_CURRENT_TEST" in os.environ
+
     def datasets(self):
         """Returns an iterator over all files"""
         for repository in self.repositories():
