@@ -9,8 +9,8 @@ requests
 # To read sizes like 2.3MB
 bitmath
 
-# Data definition
-experimaestro>=0.7.2
+# Experimaestro for data definitions
+experimaestro>=0.7.4-dev
 
 # Mkdocs
 mkdocs
