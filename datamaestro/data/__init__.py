@@ -31,3 +31,12 @@ class File(Base):
 
     def open(self, mode):
         return self.path.open(mode)
+
+
+@argument("path", type=Path)
+@data()
+class Folder(Base):
+    """A data folder"""
+
+    def open(self, mode):
+        return self.path.open(mode)
