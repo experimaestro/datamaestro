@@ -16,7 +16,7 @@ from mkdocs.structure.nav import Navigation as MkdocNavigation
 
 from docstring_parser import parse as docstring_parse
 
-from experimaestro.types import ObjectType
+from experimaestro.core.types import ObjectType
 
 from ..context import Context, Repository, Datasets
 
@@ -223,9 +223,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
     CONF: Optional[Context] = None
     REPOSITORY: Optional[Repository] = None
 
-    config_scheme = (
-        ("repository", mkdocs.config.config_options.Type(mkdocs.utils.text_type)),
-    )
+    config_scheme = (("repository", mkdocs.config.config_options.Type(str)),)
 
     @staticmethod
     def configuration() -> Context:
@@ -322,7 +320,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
                 files.append(f)
         return files
 
-    def on_serve(self, server, config):
+    def on_serve(self, server, config, builder):
         """Refresh when changing source code"""
         import datamaestro
 
@@ -349,8 +347,6 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
                 del sys.modules[module]
 
             # Remove defined data
-            from experimaestro.types import ObjectType
-
             ObjectType.REGISTERED = {}
 
             builder()
@@ -368,7 +364,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
             ) + markdown
         return markdown
 
-    def on_page_read_source(self, item, config, page: MkdocPage, **kwargs):
+    def on_page_read_source(self, page: MkdocPage, **kwargs):
         """Generate pages"""
         path = page.file.src_path
 
