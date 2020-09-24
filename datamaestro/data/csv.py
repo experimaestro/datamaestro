@@ -1,6 +1,6 @@
 from pathlib import Path
 from csv import reader as csv_reader
-
+from experimaestro import configmethod
 from . import File, data, argument, documentation
 from typing import Tuple, List
 
@@ -33,6 +33,7 @@ class Generic(File):
 class Matrix(Generic):
     """A numerical dataset"""
 
+    @configmethod
     @documentation
     def data(self) -> Tuple[List[str], "numpy.array"]:
         """Returns the list of fields and the numeric data
@@ -44,8 +45,11 @@ class Matrix(Generic):
         import numpy as np
 
         fields = []
+        targets = None if self.size_row >= 0 or not self.target else []
         data = None if self.size_row >= 0 else []
         i = 0
+        skipix = -1
+
         with self.path.open("r") as fp:
             for i in range(self.ignore):
                 fp.readline()
@@ -55,13 +59,27 @@ class Matrix(Generic):
                     data = np.empty((int(row[0]), int(row[1])))
                 elif ix == self.names_row:
                     fields = row
+                    if self.target:
+                        skipix = fields.index(self.target)
                 else:
                     if self.size_row < 0:
-                        data.append([float(x) for x in row])
+                        data.append(
+                            [float(x) for ix, x in enumerate(row) if ix != skipix]
+                        )
+                        if skipix >= 0:
+                            targets.append(float(row[skipix]))
                     else:
-                        data[i] = [float(x) for x in row]
+                        data[i] = [float(x) for ix, x in enumerate(row) if ix != skipix]
+                        if skipix >= 0:
+                            targets[i] = float(row[skipix])
                         i += 1
 
         if self.size_row < 0:
             data = np.array(data)
+            if targets:
+                targets = np.array(targets)
+
+        if self.target:
+            return fields, data, targets
+
         return fields, data
