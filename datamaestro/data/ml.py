@@ -16,4 +16,6 @@ class Supervised(Base):
 @argument("classes")
 @data()
 class FolderBased(Base):
+    """Classification dataset where folders give the basis"""
+
     pass
