@@ -21,6 +21,7 @@ Package `datamaestro.download.links`
 
 @@api:datamaestro.download.links.links
 @@api:datamaestro.download.links.linkfolder
+@@api:datamaestro.download.links.linkfile
 
 
 ## Syncing

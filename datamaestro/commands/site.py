@@ -1,3 +1,4 @@
+from inspect import ismodule
 import logging
 import io
 import re
@@ -76,13 +77,15 @@ def document_data(datatype: ObjectType):
     if supertypes:
         s += "**Supertypes**: %s\n\n" % supertypes
 
-    s += "#### Arguments\n\n"
-    for name, argument in xpm.arguments.items():
-        s += "- **%s**: %s\n" % (name, argument.help)
+    arguments = list(xpm.arguments.items())
+    if arguments:
+        s += "\n**Arguments**\n\n"
+        for name, argument in arguments:
+            s += "- **%s**: %s\n" % (name, argument.help)
 
     for name, method in inspect.getmembers(datatype):
         if inspect.isfunction(method) and hasattr(method, "__datamaestro_doc__"):
-            doc = docstring_parse(method.__doc__)
+            doc = docstring_parse(method.__datamaestro_doc__)
 
             signature = re.sub(r"\(self,?", "(", str(inspect.signature(method)))
             s += "#### %s%s\n" % (name, signature)
@@ -96,20 +99,14 @@ def document_data(datatype: ObjectType):
     return s
 
 
-def document(match):
-    """Generate the documentation"""
-
-    modulename, name = match.group(1).rsplit(".", 1)
+def document_object(object):
+    from datamaestro.data import Base
 
     try:
-        module = importlib.import_module(modulename)
-        object = getattr(module, name)
-
-        from datamaestro.data import Base
-
+        name = object.__name__
         # Get the documentation
         if inspect.isclass(object):
-            if issubclass(object, Base):
+            if hasattr(object, "__datamaestro__"):
                 return document_data(object)
 
             docstring = object.__init__.__doc__
@@ -122,9 +119,8 @@ def document(match):
             signature = str(inspect.signature(object))
 
         doc = docstring_parse(docstring)
-
-        if doc.short_description or short_description:
-            s = "### " + (doc.short_description or short_description) + "\n\n"
+        if doc.short_description:
+            s = "### " + doc.short_description + "\n\n"
         else:
             s = "### %s\n\n" % name
 
@@ -139,11 +135,32 @@ def document(match):
 
     except Exception as e:
         logging.exception(
-            "Exception while generating the documentation for %s" % match.group(1)
+            "Exception while generating the documentation for %s" % object.__name__
         )
         return r"""<div class="error">Documentation error for {}</div>""".format(
-            match.group(1)
+            object.__name__
         )
+
+
+def document(match):
+    """Generate the documentation"""
+    from datamaestro.data import Base
+
+    modulename, name = match.group(1).rsplit(".", 1)
+
+    module = importlib.import_module(modulename)
+    try:
+        object = getattr(module, name)
+    except:
+        return "<div class='error'>Cannot find %s in %s</div>" % (name, modulename)
+
+    if ismodule(object):
+        return "\n\n".join(
+            document_data(o)
+            for o in object.__dir__()
+            if inspect.isclass(o) and hasattr(Base, "__datamaestro__")
+        )
+    return document_object(object)
 
 
 class Classification:

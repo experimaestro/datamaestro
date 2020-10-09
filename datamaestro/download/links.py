@@ -48,9 +48,7 @@ class links(Download):
 Links = deprecated("Use @links instead of @Links", links)
 
 
-class linkfolder(Download):
-    """Just asks for the location of the file and link it"""
-
+class linkpath(Download):
     def __init__(self, varname: str, proposals):
         """Link to a folder
 
@@ -69,7 +67,7 @@ class linkfolder(Download):
         return self.definition.datapath / self.varname
 
     def download(self, destination):
-        if self.path.is_dir():
+        if self.check(self.path):
             return
 
         if self.path.is_symlink():
@@ -82,17 +80,46 @@ class linkfolder(Download):
             logging.info("Trying path %s", searchpath)
             try:
                 path = ResolvablePath.resolve(self.context, searchpath)
-                if path.is_dir():
+                if self.check(path):
                     break
-                logging.info("Folder %s not found", path)
+                logging.info("Path %s not found", path)
             except KeyError:
                 logging.info("Could not expand path %s", searchpath)
 
         # Ask the user
-        while path is None or not path.is_dir():
+        while path is None or not self.check(path):
             path = Path(input("Path to %s: " % self.varname))
         assert path.name
 
         logging.debug("Linking %s to %s", path, self.path)
         self.path.parent.mkdir(exist_ok=True, parents=True)
         os.symlink(path, self.path)
+
+
+class linkfolder(linkpath):
+    def check(self, path):
+        return path.is_dir()
+
+    def __init__(self, varname: str, proposals):
+        """Link to a folder
+
+        Args:
+            varname: Name of the variable
+            proposals: List of potential paths
+        """
+        super().__init__(varname, proposals)
+
+
+class linkfile(linkpath):
+    def __init__(self, varname: str, proposals):
+        """Link to a file
+
+        Args:
+            varname: Name of the variable
+            proposals: List of potential paths
+        """
+        super().__init__(varname, proposals)
+
+    def check(self, path):
+        print("Checking", path, path.is_file())
+        return path.is_file()
