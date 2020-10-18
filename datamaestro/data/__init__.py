@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 from datamaestro.definitions import data, argument
+from experimaestro import configmethod
 
 
 def documentation(method):
@@ -29,6 +30,7 @@ class Generic(Base):
 class File(Base):
     """A data file"""
 
+    @configmethod
     def open(self, mode):
         return self.path.open(mode)
 
@@ -38,5 +40,6 @@ class File(Base):
 class Folder(Base):
     """A data folder"""
 
+    @configmethod
     def open(self, mode):
         return self.path.open(mode)
