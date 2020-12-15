@@ -1,6 +1,5 @@
 from pathlib import Path
 from csv import reader as csv_reader
-from experimaestro import configmethod
 from . import File, data, argument, documentation
 from typing import Tuple, List
 
@@ -33,7 +32,6 @@ class Generic(File):
 class Matrix(Generic):
     """A numerical dataset"""
 
-    @configmethod
     @documentation
     def data(self) -> Tuple[List[str], "numpy.array"]:
         """Returns the list of fields and the numeric data
