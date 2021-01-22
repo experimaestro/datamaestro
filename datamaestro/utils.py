@@ -130,7 +130,7 @@ class CachedFile:
             logging.warning("Could not delete cached file %s [%s]", self.path, e)
 
 
-def downloadURL(url: str, path: Path, resume: bool = False):
+def downloadURL(url: str, path: Path, resume: bool = False, size: int = None):
     import requests
 
     response = None
@@ -157,7 +157,11 @@ def downloadURL(url: str, path: Path, resume: bool = False):
 
     if response is None:
         response = requests.get(url, stream=True)
-    total_size = int(response.headers.get("content-length", 0))
+
+    # Get the total size (or use the provided one)
+    total_size = int(response.headers.get("content-length", size or 0))
+
+    # Add the current position to the total size (if resuming)
     if total_size > 0:
         total_size += pos
 

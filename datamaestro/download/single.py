@@ -41,17 +41,21 @@ class SingleDownload(Download):
 
 
 class filedownloader(SingleDownload):
-    def __init__(self, filename: str, url: str, transforms=None, checker=None):
+    def __init__(
+        self, filename: str, url: str, size: int = None, transforms=None, checker=None
+    ):
         """Downloads a file given by a URL
 
         Args:
             filename: The filename within the data folder; the variable name corresponds to the filename without the extension
             url: The URL to download
             transforms: Transform the file before storing it
+            size: size in bytes (or None)
         """
         super().__init__(filename)
         self.url = url
         self.checker = checker
+        self.size = size
 
         p = urllib3.util.parse_url(self.url)
         path = Path(Path(p.path).name)
@@ -65,7 +69,7 @@ class filedownloader(SingleDownload):
         os.makedirs(dir, exist_ok=True)
 
         # Download (cache)
-        with self.context.downloadURL(self.url) as file:
+        with self.context.downloadURL(self.url, size=self.size) as file:
             # Transform if need be
             if self.transforms:
                 logging.info("Transforming file")

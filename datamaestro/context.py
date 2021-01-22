@@ -144,8 +144,13 @@ class Context:
 
         raise Exception("Dataset {} not found".format(datasetid))
 
-    def downloadURL(self, url):
-        """Downloads an URL"""
+    def downloadURL(self, url, size: int = None):
+        """Downloads an URL
+
+        Args:
+            url (str): The URL to download
+            size (str): The size if known (in bytes)
+        """
 
         self.cachepath.mkdir(exist_ok=True)
 
@@ -175,7 +180,7 @@ class Context:
             logging.info("Downloading %s", url)
             tmppath = dlpath.with_suffix(".tmp")
 
-            downloadURL(url, tmppath, tmppath.is_file())
+            downloadURL(url, tmppath, tmppath.is_file(), size=size)
 
             # Now, rename to original
             tmppath.rename(dlpath)
