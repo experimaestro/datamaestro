@@ -353,7 +353,6 @@ def data(description=None):
             f"{repository.NAMESPACE if repository else 'datamaestro'}."
             + ".".join(components[1:]).lower()
         )
-        t.__xpm_default_keep__ = True
         t = config(identifier)(t)
         t.__datamaestro__ = DataDefinition(repository, t)
         t.__datamaestro__.id = identifier
