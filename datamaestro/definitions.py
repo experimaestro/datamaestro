@@ -18,7 +18,7 @@ from itertools import chain
 import importlib
 import json
 import traceback
-from typing import Union, Callable
+from typing import TypeVar, Union, Callable
 from experimaestro import argument
 from .context import Context, DatafolderPath
 
@@ -150,7 +150,7 @@ class DatasetDefinition(DataDefinition):
             raise Exception(
                 f"The dataset method {name} defined in {filename} returned a null object"
             )
-        data = self.base(**dict)
+        data = self.base._(**dict)
         data.id = self.id
         return data
 
@@ -329,12 +329,14 @@ def DataTagging(f):
 datatags = DataTagging(lambda d: d.tags)
 datatasks = DataTagging(lambda d: d.tasks)
 
+T = TypeVar("T")
+
 
 def data(description=None):
     if description is not None and not isinstance(description, str):
         raise RuntimeError("@data annotation should be written @data()")
 
-    def annotate(t):
+    def annotate(t: T):
         try:
             object.__getattribute__(t, "__datamaestro__")
             raise AssertionError("@data should only be called once")

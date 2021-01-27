@@ -1,7 +1,6 @@
 import logging
 from pathlib import Path
 from datamaestro.definitions import data, argument
-from experimaestro import configmethod
 
 
 def documentation(method):
