@@ -150,7 +150,7 @@ class DatasetDefinition(DataDefinition):
             raise Exception(
                 f"The dataset method {name} defined in {filename} returned a null object"
             )
-        data = self.base._(**dict)
+        data = self.base(**dict)
         data.id = self.id
         return data
 
