@@ -1,4 +1,4 @@
-[![CircleCI](https://circleci.com/gh/experimaestro/datamaestro.svg?style=svg)](https://circleci.com/gh/experimaestro/datamaestro) [![PyPI version](https://badge.fury.io/py/datamaestro.svg)](https://badge.fury.io/py/datamaestro) [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit) [![DOI](https://zenodo.org/badge/4573876.svg)](https://zenodo.org/badge/latestdoi/4573876)
+[![PyPI version](https://badge.fury.io/py/datamaestro.svg)](https://badge.fury.io/py/datamaestro) [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit) [![DOI](https://zenodo.org/badge/4573876.svg)](https://zenodo.org/badge/latestdoi/4573876)
 
 
 
