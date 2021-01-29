@@ -1,6 +1,6 @@
 import logging
-import os
 import os.path as op
+from experimaestro import Config
 import json
 from pathlib import PosixPath, Path
 from shutil import rmtree
@@ -213,6 +213,8 @@ class JsonEncoder(BaseJSONEncoder):
     def default(self, o):
         if isinstance(o, PosixPath):
             return str(o.resolve())
+        if isinstance(o, Config):
+            return o.__xpm__.values
         return super().default(o)
 
 
