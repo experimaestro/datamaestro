@@ -99,17 +99,25 @@ def info(config: Config, dataset):
     if dataset.url:
         print(dataset.url)
 
-    print("Types:", ", ".join(str(s.__xpm__.identifier) for s in dataset.ancestors()))
+    print(
+        "Types:", ", ".join(str(s.__xpmtype__.identifier) for s in dataset.ancestors())
+    )
     print(
         "Types (class):",
-        ", ".join(str(s.__module__ + "." + s.__name__) for s in dataset.ancestors()),
+        ", ".join(
+            str(s.__module__ + "." + s.__qualname__) for s in dataset.ancestors()
+        ),
     )
     if dataset.tags:
         print("Tags:", ", ".join(dataset.tags))
     if dataset.tasks:
         print("Tasks:", ", ".join(dataset.tasks))
+
     print()
-    print(dataset.description)
+    if dataset.description:
+        print(dataset.description)
+    else:
+        print("(no description provided)")
 
 
 # --- General information
