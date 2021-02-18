@@ -1,9 +1,9 @@
-# Changelog
+- Search types with "type:..."
 
 # 0.6.17
 
 - Allow remote access through rpyc
 
-## 0.6.9
+# 0.6.9
 
 `version` command

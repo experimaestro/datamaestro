@@ -18,10 +18,12 @@ from itertools import chain
 import importlib
 import json
 import traceback
-from typing import TypeVar, Union, Callable
-from experimaestro import argument
+from typing import Dict, TypeVar, Union, Callable, TYPE_CHECKING
+from experimaestro import argument, constant
 from .context import Context, DatafolderPath
 
+if TYPE_CHECKING:
+    from datamaestro.download import Download
 
 # --- Objects holding information into classes/function
 
@@ -62,7 +64,7 @@ class DataDefinition:
             if len(lines) > 2:
                 self.description = lines[2]
 
-        self.resources = {}
+        self.resources: Dict[str, "Download"] = {}
 
     def register_hook(self, hookname: str, hook: Callable):
         self.hooks[hookname].append(hook)
@@ -181,6 +183,14 @@ class DatasetDefinition(DataDefinition):
             if dataset is not None:
                 return dataset
         raise Exception("Could not find the dataset %s" % (name))
+
+    def hasfiles(self) -> bool:
+        """Returns whether this dataset has files or only includes references"""
+        for resource in self.resources.values():
+            if resource.hasfiles():
+                return True
+
+        return False
 
     def format(self, encoder: str) -> str:
         s = self.prepare()

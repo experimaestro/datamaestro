@@ -148,11 +148,12 @@ def orphans(config: Config, size):
         paths = set()
         ancestors: Set[Path] = set()
         for dataset in repository:
-            paths.add(dataset.datapath)
-            ancestor = dataset.datapath.parent
-            while ancestor not in ancestors:
-                ancestors.add(ancestor)
-                ancestor = ancestor.parent
+            if dataset.hasfiles():
+                paths.add(dataset.datapath)
+                ancestor = dataset.datapath.parent
+                while ancestor not in ancestors:
+                    ancestors.add(ancestor)
+                    ancestor = ancestor.parent
 
         def lookup(path, prefix=[]):
             if path in paths:

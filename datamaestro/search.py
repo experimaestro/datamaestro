@@ -1,23 +1,24 @@
+from typing import Callable
 from .definitions import DatasetDefinition
 import re
 
-RE_TAG = re.compile(r"^tag:(.*)")
-RE_TASK = re.compile(r"^task:(.*)")
-
 
 class Condition:
+    PATTERNS = [
+        (re.compile(r"^tag:(.*)"), lambda m: TagCondition(m.group(1))),
+        (re.compile(r"^task:(.*)"), lambda m: TaskCondition(m.group(1))),
+        (re.compile(r"^type:(.*)"), lambda m: TypeCondition(m.group(1))),
+    ]
+
     def match(self, dataset: DatasetDefinition):
         raise Exception("Match not implemented in %s" % type(self))
 
     @staticmethod
     def parse(searchterm):
-        m = RE_TAG.match(searchterm)
-        if m:
-            return TagCondition(m.group(1))
-
-        m = RE_TASK.match(searchterm)
-        if m:
-            return TaskCondition(m.group(1))
+        for regex, callback in Condition.PATTERNS:
+            m = regex.match(searchterm)
+            if m:
+                return callback(m)
 
         return IDCondition(searchterm)
 
@@ -60,3 +61,15 @@ class TaskCondition(ReCondition):
 class IDCondition(ReCondition):
     def match(self, dataset: DatasetDefinition):
         return self.regex.search(dataset.id)
+
+
+class TypeCondition(Condition):
+    def __init__(self, typename: str):
+        self.typename = typename
+
+    def match(self, dataset: DatasetDefinition):
+        for ds in dataset.ancestors():
+            if str(ds.__xpmtype__.identifier) == self.typename:
+                return True
+
+        return False

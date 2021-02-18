@@ -1,4 +1,3 @@
-from pathlib import Path
 from datamaestro.definitions import DataAnnotation, DatasetWrapper
 from datamaestro.utils import deprecated
 
@@ -34,6 +33,9 @@ class Download(DataAnnotation):
 
     def postinit(self):
         pass
+
+    def hasfiles(self):
+        return True
 
     def download(self, force=False):
         """Downloads the content"""
@@ -73,6 +75,10 @@ class reference(Download):
 
     def download(self, force=False):
         self.reference.__datamaestro__.download(force)
+
+    def hasfiles(self):
+        # We don't really have files
+        return False
 
 
 Reference = deprecated("Use @reference instead of @Reference", reference)

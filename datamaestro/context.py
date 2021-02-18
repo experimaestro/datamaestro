@@ -12,11 +12,16 @@ from itertools import chain
 import json
 import pkg_resources
 from tqdm import tqdm
-from typing import Iterable, List, Dict
+from typing import Iterable, Iterator, List, Dict
 import re
 from .registry import Registry
 from .utils import CachedFile, downloadURL
 from .settings import UserSettings, Settings
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from datamaestro.definitions import DatasetDefinition
 
 
 class Compression:
@@ -368,7 +373,7 @@ class Repository:
                 traceback.print_exc()
                 logging.error("Error while reading definitions file %s: %s", path, e)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator["DatasetDefinition"]:
         """Iterates over all datasets in this repository"""
         for datasets in self.modules():
             for dataset in datasets:
