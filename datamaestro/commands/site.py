@@ -66,7 +66,7 @@ def method_documentation(doc, types):
 
 
 def document_data(datatype: ObjectType):
-    xpm = datatype.__xpm__
+    xpm = datatype.__getxpmtype__()
     s = "### %s\n\nClass `%s.%s`\n\n" % (
         xpm.identifier,
         datatype.__module__,
