@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 from datamaestro.definitions import data, argument
+from experimaestro import Config
 
 
 def documentation(method):
@@ -11,7 +12,7 @@ def documentation(method):
 
 @argument("id", type=str, help="The unique dataset ID", required=False)
 @data()
-class Base:
+class Base(Config):
     pass
 
 

@@ -19,7 +19,7 @@ import importlib
 import json
 import traceback
 from typing import Dict, TypeVar, Union, Callable, TYPE_CHECKING
-from experimaestro import argument, constant
+from experimaestro import argument, constant, Param, Option
 from .context import Context, DatafolderPath
 
 if TYPE_CHECKING:
@@ -234,7 +234,6 @@ class DatasetWrapper:
     """Represents a dataset"""
 
     def __init__(self, annotation, t: type):
-        from datamaestro.data import Base
 
         self.t = t
 
@@ -375,14 +374,14 @@ def data(description=None):
 
 
 class dataset:
-    def __init__(self, base=None, *, timestamp=False, id=None, url=None, size=None):
+    def __init__(self, base=None, *, timestamp=None, id=None, url=None, size=None):
         """
 
         Arguments:
             base {[type]} -- The base type (or None if infered from type annotation)
 
         Keyword Arguments:
-            timestamp {bool} -- [description] (default: {False})
+            timestamp {bool} -- If the dataset evolves, specify its timestamp (default: None)
             id {[type]} -- [description] (default: {None})
             url {[type]} -- [description] (default: {None})
             size {str} -- The size (should be a parsable format)
