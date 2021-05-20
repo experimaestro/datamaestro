@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from datamaestro.definitions import data, argument
+from datamaestro.definitions import data, argument, Param
 from experimaestro import Config
 
 
@@ -18,6 +18,12 @@ class Base(Config):
 
 @data()
 class Generic(Base):
+    """Generic dataset
+
+    This allows to set any value, but should only be used
+    as a placeholder
+    """
+
     def __init__(self, **kwargs):
         logging.warning("Generic should be avoided")
         super().__init__()
@@ -25,10 +31,11 @@ class Generic(Base):
             object.__setattr__(self, key, value)
 
 
-@argument("path", type=Path)
 @data()
 class File(Base):
     """A data file"""
+
+    path: Param[Path]
 
     def open(self, mode):
         return self.path.open(mode)

@@ -85,16 +85,23 @@ def document_data(datatype: ObjectType):
 
     for name, method in inspect.getmembers(datatype):
         if inspect.isfunction(method) and hasattr(method, "__datamaestro_doc__"):
-            doc = docstring_parse(method.__datamaestro_doc__)
+            try:
+                doc = docstring_parse(method.__datamaestro_doc__)
 
-            signature = re.sub(r"\(self,?", "(", str(inspect.signature(method)))
-            s += "#### %s%s\n" % (name, signature)
+                signature = re.sub(r"\(self,?", "(", str(inspect.signature(method)))
+                s += "#### %s%s\n" % (name, signature)
 
-            if doc.short_description:
-                s += doc.short_description + "\n"
-            if doc.long_description:
-                s += doc.long_description + "\n"
-            s += method_documentation(doc, method.__annotations__)
+                if doc.short_description:
+                    s += doc.short_description + "\n"
+                if doc.long_description:
+                    s += doc.long_description + "\n"
+                s += method_documentation(doc, method.__annotations__)
+            except Exception as e:
+                logging.error(
+                    "Error while parsing documetnation of %s (%s)",
+                    method,
+                    method.__module__,
+                )
 
     return s
 

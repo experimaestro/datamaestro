@@ -1,6 +1,7 @@
 from pathlib import Path
 from csv import reader as csv_reader
 from . import File, data, argument, documentation
+from datamaestro.definitions import Option
 from typing import Tuple, List
 
 
@@ -9,6 +10,9 @@ from typing import Tuple, List
 @data()
 class Generic(File):
     """A generic CSV file"""
+
+    ignore: Option[int] = 0
+    names_row: Option[int] = 1
 
     @documentation
     def columns(self):
@@ -37,8 +41,7 @@ class Matrix(Generic):
         """Returns the list of fields and the numeric data
 
 
-        Returns:
-            [type]: List of fields
+        Returns: List of fields
         """
         import numpy as np
 
