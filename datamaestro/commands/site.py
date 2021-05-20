@@ -420,16 +420,22 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
             )
             if meta.name:
                 r.write("<div class='dataset-name'>%s</div>\n\n" % meta.name)
-            if ds.tags:
-                r.write(
-                    "".join("<span class='tag'>%s</span>" % tag for tag in meta.tags)
-                )
-            if ds.tasks:
-                r.write(
-                    "".join(
-                        "<span class='task'>%s</span>" % task for task in meta.tasks
+
+            if ds.tags or ds.tasks:
+                r.write("<div class='tagtask'>")
+                if ds.tags:
+                    r.write(
+                        "".join(
+                            "<span class='tag'>%s</span>" % tag for tag in meta.tags
+                        )
                     )
-                )
+                if ds.tasks:
+                    r.write(
+                        "".join(
+                            "<span class='task'>%s</span>" % task for task in meta.tasks
+                        )
+                    )
+                r.write("</div>")
 
             if meta.url:
                 r.write("""<div><a href="{0}">{0}</a></div>""".format(meta.url))
