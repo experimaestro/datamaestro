@@ -2,56 +2,70 @@
 Contains
 """
 
-import sys
-import os
-import hashlib
-import tempfile
-import urllib
-import shutil
-from functools import lru_cache
 import logging
-import re
 import inspect
-import urllib.request
 from pathlib import Path
 from itertools import chain
-import importlib
-import json
 import traceback
-from typing import Dict, TypeVar, Union, Callable, TYPE_CHECKING
-from experimaestro import argument, constant, Param, Option
+from typing import Any, Dict, Optional, Set, TypeVar, Union, Callable, TYPE_CHECKING
+from experimaestro import argument, constant, Param, Option, Config
 from .context import Context, DatafolderPath
 
 if TYPE_CHECKING:
     from datamaestro.download import Download
+    from .data import Base
 
 # --- Objects holding information into classes/function
 
 
-class DataDefinition:
+class AbstractDataDefinition:
+    """Data definition groups common fields between a dataset and a data piece,
+    such as tags and tasks"""
+
+    base: Any
+
+    def __init__(self, repository):
+        self.repository = repository
+        self.url = None
+        self.name: Optional[str] = None
+        self.version = None
+
+        self.tags = []
+        self.tasks = []
+        self.resources: Dict[str, "Download"] = {}
+
+    @property
+    def description(self):
+        raise NotImplementedError()
+
+    def ancestors(self):
+        ancestors = []
+        ancestors.extend(c for c in self.base.__mro__ if issubclass(c, Config))
+
+        return ancestors
+
+
+class DataDefinition(AbstractDataDefinition):
     """Object that stores the declarative part of a data(set) description
     """
 
     def __init__(self, repository, t, base=None):
         assert base is None or not inspect.isclass(t)
 
+        super().__init__(repository)
+
         # Copy base type and find matching repository
         self.t = t
-        self.repository = repository
 
         # Dataset id (and all aliases)
         self.id = None
         self.base = base
 
-        self.aliases = set()
+        self.aliases: Set[str] = set()
 
         self.tags = set(chain(*[c.__datamaestro__.tags for c in self.ancestors()]))
         self.tasks = set(chain(*[c.__datamaestro__.tasks for c in self.ancestors()]))
-
-        self.url = None
-        self.description: str = None
-        self.name: str = None
-        self.version = None
+        self._description: Optional[str] = None
 
         # Hooks
         self.hooks = {"pre-use": [], "pre-download": []}
@@ -62,9 +76,11 @@ class DataDefinition:
             if len(lines) > 1:
                 assert lines[1].strip() == "", "Second line should be blank"
             if len(lines) > 2:
-                self.description = lines[2]
+                self._description = lines[2]
 
-        self.resources: Dict[str, "Download"] = {}
+    @property
+    def description(self):
+        return self._description
 
     def register_hook(self, hookname: str, hook: Callable):
         self.hooks[hookname].append(hook)
@@ -106,7 +122,44 @@ class DataDefinition:
         return ancestors
 
 
-class DatasetDefinition(DataDefinition):
+class AbstractDatasetDefinition(AbstractDataDefinition):
+    def download(self, force=False):
+        pass
+
+    def prepare(self, download=False) -> "Base":
+        ds = self._prepare(download)
+        ds.__datamaestro_dataset__ = self
+        return ds
+
+    def _prepare(self, download=False) -> "Base":
+        raise NotImplementedError(f"prepare() in {self.__class__}")
+
+    def format(self, encoder: str) -> str:
+        s = self.prepare()
+        if encoder == "normal":
+            from .utils import JsonEncoder
+
+            return JsonEncoder().encode(s)
+        elif encoder == "xpm":
+            from .utils import XPMEncoder
+
+            return XPMEncoder().encode(s)
+        else:
+            raise Exception("Unhandled encoder: {encoder}")
+
+    @staticmethod
+    def setDataIDs(data: Config, id: str):
+        """Set nested IDs automatically"""
+        from datamaestro.data import Base
+
+        if isinstance(data, Base):
+            data.id = id
+        for key, value in data.__xpm__.values.items():
+            if isinstance(value, Config):
+                DatasetDefinition.setDataIDs(value, f"{id}.{key}")
+
+
+class DatasetDefinition(DataDefinition, AbstractDatasetDefinition):
     """Specialization of DataDefinition for datasets
 
     A dataset:
@@ -128,13 +181,13 @@ class DatasetDefinition(DataDefinition):
         for key, resource in self.resources.items():
             try:
                 resource.download(force)
-            except:
+            except Exception:
                 logging.error("Could not download resource %s", key)
                 traceback.print_exc()
                 success = False
         return success
 
-    def prepare(self, download=False):
+    def _prepare(self, download=False) -> "Base":
         if download:
             for hook in self.hooks["pre-download"]:
                 hook(self)
@@ -152,8 +205,13 @@ class DatasetDefinition(DataDefinition):
             raise Exception(
                 f"The dataset method {name} defined in {filename} returned a null object"
             )
+
+        # Constrcut the object
         data = self.base(**dict)
-        data.id = self.id
+
+        # Set the ids
+        DatasetDefinition.setDataIDs(data, self.id)
+
         return data
 
     @property
@@ -191,19 +249,6 @@ class DatasetDefinition(DataDefinition):
                 return True
 
         return False
-
-    def format(self, encoder: str) -> str:
-        s = self.prepare()
-        if encoder == "normal":
-            from .utils import JsonEncoder
-
-            return JsonEncoder().encode(s)
-        elif encoder == "xpm":
-            from .utils import XPMEncoder
-
-            return XPMEncoder().encode(s)
-        else:
-            raise Exception("Unhandled encoder: {encoder}")
 
 
 class FutureAttr:
@@ -277,6 +322,9 @@ class DatasetWrapper:
     def __getattr__(self, key):
         return FutureAttr(self.__datamaestro__, [key])
 
+    def definition(self):
+        return self.__datamaestro__
+
 
 # --- Annotations
 
@@ -342,13 +390,14 @@ T = TypeVar("T")
 
 
 def data(description=None):
+    """Deprecated: simply deriving from Base data is enough"""
     if description is not None and not isinstance(description, str):
         raise RuntimeError("@data annotation should be written @data()")
 
     def annotate(t: T):
         try:
             object.__getattribute__(t, "__datamaestro__")
-            raise AssertionError("@data should only be called once")
+            logging.warning("@data should only be called once")
         except AttributeError:
             pass
 
@@ -366,7 +415,6 @@ def data(description=None):
         )
         t = config(identifier)(t)
         t.__datamaestro__ = DataDefinition(repository, t)
-        t.__datamaestro__.id = identifier
 
         return t
 

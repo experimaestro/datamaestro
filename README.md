@@ -21,11 +21,13 @@ The documentation can be found at https://experimaestro.github.io/datamaestro/.
 
 ## List of repositories
 
+- [Information Retrieval](https://github.com/bpiwowar/experimaestro-ir) [![PyPI version](https://badge.fury.io/py/experimaestro-ir.svg)](https://badge.fury.io/py/experimaestro-ir)
+
 - [NLP and information access related dataset](https://github.com/experimaestro/datamaestro_text) [![PyPI version](https://badge.fury.io/py/datamaestro-text.svg)](https://badge.fury.io/py/datamaestro-text) \
-  Natural Language Processing (e.g. Sentiment101) and Information access (e.g. TREC) datasets 
-- [image-related dataset](https://github.com/experimaestro/datamaestro_image) [![PyPI version](https://badge.fury.io/py/datamaestro-image.svg)](https://badge.fury.io/py/datamaestro-image) \
+  Natural Language Processing (e.g. Sentiment101) and Information access (e.g. TREC) datasets
+- [image-related dataset](https://github.com/experimaestro/datamaestro_image) [![PyPI version](https://badge.fury.io/py/datamaestro-image.svg)](https://badge.fury.io/py/datamaestro-image)
   Image related datasets (e.g. MNIST)
-  
+
 - [machine learning](https://github.com/experimaestro/datamaestro_ml) [![PyPI version](https://badge.fury.io/py/datamaestro-ml.svg)](https://badge.fury.io/py/datamaestro-ml)\
  Generic machine learning datasets
 

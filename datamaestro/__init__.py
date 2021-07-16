@@ -1,4 +1,4 @@
-from .context import Context, Repository, prepare_dataset
+from .context import Context, Repository, get_dataset, prepare_dataset
 
 from pkg_resources import get_distribution, DistributionNotFound
 

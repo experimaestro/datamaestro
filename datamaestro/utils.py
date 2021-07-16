@@ -213,8 +213,10 @@ class JsonEncoder(BaseJSONEncoder):
     def default(self, o):
         if isinstance(o, PosixPath):
             return str(o.resolve())
+
         if isinstance(o, Config):
-            return o.__xpm__.values
+            return {arg.name: value for arg, value in o.__xpm__.xpmvalues()}
+
         return super().default(o)
 
 
@@ -226,9 +228,10 @@ class XPMEncoder(BaseJSONEncoder):
             return {"$type": "path", "$value": str(o.resolve())}
 
         # Data object
-        if hasattr(o.__class__, "__datamaestro__"):
-            m = super().default(o)
-            m["$type"] = o.__class__.__datamaestro__.id
+        if isinstance(o, Config):
+            m = {arg.name: value for arg, value in o.__xpm__.xpmvalues()}
+            # Adds XPM type
+            m["$type"] = o.__class__.__getxpmtype__().identifier.name
             return m
 
         return super().default(o)

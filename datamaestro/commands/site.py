@@ -299,9 +299,9 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
             hasdataset = False
             for dataset in module:
                 hasdataset = True
-                for tag in dataset.__datamaestro__.tags:
+                for tag in dataset.tags:
                     self.tags.add(tag, dataset)
-                for task in dataset.__datamaestro__.tasks:
+                for task in dataset.tasks:
                     self.tasks.add(task, dataset)
 
             if hasdataset:
@@ -357,9 +357,6 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
             "%s." % self.repository.module if self.repository else "datamaestro."
         )
 
-        # See https://github.com/mkdocs/mkdocs/issues/1952
-        builder = list(server.watcher._tasks.values())[0]["func"]
-
         def rebuild():
             import sys
 
@@ -413,34 +410,31 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         r.write("\n\n")
         r.write("## List of datasets\n\n")
         for ds in df:
-            meta = ds.__datamaestro__
             r.write(
                 """<div class="dataset-entry"><div class='dataset-id'>%s<a name="%s"></a></div>\n\n"""
-                % (meta.id, meta.id)
+                % (ds.id, ds.id)
             )
-            if meta.name:
-                r.write("<div class='dataset-name'>%s</div>\n\n" % meta.name)
+            if ds.name:
+                r.write("<div class='dataset-name'>%s</div>\n\n" % ds.name)
 
             if ds.tags or ds.tasks:
                 r.write("<div class='tagtask'>")
                 if ds.tags:
                     r.write(
-                        "".join(
-                            "<span class='tag'>%s</span>" % tag for tag in meta.tags
-                        )
+                        "".join("<span class='tag'>%s</span>" % tag for tag in ds.tags)
                     )
                 if ds.tasks:
                     r.write(
                         "".join(
-                            "<span class='task'>%s</span>" % task for task in meta.tasks
+                            "<span class='task'>%s</span>" % task for task in ds.tasks
                         )
                     )
                 r.write("</div>")
 
-            if meta.url:
-                r.write("""<div><a href="{0}">{0}</a></div>""".format(meta.url))
-            if meta.description:
-                r.write("<div class='description'>%s</div>" % meta.description)
+            if ds.url:
+                r.write("""<div><a href="{0}">{0}</a></div>""".format(ds.url))
+            if ds.description:
+                r.write("<div class='description'>%s</div>" % ds.description)
             r.write("</div>")
 
         return r.getvalue()

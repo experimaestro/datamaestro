@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from datamaestro.definitions import data, argument, Param
+from datamaestro.definitions import AbstractDatasetDefinition, data, argument, Param
 from experimaestro import Config
 from experimaestro import documentation  # noqa: F401
 
@@ -8,7 +8,11 @@ from experimaestro import documentation  # noqa: F401
 @argument("id", type=str, help="The unique dataset ID", required=False)
 @data()
 class Base(Config):
-    pass
+    __datamaestro_dataset__: AbstractDatasetDefinition
+
+    def download(self):
+        """Download the dataset"""
+        self.__datamaestro_dataset__.download()
 
 
 @data()

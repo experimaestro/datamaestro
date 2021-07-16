@@ -100,7 +100,8 @@ def info(config: Config, dataset):
         print(dataset.url)
 
     print(
-        "Types:", ", ".join(str(s.__xpmtype__.identifier) for s in dataset.ancestors())
+        "Types (ids):",
+        ", ".join(str(s.__getxpmtype__().identifier) for s in dataset.ancestors()),
     )
     print(
         "Types (class):",
@@ -145,6 +146,7 @@ def orphans(config: Config, size):
     import subprocess
 
     for repository in config.context.repositories():
+        # For each repository
         paths = set()
         ancestors: Set[Path] = set()
         for dataset in repository:
@@ -275,9 +277,7 @@ def download(config: Config, dataset):
 @pass_cfg
 def prepare(config: Config, datasetid, encoder, no_downloads):
     """Download a dataset and returns information in json format"""
-    dataset = config.context.dataset(
-        datasetid
-    )  # type: datamaestro.definitions.DatasetDefinition
+    dataset = config.context.dataset(datasetid)
 
     if not no_downloads:
         success = dataset.download()
@@ -301,12 +301,22 @@ def prepare(config: Config, datasetid, encoder, no_downloads):
 @cli.command(help="Search for a dataset")
 @pass_cfg
 def search(config: Config, searchterms):
+    """Search for a dataset
+
+    Repositories can be searched with repo:REGEX expression
+    Tags can be searched with tag:REGEX expression
+    Tasks can be searched with task:REGEX expression
+
+    When no search modifier `MODIFIER:` is given, matches the dataset
+
+    """
     from .search import Condition, AndCondition
 
     condition = AndCondition()
     for searchterm in searchterms:
         condition.append(Condition.parse(searchterm))
 
+    logging.debug("Search: %s", condition)
     for dataset in config.context.datasets():
         if condition.match(dataset):
             print("[%s] %s" % (dataset.repository.id, dataset.id))

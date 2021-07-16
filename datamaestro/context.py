@@ -1,20 +1,13 @@
 from pathlib import Path
 from cached_property import cached_property
-import sys
 import importlib
 import os
 import hashlib
 import logging
 import inspect
-import urllib
-import shutil
-from itertools import chain
 import json
 import pkg_resources
-from tqdm import tqdm
 from typing import Iterable, Iterator, List, Dict
-import re
-from .registry import Registry
 from .utils import CachedFile, downloadURL
 from .settings import UserSettings, Settings
 
@@ -140,7 +133,7 @@ class Context:
             for dataset in repository:
                 yield dataset
 
-    def dataset(self, datasetid) -> "datamaestro.definitions.DatasetDefinition":
+    def dataset(self, datasetid) -> "DatasetDefinition":
         """Get a dataset by ID"""
         for repository in self.repositories():
             dataset = repository.search(datasetid)
@@ -228,7 +221,7 @@ class DatafolderPath(ResolvablePath):
         return Path(context.settings.datafolders[self.folderid]) / self.path
 
 
-class Datasets:
+class Datasets(Iterable["DatasetDefinition"]):
     def __init__(self, module):
         self.module = module
 
@@ -240,7 +233,7 @@ class Datasets:
     def description(self):
         return self.module.__doc__ or ""
 
-    def __iter__(self) -> Iterable["definitions.DatasetDefinition"]:
+    def __iter__(self) -> Iterable["DatasetDefinition"]:
         for key, value in self.module.__dict__.items():
             # Ensures it is annotated
             if hasattr(value, "__datamaestro__"):
@@ -248,7 +241,7 @@ class Datasets:
                 if value.__datamaestro__.aliases:
                     # Ensure it comes from the module
                     if self.module.__name__ == value.__datamaestro__.t.__module__:
-                        yield value
+                        yield value.definition()
 
 
 class Repository:
@@ -328,19 +321,12 @@ class Repository:
             logging.debug("Searching in module %s.config.%s", self.module, candidate)
             module = importlib.import_module("%s.config.%s" % (self.module, candidate))
             for value in Datasets(module):
-                if name in value.__datamaestro__.aliases:
-                    return value.__datamaestro__
+                if name in value.aliases:
+                    return value
 
         return None
 
-    def module(self, did):
-        """Returns a module given the its id"""
-        path = (
-            self.basedir.joinpath("config").joinpath(*did.split(".")).with_suffix(".py")
-        )
-        return module.create(self, did, path)
-
-    def modules(self):
+    def modules(self) -> "Module":
         """Iterates over all modules in this repository"""
         for _, fid, package in self._modules():
             try:
@@ -354,8 +340,6 @@ class Repository:
 
     def _modules(self):
         """Iterate over modules (without parsing them)"""
-        import pkgutil
-
         for path in self.configdir.rglob("*.py"):
             try:
                 relpath = path.relative_to(self.configdir)
@@ -377,7 +361,7 @@ class Repository:
         """Iterates over all datasets in this repository"""
         for datasets in self.modules():
             for dataset in datasets:
-                yield dataset.__datamaestro__
+                yield dataset
 
     @property
     def generatedpath(self):
@@ -401,8 +385,16 @@ def find_dataset(dataset_id: str):
 
 
 def prepare_dataset(dataset_id: str):
-    """Find a dataset given its id"""
+    """Find a dataset given its id and download the resources"""
     from .definitions import DatasetDefinition
 
     ds = DatasetDefinition.find(dataset_id)
     return ds.prepare(download=True)
+
+
+def get_dataset(dataset_id: str):
+    """Find a dataset given its id"""
+    from .definitions import DatasetDefinition
+
+    ds = DatasetDefinition.find(dataset_id)
+    return ds.prepare(download=False)

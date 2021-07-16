@@ -8,6 +8,10 @@ class Condition:
         (re.compile(r"^tag:(.*)"), lambda m: TagCondition(m.group(1))),
         (re.compile(r"^task:(.*)"), lambda m: TaskCondition(m.group(1))),
         (re.compile(r"^type:(.*)"), lambda m: TypeCondition(m.group(1))),
+        (
+            re.compile(r"^repo(?:sitory)?:(.*)"),
+            lambda m: RepositoryCondition(m.group(1)),
+        ),
     ]
 
     def match(self, dataset: DatasetDefinition):
@@ -36,6 +40,26 @@ class AndCondition(Condition):
                 return False
         return True
 
+    def __repr__(self):
+        return " AND ".join(self.conditions)
+
+
+class OrCondition(Condition):
+    def __init__(self):
+        self.conditions = []
+
+    def append(self, condition: Condition):
+        self.conditions.append(condition)
+
+    def match(self, dataset: DatasetDefinition):
+        for condition in self.conditions:
+            if condition.match(dataset):
+                return True
+        return False
+
+    def __repr__(self):
+        return " OR ".join(repr(s) for s in self.conditions)
+
 
 class ReCondition(Condition):
     def __init__(self, regex):
@@ -58,9 +82,20 @@ class TaskCondition(ReCondition):
         return False
 
 
+class RepositoryCondition(ReCondition):
+    def match(self, dataset: DatasetDefinition):
+        return self.regex.search(dataset.repository.id) is not None
+
+    def __repr__(self):
+        return f"repository ~ {self.regex}"
+
+
 class IDCondition(ReCondition):
     def match(self, dataset: DatasetDefinition):
         return self.regex.search(dataset.id)
+
+    def __repr__(self):
+        return f"dataset ~ {self.regex}"
 
 
 class TypeCondition(Condition):
