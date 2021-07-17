@@ -1,21 +1,26 @@
 import logging
 from pathlib import Path
-from datamaestro.definitions import AbstractDatasetDefinition, data, argument, Param
+from datamaestro.definitions import AbstractDataset, argument, Param
 from experimaestro import Config
 from experimaestro import documentation  # noqa: F401
 
 
-@argument("id", type=str, help="The unique dataset ID", required=False)
-@data()
 class Base(Config):
-    __datamaestro_dataset__: AbstractDatasetDefinition
+    """Base object for all data types
+
+    attributes:
+
+    id: The unique dataset ID
+    """
+
+    id: Param[str]
+    __datamaestro_dataset__: AbstractDataset
 
     def download(self):
         """Download the dataset"""
         self.__datamaestro_dataset__.download()
 
 
-@data()
 class Generic(Base):
     """Generic dataset
 
@@ -30,7 +35,6 @@ class Generic(Base):
             object.__setattr__(self, key, value)
 
 
-@data()
 class File(Base):
     """A data file"""
 
@@ -41,7 +45,6 @@ class File(Base):
 
 
 @argument("path", type=Path)
-@data()
 class Folder(Base):
     """A data folder"""
 

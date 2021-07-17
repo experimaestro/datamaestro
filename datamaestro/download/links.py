@@ -2,7 +2,7 @@ import logging
 import os
 from datamaestro.download import Download
 from datamaestro.utils import deprecated
-from datamaestro.definitions import DatasetDefinition
+from datamaestro.definitions import AbstractDataset
 from typing import List
 from datamaestro.download import Download
 from datamaestro.context import ResolvablePath
@@ -12,7 +12,7 @@ import logging
 
 
 class links(Download):
-    def __init__(self, varname: str, **links: List[DatasetDefinition]):
+    def __init__(self, varname: str, **links: List[AbstractDataset]):
         """Link with another dataset path
 
         Args:

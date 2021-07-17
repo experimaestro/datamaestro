@@ -1,4 +1,4 @@
-from datamaestro.definitions import DataAnnotation, DatasetWrapper
+from datamaestro.definitions import AbstractDataset, DatasetAnnotation, DatasetWrapper
 from datamaestro.utils import deprecated
 
 
@@ -14,7 +14,7 @@ def initialized(method):
     return wrapper
 
 
-class Download(DataAnnotation):
+class Download(DatasetAnnotation):
     """
     Base class for all download handlers
     """
@@ -24,12 +24,17 @@ class Download(DataAnnotation):
         # Ensures that the object is initialized
         self._post = False
 
-    def annotate(self):
+    def annotate(self, dataset: AbstractDataset):
         # Register has a resource download
-        if self.varname in self.definition.resources:
+        if self.varname in dataset.resources:
             raise AssertionError("Name %s already declared as a resource", self.varname)
 
-        self.definition.resources[self.varname] = self
+        dataset.resources[self.varname] = self
+        self.definition = dataset
+
+    @property
+    def context(self):
+        return self.definition.context
 
     def postinit(self):
         pass
@@ -42,34 +47,14 @@ class Download(DataAnnotation):
         raise NotImplementedError()
 
 
-class DatasetWrapper:
-    def __init__(self, annotation, t):
-        self.t = t
-        d = DatasetDefinition(t)
-        self.__datamaestro__ = d
-        d.base = annotation.base
-        d.update(annotation.base.__datamaestro__)
-
-        # Removes module_name.config prefix
-        path = t.__module__.split(".", 2)[2]
-        d.id = "%s.%s" % (path, annotation.id or t.__name__.lower())
-        d.aliases.add(d.id)
-
-    def __call__(self, *args, **kwargs):
-        self.t(*args, **kwargs)
-
-    def __getattr__(self, key):
-        return FutureAttr(self.__datamaestro__, [key])
-
-
 class reference(Download):
     def __init__(self, varname, reference):
         super().__init__(varname)
         self.reference = reference
 
     def prepare(self):
-        v = self.reference.__datamaestro__.prepare()
-        if isinstance(v, DatasetWrapper):
+        v = self.reference.prepare()
+        if isinstance(v, AbstractDataset):
             return v().prepare()
         return v
 

@@ -1,15 +1,28 @@
-"""
-Contains
-"""
+#
+# Main datamaestro functions and data models
+#
 
 import logging
 import inspect
 from pathlib import Path
 from itertools import chain
 import traceback
-from typing import Any, Dict, Optional, Set, TypeVar, Union, Callable, TYPE_CHECKING
-from experimaestro import argument, constant, Param, Option, Config
-from .context import Context, DatafolderPath
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Callable,
+    TYPE_CHECKING,
+    Union,
+)
+from experimaestro import argument, constant, Param, Option, Config, Meta
+from typing import Type as TypingType
+from experimaestro.core.types import Type  # noqa: F401 (re-exports)
+from .context import Repository, Context, DatafolderPath  # noqa: F401 (re-exports)
 
 if TYPE_CHECKING:
     from datamaestro.download import Download
@@ -18,41 +31,33 @@ if TYPE_CHECKING:
 # --- Objects holding information into classes/function
 
 
-class AbstractDataDefinition:
+class AbstractData:
     """Data definition groups common fields between a dataset and a data piece,
     such as tags and tasks"""
 
-    base: Any
-
-    def __init__(self, repository):
-        self.repository = repository
-        self.url = None
-        self.name: Optional[str] = None
-        self.version = None
-
-        self.tags = []
-        self.tasks = []
-        self.resources: Dict[str, "Download"] = {}
+    def __init__(self):
+        self.tags = set()
+        self.tasks = set()
 
     @property
     def description(self):
         raise NotImplementedError()
 
     def ancestors(self):
+        """Returns all configuration ancestors"""
         ancestors = []
         ancestors.extend(c for c in self.base.__mro__ if issubclass(c, Config))
-
         return ancestors
 
 
-class DataDefinition(AbstractDataDefinition):
+class DataDefinition(AbstractData):
     """Object that stores the declarative part of a data(set) description
     """
 
-    def __init__(self, repository, t, base=None):
+    def __init__(self, t, base=None):
         assert base is None or not inspect.isclass(t)
 
-        super().__init__(repository)
+        super().__init__()
 
         # Copy base type and find matching repository
         self.t = t
@@ -67,9 +72,7 @@ class DataDefinition(AbstractDataDefinition):
         self.tasks = set(chain(*[c.__datamaestro__.tasks for c in self.ancestors()]))
         self._description: Optional[str] = None
 
-        # Hooks
-        self.hooks = {"pre-use": [], "pre-download": []}
-
+        # Get the documentation
         if t.__doc__:
             lines = t.__doc__.split("\n", 2)
             self.name = lines[0]
@@ -82,31 +85,29 @@ class DataDefinition(AbstractDataDefinition):
     def description(self):
         return self._description
 
-    def register_hook(self, hookname: str, hook: Callable):
-        self.hooks[hookname].append(hook)
-
     @staticmethod
-    def repository_relpath(t: type):
+    def repository_relpath(t: type) -> Tuple[Repository, List[str]]:
         """Find the repository of the current data or dataset definition"""
-        map = Context.instance().repositorymap
+        repositorymap = Context.instance().repositorymap
 
         fullname = f"{t.__module__}.{t.__name__}"
         components = fullname.split(".")
 
-        current = None
+        current: str = ""
         longest_ix = -1
         repository = None
         for ix, c in enumerate(components):
             current = f"{current}.{c}" if current else c
-            if current in map:
+            if (current is not None) and (current in repositorymap):
                 longest_ix = ix
-                repository = map[current]
+                repository = repositorymap[current]
 
         if repository is None:
             if components[0] == "datamaestro":
                 longest_ix = 0
-            elif repository is None:
-                raise Exception(f"Could not find the repository for {fullname}")
+
+        if repository is None:
+            raise Exception(f"Could not find the repository for {fullname}")
 
         return repository, components[(longest_ix + 1) :]
 
@@ -122,14 +123,47 @@ class DataDefinition(AbstractDataDefinition):
         return ancestors
 
 
-class AbstractDatasetDefinition(AbstractDataDefinition):
-    def download(self, force=False):
-        pass
+class AbstractDataset(AbstractData):
+    """Specialization of AbstractData for datasets
+
+    A dataset:
+
+    - has a unique ID (and aliases)
+    - can be searched for
+    - has a data storage space
+    - has specific attributes:
+        - timestamp: whether the dataset version depends on the time of the download
+    """
+
+    def __init__(self, repository: Optional["Repository"]):
+        super().__init__()
+        self.repository = repository
+        self.timestamp = False
+        self.aliases = set()
+
+        # Associated resources
+        self.resources: Dict[str, "Download"] = {}
+
+        # Hooks
+        # pre-use: before returning the dataset object
+        # pre-download: before downloading the dataset
+        self.hooks = {"pre-use": [], "pre-download": []}
+
+        self.url = None
+        self.name: Optional[str] = None
+        self.version = None
+
+    @property
+    def context(self):
+        return self.repository.context
 
     def prepare(self, download=False) -> "Base":
         ds = self._prepare(download)
         ds.__datamaestro_dataset__ = self
         return ds
+
+    def register_hook(self, hookname: str, hook: Callable):
+        self.hooks[hookname].append(hook)
 
     def _prepare(self, download=False) -> "Base":
         raise NotImplementedError(f"prepare() in {self.__class__}")
@@ -147,33 +181,15 @@ class AbstractDatasetDefinition(AbstractDataDefinition):
         else:
             raise Exception("Unhandled encoder: {encoder}")
 
-    @staticmethod
-    def setDataIDs(data: Config, id: str):
+    def setDataIDs(self, data: Config, id: str):
         """Set nested IDs automatically"""
         from datamaestro.data import Base
 
         if isinstance(data, Base):
-            data.id = id
+            data.id = f"{id}@{self.repository.name}"
         for key, value in data.__xpm__.values.items():
             if isinstance(value, Config):
-                DatasetDefinition.setDataIDs(value, f"{id}.{key}")
-
-
-class DatasetDefinition(DataDefinition, AbstractDatasetDefinition):
-    """Specialization of DataDefinition for datasets
-
-    A dataset:
-
-    - has a unique ID (and aliases)
-    - can be searched for
-    - has a data storage space
-    - has specific attributes:
-        - timestamp: whether the dataset version depends on the time of the download
-    """
-
-    def __init__(self, repository, t, base=None):
-        super().__init__(repository, t, base=base)
-        self.timestamp = False
+                self.setDataIDs(value, f"{id}.{key}")
 
     def download(self, force=False):
         """Download all the necessary resources"""
@@ -186,6 +202,74 @@ class DatasetDefinition(DataDefinition, AbstractDatasetDefinition):
                 traceback.print_exc()
                 success = False
         return success
+
+
+class FutureAttr:
+    """Allows to access a dataset subproperty"""
+
+    def __init__(self, dataset, keys):
+        self.dataset = dataset
+        self.keys = keys
+
+    def __repr__(self):
+        return "[%s].%s" % (self.dataset.id, ".".join(self.keys))
+
+    def __call__(self):
+        """Returns the value"""
+        value = self.dataset.prepare()
+        for key in self.keys:
+            value = getattr(value, key)
+        return value
+
+    def __getattr__(self, key):
+        return FutureAttr(self.dataset, self.keys + [key])
+
+    def download(self, force=False):
+        self.dataset.download(force)
+
+
+class DatasetWrapper(AbstractDataset):
+    """Wraps an annotated method into a dataset
+
+    This is the standard way to define a dataset in datamaestro
+    """
+
+    def __init__(self, annotation, t: type):
+
+        self.t = t
+        self.base = annotation.base
+        assert self.base is not None, f"Could not set the Config type for {t}"
+
+        repository, components = DataDefinition.repository_relpath(t)
+        super().__init__(repository)
+
+        # Set some variables
+        self.url = annotation.url
+
+        # Builds the ID:
+        # Removes module_name.config prefix
+        assert (
+            components[0] == "config"
+        ), f"A @dataset object should be in the .config module (not {t.__module__})"
+
+        path = ".".join(components[1:-1])
+        if annotation.id == "":
+            # id is empty string = use the module id
+            self.id = path
+        else:
+            self.id = "%s.%s" % (
+                path,
+                annotation.id or t.__name__.lower().replace("_", "."),
+            )
+
+        self.aliases.add(self.id)
+
+    def __call__(self, *args, **kwargs):
+        self.t(*args, **kwargs)
+
+    def __getattr__(self, key):
+        """Returns a pointer to a potential attribute"""
+        return FutureAttr(self, [key])
 
     def _prepare(self, download=False) -> "Base":
         if download:
@@ -207,16 +291,12 @@ class DatasetDefinition(DataDefinition, AbstractDatasetDefinition):
             )
 
         # Constrcut the object
-        data = self.base(**dict)
+        data = self.base._(**dict)
 
         # Set the ids
-        DatasetDefinition.setDataIDs(data, self.id)
+        self.setDataIDs(data, self.id)
 
         return data
-
-    @property
-    def context(self):
-        return self.repository.context
 
     @property
     def path(self) -> Path:
@@ -251,112 +331,56 @@ class DatasetDefinition(DataDefinition, AbstractDatasetDefinition):
         return False
 
 
-class FutureAttr:
-    """Allows to access a dataset subproperty"""
-
-    def __init__(self, definition, keys):
-        self.definition = definition
-        self.keys = keys
-
-    def __repr__(self):
-        return "[%s].%s" % (self.definition.id, ".".join(self.keys))
-
-    def __call__(self):
-        """Returns the value"""
-        value = self.definition.prepare()
-        for key in self.keys:
-            value = getattr(value, key)
-        return value
-
-    def __getattr__(self, key):
-        return FutureAttr(self.definition, self.keys + [key])
-
-    def download(self, force=False):
-        self.definition.download(force)
-
-
-class DatasetWrapper:
-    """Represents a dataset"""
-
-    def __init__(self, annotation, t: type):
-
-        self.t = t
-
-        if annotation.base.__datamaestro__.base:
-            # This must be a metadataset
-            base = annotation.base.__datamaestro__.base
-        else:
-            base = annotation.base
-
-        assert base is not None
-
-        repository, components = DataDefinition.repository_relpath(t)
-
-        d = DatasetDefinition(repository, t, base)
-        self.__datamaestro__ = d
-
-        # Set some variables
-        d.url = annotation.url
-
-        # Builds the ID:
-        # Removes module_name.config prefix
-        assert (
-            components[0] == "config"
-        ), f"A @dataset object should be in the .config module (not {t.__module__})"
-
-        path = ".".join(components[1:-1])
-        if annotation.id == "":
-            # id is empty string = use the module id
-            d.id = path
-        else:
-            d.id = "%s.%s" % (
-                path,
-                annotation.id or t.__name__.lower().replace("_", "."),
-            )
-
-        d.aliases.add(d.id)
-
-    def __call__(self, *args, **kwargs):
-        self.t(*args, **kwargs)
-
-    def __getattr__(self, key):
-        return FutureAttr(self.__datamaestro__, [key])
-
-    def definition(self):
-        return self.__datamaestro__
-
-
 # --- Annotations
 
 
 class DataAnnotation:
-    def __call__(self, t):
-        # Set some useful members
-        self.definition = t.__datamaestro__  # type: DataDefinition
-        self.repository = self.definition.repository  # type: Repository
-        self.context = (
-            self.definition.repository.context if self.definition.repository else None
-        )
+    def __call__(self, object: Union[AbstractDataset, TypingType[Config]]):
+        if isinstance(object, AbstractDataset):
+            self.annotate(object)
+        else:
+            if "__datamaestro__" in object.__dict__:
+                self.annotate(object.__datamaestro__)
+            else:
+                # With configuration objects, add a __datamaestro__ member to the class
+                assert issubclass(
+                    object, Config
+                ), f"{object} cannot be annotated (only dataset or data definitions)"
+                if "__datamaestro__" not in object.__dict__:
+                    object.__datamaestro__ = AbstractData()
+                self.annotate(object.__datamaestro__)
 
-        # Annotate
-        self.annotate()
-        return t
+        return object
 
-    def annotate(self):
+    def annotate(self, data: AbstractData):
+        raise NotImplementedError("Method annotate for class %s" % self.__class__)
+
+
+class DatasetAnnotation:
+    """Base class for all annotations"""
+
+    def __call__(self, dataset: AbstractDataset):
+        assert isinstance(
+            dataset, AbstractDataset
+        ), f"Only datasets can be annotated with {self}, but {dataset} is not a dataset"
+        self.annotate(dataset)
+        return dataset
+
+    def annotate(self, dataset: AbstractDataset):
         raise NotImplementedError("Method annotate for class %s" % self.__class__)
 
 
 def hook(name: str):
-    """Annotate a method of a DataAnnotation class to be a hook"""
+    """Annotate a method of a DatasetAnnotation class to be a hook"""
 
-    class HookAnnotation(DataAnnotation):
+    class HookAnnotation(DatasetAnnotation):
         def __init__(self, callable: Callable, args, kwargs):
             self.callable = callable
             self.args = args
             self.kwargs = kwargs
 
-        def annotate(self):
-            self.definition.register_hook(name, self._hook)
+        def annotate(self, dataset):
+            dataset.register_hook(name, self._hook)
 
         def _hook(self, definition: DataDefinition):
             self.callable(definition, *self.args, **self.kwargs)
@@ -377,8 +401,8 @@ def DataTagging(f):
         def __init__(self, *tags):
             self.tags = tags
 
-        def annotate(self):
-            f(self.definition).update(self.tags)
+        def annotate(self, metadata):
+            f(metadata).update(self.tags)
 
     return Annotation
 
@@ -386,44 +410,44 @@ def DataTagging(f):
 datatags = DataTagging(lambda d: d.tags)
 datatasks = DataTagging(lambda d: d.tasks)
 
-T = TypeVar("T")
+# T = TypeVar("T")
+# def data(description=None):
+#     """Deprecated: simply deriving from Base data is enough"""
+#     if description is not None and not isinstance(description, str):
+#         raise RuntimeError("@data annotation should be written @data()")
 
+#     def annotate(t: T):
+#         try:
+#             object.__getattribute__(t, "__datamaestro__")
+#             logging.warning("@data should only be called once")
+#         except AttributeError:
+#             pass
 
-def data(description=None):
-    """Deprecated: simply deriving from Base data is enough"""
-    if description is not None and not isinstance(description, str):
-        raise RuntimeError("@data annotation should be written @data()")
+#         # Determine the data type
+#         from experimaestro import config
 
-    def annotate(t: T):
-        try:
-            object.__getattribute__(t, "__datamaestro__")
-            logging.warning("@data should only be called once")
-        except AttributeError:
-            pass
+#         repository, components = DataDefinition.repository_relpath(t)
+#         assert (
+#             components[0] == "data"
+#         ), f"A @data object should be in the .data module (not {t.__module__})"
 
-        # Determine the data type
-        from experimaestro import config
+#         identifier = (
+#             f"{repository.NAMESPACE if repository else 'datamaestro'}."
+#             + ".".join(components[1:]).lower()
+#         )
+#         t = config(identifier)(t)
+#         t.__datamaestro__ = DataDefinition(repository, t)
 
-        repository, components = DataDefinition.repository_relpath(t)
-        assert (
-            components[0] == "data"
-        ), f"A @data object should be in the .data module (not {t.__module__})"
+#         return t
 
-        identifier = (
-            f"{repository.NAMESPACE if repository else 'datamaestro'}."
-            + ".".join(components[1:]).lower()
-        )
-        t = config(identifier)(t)
-        t.__datamaestro__ = DataDefinition(repository, t)
-
-        return t
-
-    return annotate
+#     return annotate
 
 
 class dataset:
     def __init__(self, base=None, *, timestamp=None, id=None, url=None, size=None):
-        """
+        """Creates a new (meta)dataset
+
+        Meta-datasets are not associated with any
 
         Arguments:
             base {[type]} -- The base type (or None if infered from type annotation)
@@ -445,6 +469,7 @@ class dataset:
     def __call__(self, t):
         try:
             if self.base is None:
+                # Get type from return annotation
                 self.base = t.__annotations__["return"]
             object.__getattribute__(t, "__datamaestro__")
             raise AssertionError("@data should only be called once")
@@ -452,8 +477,6 @@ class dataset:
             pass
 
         dw = DatasetWrapper(self, t)
-        dw.__datamaestro__.timestamp = self.timestamp
-
         return dw
 
 
@@ -467,7 +490,7 @@ def metadataset(base):
             raise AssertionError("@data should only be called once")
         except AttributeError:
             pass
-        t.__datamaestro__ = DataDefinition(None, t, base=base)
+        t.__datamaestro__ = AbstractDataset(None)
         return t
 
     return annotate

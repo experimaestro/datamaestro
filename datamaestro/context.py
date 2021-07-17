@@ -6,6 +6,7 @@ import hashlib
 import logging
 import inspect
 import json
+from experimaestro.mkdocs.metaloader import Module
 import pkg_resources
 from typing import Iterable, Iterator, List, Dict
 from .utils import CachedFile, downloadURL
@@ -14,7 +15,7 @@ from .settings import UserSettings, Settings
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from datamaestro.definitions import DatasetDefinition
+    from datamaestro.definitions import AbstractDataset
 
 
 class Compression:
@@ -133,7 +134,7 @@ class Context:
             for dataset in repository:
                 yield dataset
 
-    def dataset(self, datasetid) -> "DatasetDefinition":
+    def dataset(self, datasetid) -> "AbstractDataset":
         """Get a dataset by ID"""
         for repository in self.repositories():
             dataset = repository.search(datasetid)
@@ -221,8 +222,11 @@ class DatafolderPath(ResolvablePath):
         return Path(context.settings.datafolders[self.folderid]) / self.path
 
 
-class Datasets(Iterable["DatasetDefinition"]):
-    def __init__(self, module):
+class Datasets(Iterable["AbstractDataset"]):
+    """A set of datasets contained within a Python module"""
+
+    def __init__(self, module: Module):
+        """Initialize with a module"""
         self.module = module
 
     @property
@@ -233,15 +237,16 @@ class Datasets(Iterable["DatasetDefinition"]):
     def description(self):
         return self.module.__doc__ or ""
 
-    def __iter__(self) -> Iterable["DatasetDefinition"]:
+    def __iter__(self) -> Iterable["AbstractDataset"]:
+        from .definitions import DatasetWrapper
+
+        # Iterates over defined symbols
         for key, value in self.module.__dict__.items():
             # Ensures it is annotated
-            if hasattr(value, "__datamaestro__"):
-                # Ensures it is a dataset
-                if value.__datamaestro__.aliases:
-                    # Ensure it comes from the module
-                    if self.module.__name__ == value.__datamaestro__.t.__module__:
-                        yield value.definition()
+            if isinstance(value, DatasetWrapper):
+                # Ensure it comes from the module
+                if self.module.__name__ == value.t.__module__:
+                    yield value
 
 
 class Repository:
@@ -357,7 +362,7 @@ class Repository:
                 traceback.print_exc()
                 logging.error("Error while reading definitions file %s: %s", path, e)
 
-    def __iter__(self) -> Iterator["DatasetDefinition"]:
+    def __iter__(self) -> Iterator["AbstractDataset"]:
         """Iterates over all datasets in this repository"""
         for datasets in self.modules():
             for dataset in datasets:
@@ -379,22 +384,22 @@ class Repository:
 
 def find_dataset(dataset_id: str):
     """Find a dataset given its id"""
-    from .definitions import DatasetDefinition
+    from .definitions import AbstractDataset
 
-    return DatasetDefinition.find(dataset_id)
+    return AbstractDataset.find(dataset_id)
 
 
 def prepare_dataset(dataset_id: str):
     """Find a dataset given its id and download the resources"""
-    from .definitions import DatasetDefinition
+    from .definitions import AbstractDataset
 
-    ds = DatasetDefinition.find(dataset_id)
+    ds = AbstractDataset.find(dataset_id)
     return ds.prepare(download=True)
 
 
 def get_dataset(dataset_id: str):
     """Find a dataset given its id"""
-    from .definitions import DatasetDefinition
+    from .definitions import AbstractDataset
 
-    ds = DatasetDefinition.find(dataset_id)
+    ds = AbstractDataset.find(dataset_id)
     return ds.prepare(download=False)

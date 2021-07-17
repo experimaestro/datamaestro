@@ -1,18 +1,17 @@
 from pathlib import Path
 from csv import reader as csv_reader
-from . import File, data, argument, documentation
-from datamaestro.definitions import Option
+from . import File, argument, documentation
+from datamaestro.definitions import Meta
 from typing import Tuple, List
 
 
 @argument("ignore", type=int, default=0)
 @argument("names_row", type=int, default=-1)
-@data()
 class Generic(File):
     """A generic CSV file"""
 
-    ignore: Option[int] = 0
-    names_row: Option[int] = 1
+    ignore: Meta[int] = 0
+    names_row: Meta[int] = 1
 
     @documentation
     def columns(self):
@@ -32,7 +31,6 @@ class Generic(File):
 @argument("names_row", type=int, default=-1)
 @argument("size_row", type=int, default=-1)
 @argument("target", type=str, default=None)
-@data()
 class Matrix(Generic):
     """A numerical dataset"""
 

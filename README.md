@@ -122,7 +122,7 @@ For MNIST, this corresponds to.
 ```python
 from datamaestro_image.data import ImageClassification, LabelledImages, Base, IDXImage
 from datamaestro.download.single import filedownloader
-from datamaestro.definitions import data, argument, datatasks, datatags, dataset
+from datamaestro.definitions import  argument, datatasks, datatags, dataset
 from datamaestro.data.tensor import IDX
 
 
@@ -143,13 +143,13 @@ def MNIST(train_images, train_labels, test_images, test_labels):
   size-normalized and centered in a fixed-size image.
   """
   return {
-    "train": LabelledImages(
-      images=IDXImage(path=train_images),
-      labels=IDX(path=train_labels)
+    "train": LabelledImages._(
+      images=IDXImage._(path=train_images),
+      labels=IDX._(path=train_labels)
     ),
-    "test": LabelledImages(
-      images=IDXImage(path=test_images),
-      labels=IDX(path=test_labels)
+    "test": LabelledImages._(
+      images=IDXImage._(path=test_images),
+      labels=IDX._(path=test_labels)
     ),
   }
 ```

@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 
-import argparse
 import sys
 import logging
-import os.path as op
 from functools import update_wrapper
 import traceback as tb
-from collections import namedtuple
 import pkg_resources
 import re
 from pathlib import Path
 import shutil
-from .definitions import DatasetDefinition
 from .context import Context
 from typing import Set
 import datamaestro
@@ -94,7 +90,7 @@ def main():
 @click.argument("dataset", type=str)
 @pass_cfg
 def info(config: Config, dataset):
-    dataset = DatasetDefinition.find(dataset)
+    dataset = AbstractDataset.find(dataset)
     print(dataset.name)
     if dataset.url:
         print(dataset.url)
@@ -258,7 +254,7 @@ def create_dataset(config: Config, repository_id: str, dataset_id: str):
 @pass_cfg
 def download(config: Config, dataset):
     """Download a dataset"""
-    dataset = DatasetDefinition.find(dataset)
+    dataset = AbstractDataset.find(dataset)
     success = dataset.download()
     if not success:
         logging.error("One or more errors occured while downloading the dataset")

@@ -2,14 +2,14 @@ import logging
 from pathlib import Path
 import os
 
-from datamaestro import DatasetDefinition
+from datamaestro import AbstractDataset
 from datamaestro.download import Download
 
 
 class List(Download):
     """Download multiple files or directories given by a list"""
 
-    def __init__(self, dataset: DatasetDefinition, definition: object):
+    def __init__(self, dataset: AbstractDataset, definition: object):
         super().__init__(dataset, definition)
         self.list = self.definition
 
@@ -34,7 +34,7 @@ class List(Download):
 class Datasets(Download):
     """Use links to dataset files"""
 
-    def __init__(self, dataset: DatasetDefinition, definition: object):
+    def __init__(self, dataset: AbstractDataset, definition: object):
         super().__init__(dataset, definition)
         self.list = self.definition
 

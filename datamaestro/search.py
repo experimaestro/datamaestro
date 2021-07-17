@@ -1,5 +1,4 @@
-from typing import Callable
-from .definitions import DatasetDefinition
+from .definitions import AbstractDataset
 import re
 
 
@@ -14,7 +13,7 @@ class Condition:
         ),
     ]
 
-    def match(self, dataset: DatasetDefinition):
+    def match(self, dataset: AbstractDataset):
         raise Exception("Match not implemented in %s" % type(self))
 
     @staticmethod
@@ -34,7 +33,7 @@ class AndCondition(Condition):
     def append(self, condition: Condition):
         self.conditions.append(condition)
 
-    def match(self, dataset: DatasetDefinition):
+    def match(self, dataset: AbstractDataset):
         for condition in self.conditions:
             if not condition.match(dataset):
                 return False
@@ -51,7 +50,7 @@ class OrCondition(Condition):
     def append(self, condition: Condition):
         self.conditions.append(condition)
 
-    def match(self, dataset: DatasetDefinition):
+    def match(self, dataset: AbstractDataset):
         for condition in self.conditions:
             if condition.match(dataset):
                 return True
@@ -67,7 +66,7 @@ class ReCondition(Condition):
 
 
 class TagCondition(ReCondition):
-    def match(self, dataset: DatasetDefinition):
+    def match(self, dataset: AbstractDataset):
         for tag in dataset.tags:
             if self.regex.search(tag):
                 return True
@@ -75,7 +74,7 @@ class TagCondition(ReCondition):
 
 
 class TaskCondition(ReCondition):
-    def match(self, dataset: DatasetDefinition):
+    def match(self, dataset: AbstractDataset):
         for task in dataset.tasks:
             if self.regex.search(task):
                 return True
@@ -83,7 +82,7 @@ class TaskCondition(ReCondition):
 
 
 class RepositoryCondition(ReCondition):
-    def match(self, dataset: DatasetDefinition):
+    def match(self, dataset: AbstractDataset):
         return self.regex.search(dataset.repository.id) is not None
 
     def __repr__(self):
@@ -91,7 +90,7 @@ class RepositoryCondition(ReCondition):
 
 
 class IDCondition(ReCondition):
-    def match(self, dataset: DatasetDefinition):
+    def match(self, dataset: AbstractDataset):
         return self.regex.search(dataset.id)
 
     def __repr__(self):
@@ -102,7 +101,7 @@ class TypeCondition(Condition):
     def __init__(self, typename: str):
         self.typename = typename
 
-    def match(self, dataset: DatasetDefinition):
+    def match(self, dataset: AbstractDataset):
         for ds in dataset.ancestors():
             if str(ds.__xpmtype__.identifier) == self.typename:
                 return True
