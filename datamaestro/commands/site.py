@@ -5,18 +5,19 @@ import re
 from pathlib import Path
 import inspect
 import typing
-from typing import Optional
+from typing import Dict, Iterable, Optional
 import importlib
+from datamaestro.definitions import AbstractDataset
 
 import mkdocs
 import mkdocs.config
 import mkdocs.plugins
 from mkdocs.structure.files import File as MkdocFile
 from mkdocs.structure.pages import Page as MkdocPage
-from mkdocs.structure.nav import Navigation as MkdocNavigation
 
 from docstring_parser import parse as docstring_parse
 
+import experimaestro
 from experimaestro.core.types import ObjectType
 
 from ..context import Context, Repository, Datasets
@@ -248,6 +249,14 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
     REPOSITORY: Optional[Repository] = None
 
     config_scheme = (("repository", mkdocs.config.config_options.Type(str)),)
+    experimaestro_plugin = experimaestro.mkdocs.base.Documentation
+
+    def on_pre_build(self, config):
+        self.experimaestro_plugin = config["plugins"].get("experimaestro")
+        if self.experimaestro_plugin is None:
+            logging.warning(
+                "No experimaestro plugin found: won't generate type information"
+            )
 
     @staticmethod
     def configuration() -> Context:
@@ -276,7 +285,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
     def on_config(self, config):
         self.repository_id = self.config["repository"]
         self.classifications = []
-        self.modules = {}
+        self.modules: Dict[str, Iterable[AbstractDataset]] = {}
 
         if not self.repository_id:
             return
@@ -435,6 +444,18 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
                 r.write("""<div><a href="{0}">{0}</a></div>""".format(ds.url))
             if ds.description:
                 r.write("<div class='description'>%s</div>" % ds.description)
+
+            if self.experimaestro_plugin and ds.configtype:
+                qualname, href = self.experimaestro_plugin.getConfigLink(
+                    page.url, ds.configtype
+                )
+                if href:
+                    r.write(
+                        f"""<div><b>Type</b>: <a href="{href}">{qualname}</a></div>"""
+                    )
+                else:
+                    r.write(f"<div><b>Type</b>: {qualname}</div>")
+
             r.write("</div>")
 
         return r.getvalue()

@@ -154,6 +154,10 @@ class AbstractDataset(AbstractData):
         self.version = None
 
     @property
+    def configtype(self):
+        raise NotImplementedError()
+
+    @property
     def context(self):
         return self.repository.context
 
@@ -202,6 +206,17 @@ class AbstractDataset(AbstractData):
                 traceback.print_exc()
                 success = False
         return success
+
+    @staticmethod
+    def find(name: str) -> "DataDefinition":
+        """Find a dataset given its name"""
+        logging.debug("Searching dataset %s", name)
+        for repository in Context.instance().repositories():
+            logging.debug("Searching dataset %s in %s", name, repository)
+            dataset = repository.search(name)
+            if dataset is not None:
+                return dataset
+        raise Exception("Could not find the dataset %s" % (name))
 
 
 class FutureAttr:
@@ -264,6 +279,10 @@ class DatasetWrapper(AbstractDataset):
 
         self.aliases.add(self.id)
 
+    @property
+    def configtype(self):
+        return self.base
+
     def __call__(self, *args, **kwargs):
         self.t(*args, **kwargs)
 
@@ -311,17 +330,6 @@ class DatasetWrapper(AbstractDataset):
         """Returns the destination path for downloads"""
         return self.repository.datapath / self.path
 
-    @staticmethod
-    def find(name: str) -> "DataDefinition":
-        """Find a dataset given its name"""
-        logging.debug("Searching dataset %s", name)
-        for repository in Context.instance().repositories():
-            logging.debug("Searching dataset %s in %s", name, repository)
-            dataset = repository.search(name)
-            if dataset is not None:
-                return dataset
-        raise Exception("Could not find the dataset %s" % (name))
-
     def hasfiles(self) -> bool:
         """Returns whether this dataset has files or only includes references"""
         for resource in self.resources.values():
@@ -333,9 +341,11 @@ class DatasetWrapper(AbstractDataset):
 
 # --- Annotations
 
+T = TypeVar("T")
+
 
 class DataAnnotation:
-    def __call__(self, object: Union[AbstractDataset, TypingType[Config]]):
+    def __call__(self, object: T) -> T:
         if isinstance(object, AbstractDataset):
             self.annotate(object)
         else:
@@ -458,7 +468,12 @@ class dataset:
             url {[type]} -- [description] (default: {None})
             size {str} -- The size (should be a parsable format)
         """
-        self.base = base
+        if hasattr(base, "__datamaestro__") and isinstance(
+            base.__datamaestro__, metadataset
+        ):
+            self.base = base.__datamaestro__.base
+        else:
+            self.base = base
 
         self.id = id
         self.url = url
@@ -480,17 +495,19 @@ class dataset:
         return dw
 
 
-def metadataset(base):
+class metadataset(AbstractDataset):
     """Annotation for object/functions which are abstract dataset definitions -- i.e. shared
     by more than one real dataset. This is useful to share tags, urls, etc."""
 
-    def annotate(t):
+    def __init__(self, base):
+        super().__init__(None)
+        self.base = base
+
+    def __call__(self, t):
         try:
             object.__getattribute__(t, "__datamaestro__")
             raise AssertionError("@data should only be called once")
         except AttributeError:
             pass
-        t.__datamaestro__ = AbstractDataset(None)
+        t.__datamaestro__ = self
         return t
-
-    return annotate
