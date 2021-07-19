@@ -5,9 +5,7 @@ from .conftest import repository
 
 def test_useragreements(context):
     # Fake dataset
-    class t:
+    class t(AbstractDataset):
         pass
 
-    t.__datamaestro__ = AbstractDataset(repository, t)
-
-    useragreement("test")(t)
+    useragreement("test")(t(None))

@@ -291,7 +291,7 @@ class DatasetWrapper(AbstractDataset):
             )
 
         # Constrcut the object
-        data = self.base._(**dict)
+        data = self.base(**dict)
 
         # Set the ids
         self.setDataIDs(data, self.id)
