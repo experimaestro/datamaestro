@@ -10,7 +10,7 @@ requests
 bitmath
 
 # Experimaestro for data definitions
-experimaestro>=0.9.0
+experimaestro>=0.9.5
 
 # Mkdocs
 mkdocs
