@@ -4,19 +4,20 @@
 
 # Introduction
 
+Full documentation can be found at http://datamaestro.rtfd.io
+
 This projects aims at grouping utilities to deal with the numerous and heterogenous datasets present on the Web. It aims
 at being
 
 1. a reference for available resources, listing datasets
 1. a tool to automatically download and process resources (when freely available)
-1. integration with the [experimaestro](http://experimaestro.github.io/experimaestro-python/) experiment manager.
+1. integration with the [experimaestro](http://experimaestro-python.rtfd.io/) experiment manager.
 1. (planned) a tool that allows to copy data from one computer to another
 
 Each datasets is uniquely identified by a qualified name such as `com.lecun.mnist`, which is usually the inversed path to the domain name of the website associated with the dataset.
 
 The main repository only deals with very generic processing (downloading, basic pre-processing and data types). Plugins can then be registered that provide access to domain specific datasets.
 
-The documentation can be found at https://experimaestro.github.io/datamaestro/.
 
 
 ## List of repositories

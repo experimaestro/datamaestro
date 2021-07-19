@@ -217,7 +217,7 @@ class Classification:
             r.write("# %s\n\n" % item.name)
 
             for ds in item.values:
-                meta = ds.__datamaestro__
+                meta = ds
 
                 module = Datasets(importlib.import_module(meta.t.__module__))
                 r.write(

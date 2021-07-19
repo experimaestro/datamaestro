@@ -39,10 +39,6 @@ class AbstractData:
         self.tags = set()
         self.tasks = set()
 
-    @property
-    def description(self):
-        raise NotImplementedError()
-
     def ancestors(self):
         """Returns all configuration ancestors"""
         ancestors = []
@@ -71,15 +67,6 @@ class DataDefinition(AbstractData):
         self.tags = set(chain(*[c.__datamaestro__.tags for c in self.ancestors()]))
         self.tasks = set(chain(*[c.__datamaestro__.tasks for c in self.ancestors()]))
         self._description: Optional[str] = None
-
-        # Get the documentation
-        if t.__doc__:
-            lines = t.__doc__.split("\n", 2)
-            self.name = lines[0]
-            if len(lines) > 1:
-                assert lines[1].strip() == "", "Second line should be blank"
-            if len(lines) > 2:
-                self._description = lines[2]
 
     @property
     def description(self):
@@ -152,6 +139,10 @@ class AbstractDataset(AbstractData):
         self.url = None
         self.name: Optional[str] = None
         self.version = None
+
+    @property
+    def description(self):
+        raise NotImplementedError(f"For class {self.__class__}")
 
     @property
     def configtype(self):
@@ -278,6 +269,20 @@ class DatasetWrapper(AbstractDataset):
             )
 
         self.aliases.add(self.id)
+
+        # Get the documentation
+        self._description = ""
+        if t.__doc__:
+            lines = t.__doc__.split("\n", 2)
+            self.name = lines[0]
+            if len(lines) > 1:
+                assert lines[1].strip() == "", "Second line should be blank"
+            if len(lines) > 2:
+                self._description = lines[2]
+
+    @property
+    def description(self):
+        return self._description
 
     @property
     def configtype(self):
