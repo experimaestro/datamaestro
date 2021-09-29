@@ -19,8 +19,15 @@ from typing import (
     TYPE_CHECKING,
     Union,
 )
-from experimaestro import argument, constant, Param, Option, Config, Meta
-from typing import Type as TypingType
+from experimaestro import (
+    argument,
+    constant,
+    Param,
+    Option,
+    Config,
+    Meta,
+)  # noqa: F401 (re-exports)
+from typing import Type as TypingType  # noqa: F401 (re-exports)
 from experimaestro.core.types import Type  # noqa: F401 (re-exports)
 from .context import Repository, Context, DatafolderPath  # noqa: F401 (re-exports)
 
