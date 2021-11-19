@@ -256,6 +256,8 @@ def create_dataset(config: Config, repository_id: str, dataset_id: str):
 @pass_cfg
 def download(config: Config, dataset):
     """Download a dataset"""
+    from datamaestro.definitions import AbstractDataset
+
     dataset = AbstractDataset.find(dataset)
     success = dataset.download()
     if not success:

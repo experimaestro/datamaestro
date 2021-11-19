@@ -1,8 +1,7 @@
-from pathlib import Path
 from csv import reader as csv_reader
 from . import File, argument, documentation
 from datamaestro.definitions import Meta
-from typing import Tuple, List
+from typing import Tuple, List, Any
 
 
 @argument("ignore", type=int, default=0)
@@ -35,7 +34,7 @@ class Matrix(Generic):
     """A numerical dataset"""
 
     @documentation
-    def data(self) -> Tuple[List[str], "numpy.array"]:
+    def data(self) -> Tuple[List[str], Any]:
         """Returns the list of fields and the numeric data
 
 

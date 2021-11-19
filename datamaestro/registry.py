@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 from tempfile import NamedTemporaryFile
+import yaml
 
 
 class RegistryEntry:

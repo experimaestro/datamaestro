@@ -67,7 +67,7 @@ class ArchiveDownloader(Download):
             if self._files and not (name in self._files):
                 continue
 
-            if self.subpath and path.startswith(self.subpath):
+            if self.subpath and name.startswith(self.subpath):
                 yield info, name[L:]
 
             yield info, name
