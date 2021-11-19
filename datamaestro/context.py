@@ -1,5 +1,5 @@
 from pathlib import Path
-from cached_property import cached_property
+from experimaestro.compat import cached_property
 import importlib
 import os
 import hashlib

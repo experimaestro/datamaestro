@@ -330,8 +330,8 @@ class DatasetWrapper(AbstractDataset):
         return data
 
     @property
-    def path(self) -> Path:
-        """Returns the path"""
+    def _path(self) -> Path:
+        """Returns a unique relative path for this dataset"""
         path = Path(*self.id.split("."))
         if self.version:
             path = path.with_suffix(".v%s" % self.version)
@@ -340,7 +340,7 @@ class DatasetWrapper(AbstractDataset):
     @property
     def datapath(self):
         """Returns the destination path for downloads"""
-        return self.repository.datapath / self.path
+        return self.repository.datapath / self._path
 
     def hasfiles(self) -> bool:
         """Returns whether this dataset has files or only includes references"""

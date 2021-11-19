@@ -90,6 +90,8 @@ def main():
 @click.argument("dataset", type=str)
 @pass_cfg
 def info(config: Config, dataset):
+    from datamaestro.definitions import AbstractDataset
+
     dataset = AbstractDataset.find(dataset)
     print(dataset.name)
     if dataset.url:
