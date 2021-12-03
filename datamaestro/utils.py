@@ -158,6 +158,11 @@ def downloadURL(url: str, path: Path, resume: bool = False, size: int = None):
     if response is None:
         response = requests.get(url, stream=True)
 
+    # Valid response
+    assert (
+        response.status_code >= 200 and response.status_code < 300
+    ), f"Status code is not 2XX ({response.status_code})"
+
     # Get the total size (or use the provided one)
     total_size = int(response.headers.get("content-length", size or 0))
 
