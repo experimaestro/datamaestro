@@ -4,13 +4,12 @@ from datamaestro.definitions import Meta
 from typing import Tuple, List, Any
 
 
-@argument("ignore", type=int, default=0)
-@argument("names_row", type=int, default=-1)
 class Generic(File):
     """A generic CSV file"""
 
+    delimiter: Meta[str] = ","
     ignore: Meta[int] = 0
-    names_row: Meta[int] = 1
+    names_row: Meta[int] = -1
 
     @documentation
     def columns(self):
@@ -22,7 +21,7 @@ class Generic(File):
             for i in range(self.ignore):
                 fp.readline()
 
-            for ix, row in enumerate(csv_reader(fp)):
+            for ix, row in enumerate(csv_reader(fp, delimiter=self.delimiter)):
                 if ix == self.names_row:
                     return row
 
