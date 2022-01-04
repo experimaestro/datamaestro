@@ -47,7 +47,7 @@ class filedownloader(SingleDownload):
         """Downloads a file given by a URL
 
         Args:
-            filename: The filename within the data folder; the variable name corresponds to the filename without the extension
+            filename: The filename within the data folder; the variable name corresponds to the filename without the extension.
             url: The URL to download
             transforms: Transform the file before storing it
             size: size in bytes (or None)
