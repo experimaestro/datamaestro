@@ -5,9 +5,10 @@ from . import File
 
 class IDX(File):
     """IDX File format
-     the IDX file format is a simple format for vectors and multidimensional matrices of various numerical types.
 
-    The basic format is
+    The IDX file format is a simple format for vectors and multidimensional matrices of various numerical types.
+
+    The basic format is:
 
     magic number
     size in dimension 0

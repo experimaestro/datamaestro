@@ -6,14 +6,11 @@ from experimaestro import documentation  # noqa: F401
 
 
 class Base(Config):
-    """Base object for all data types
-
-    attributes:
-
-    id: The unique dataset ID
-    """
+    """Base object for all data types"""
 
     id: Param[str]
+    """The unique dataset ID"""
+
     __datamaestro_dataset__: AbstractDataset
 
     def download(self):
@@ -39,6 +36,7 @@ class File(Base):
     """A data file"""
 
     path: Param[Path]
+    """The path of the file"""
 
     def open(self, mode):
         return self.path.open(mode)

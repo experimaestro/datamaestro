@@ -129,6 +129,8 @@ class AbstractDataset(AbstractData):
         - timestamp: whether the dataset version depends on the time of the download
     """
 
+    name: Optional[str] = None
+
     def __init__(self, repository: Optional["Repository"]):
         super().__init__()
         self.repository = repository
@@ -144,7 +146,6 @@ class AbstractDataset(AbstractData):
         self.hooks = {"pre-use": [], "pre-download": []}
 
         self.url = None
-        self.name: Optional[str] = None
         self.version = None
 
     @property
@@ -244,7 +245,8 @@ class FutureAttr:
 class DatasetWrapper(AbstractDataset):
     """Wraps an annotated method into a dataset
 
-    This is the standard way to define a dataset in datamaestro
+    This is the standard way to define a dataset in datamaestro through
+    annotations (otherwise, derive from `AbstractDataset`).
     """
 
     def __init__(self, annotation, t: type):
@@ -278,18 +280,40 @@ class DatasetWrapper(AbstractDataset):
         self.aliases.add(self.id)
 
         # Get the documentation
-        self._description = ""
-        if t.__doc__:
-            lines = t.__doc__.split("\n", 2)
-            self.name = lines[0]
-            if len(lines) > 1:
-                assert lines[1].strip() == "", "Second line should be blank"
-            if len(lines) > 2:
-                self._description = lines[2]
+        self._name = None
+        self._description = None
+
+    @property
+    def name(self):
+        self._process_doc()
+        return self._name
 
     @property
     def description(self):
+        self._process_doc()
         return self._description
+
+    def _process_doc(self):
+        if self._description is None:
+            if self.t.__doc__:
+                lines = self.t.__doc__.split("\n")
+                self._name = lines[0]
+                if len(lines) > 1:
+                    assert lines[1].strip() == "", "Second line should be blank"
+                if len(lines) > 2:
+                    # Remove the common indent
+                    lines = [line.rstrip() for line in lines[2:]]
+                    minindent = max(
+                        next(idx for idx, chr in enumerate(s) if not chr.isspace())
+                        for s in lines
+                        if len(s) > 0
+                    )
+                    self._description = "\n".join(
+                        s[minindent:] if len(s) > 0 else "" for s in lines
+                    )
+            else:
+                self._name = ""
+                self._description = ""
 
     @property
     def configtype(self):
@@ -432,44 +456,12 @@ def DataTagging(f):
 datatags = DataTagging(lambda d: d.tags)
 datatasks = DataTagging(lambda d: d.tasks)
 
-# T = TypeVar("T")
-# def data(description=None):
-#     """Deprecated: simply deriving from Base data is enough"""
-#     if description is not None and not isinstance(description, str):
-#         raise RuntimeError("@data annotation should be written @data()")
-
-#     def annotate(t: T):
-#         try:
-#             object.__getattribute__(t, "__datamaestro__")
-#             logging.warning("@data should only be called once")
-#         except AttributeError:
-#             pass
-
-#         # Determine the data type
-#         from experimaestro import config
-
-#         repository, components = DataDefinition.repository_relpath(t)
-#         assert (
-#             components[0] == "data"
-#         ), f"A @data object should be in the .data module (not {t.__module__})"
-
-#         identifier = (
-#             f"{repository.NAMESPACE if repository else 'datamaestro'}."
-#             + ".".join(components[1:]).lower()
-#         )
-#         t = config(identifier)(t)
-#         t.__datamaestro__ = DataDefinition(repository, t)
-
-#         return t
-
-#     return annotate
-
 
 class dataset:
     def __init__(self, base=None, *, timestamp=None, id=None, url=None, size=None):
         """Creates a new (meta)dataset
 
-        Meta-datasets are not associated with any
+        Meta-datasets are not associated with any base type
 
         Arguments:
             base {[type]} -- The base type (or None if infered from type annotation)

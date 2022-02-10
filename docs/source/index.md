@@ -1,5 +1,15 @@
 # Datamaestro
 
+```{toctree}
+---
+maxdepth: 1
+caption: "Contents:"
+---
+developping
+api/index
+```
+
+
 This projects aims at grouping utilities to deal with the numerous and heterogenous datasets present on the Web. It aims
 at being
 

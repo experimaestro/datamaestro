@@ -305,9 +305,6 @@ class Repository:
 
         candidates: List[str] = []
         components = name.split(".")
-        N = len(components)
-        sub = None
-        prefix = None
         path = self.configdir
         for i, c in enumerate(components):
             path = path / c
@@ -330,6 +327,13 @@ class Repository:
                     return value
 
         return None
+
+    def datasets(self, candidate):
+        try:
+            module = importlib.import_module("%s.config.%s" % (self.module, candidate))
+        except ModuleNotFoundError:
+            return None
+        return Datasets(module)
 
     def modules(self) -> "Module":
         """Iterates over all modules in this repository"""
