@@ -15,7 +15,6 @@ from sphinx.util.nodes import make_refnode
 from myst_parser.main import to_docutils
 import datamaestro
 from datamaestro.context import Datasets
-from transformers import XLMRobertaForMaskedLM
 
 
 class DatasetNode(nodes.paragraph):
