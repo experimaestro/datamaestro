@@ -1,6 +1,6 @@
 # Sphinx extension for datamaestro datasets
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import importlib
 
 from docutils import nodes
@@ -15,20 +15,134 @@ from sphinx.util.nodes import make_refnode
 from myst_parser.main import to_docutils
 import datamaestro
 from datamaestro.context import Datasets
+from datamaestro.data import AbstractDataset
 
 
 class DatasetNode(nodes.paragraph):
     pass
 
 
-class DatasetDirective(SphinxDirective):
+class DatasetsDirective(SphinxDirective):
+    def dataset_desc(self, ds: AbstractDataset):
+        dm = self.env.get_domain("dm")
+        dm.add_dataset(ds.id)
+
+        # indexnode = addnodes.index(entries=[])
+        desc = addnodes.desc()
+        desc["domain"] = DatamaestroDomain.name
+        desc["objtype"] = desc["desctype"] = "dataset"
+        desc["classes"].append(DatamaestroDomain.name)
+
+        signodes = addnodes.desc_signature(ds.id, "", is_multiline=True)
+        desc.append(signodes)
+
+        signode = addnodes.desc_signature_line()
+        signode += nodes.Text("Dataset ")
+        signode += addnodes.desc_name(text=ds.id)
+        signode["ids"].append("dataset" + "-" + ds.id)
+        signodes.append(signode)
+
+        content = addnodes.desc_content()
+        desc.append(content)
+
+        if ds.configtype:
+            ctype = ds.configtype
+            name = f"{ctype.__module__}.{ctype.__qualname__}"
+
+            te = nodes.paragraph()
+            te.append(nodes.Text("Experimaestro type: "))
+
+            p = nodes.paragraph()
+            returns = addnodes.desc_returns()
+            xref = addnodes.pending_xref(
+                "",
+                nodes.Text(name),
+                refdomain="py",
+                reftype="class",
+                reftarget=name,
+            )
+            returns.append(xref)
+            p.append(returns)
+
+            content.append(p)
+
+        # node.append(nodes.Text(ds.id))
+        if ds.name:
+            content.append(
+                nodes.paragraph("", "", nodes.strong("", nodes.Text(ds.name)))
+            )
+
+        if ds.tags or ds.tasks:
+            if ds.tags:
+                content.append(
+                    nodes.paragraph(
+                        "",
+                        "",
+                        nodes.strong("", nodes.Text("Tags: ")),
+                        nodes.Text(", ".join(ds.tags)),
+                    )
+                )
+            if ds.tasks:
+                content.append(
+                    nodes.paragraph(
+                        "",
+                        "",
+                        nodes.strong("", "Tasks: "),
+                        nodes.Text(", ".join(ds.tasks)),
+                    )
+                )
+
+        if ds.url:
+            href = nodes.reference(refuri=ds.url)
+            href.append(nodes.Text(ds.url))
+            p = nodes.paragraph()
+            p.append(nodes.Text("External link: "))
+            p.append(href)
+            content.append(p)
+
+        if ds.description:
+            content.extend(to_docutils(ds.description))
+
+        return desc
+
+
+class RepositoryDirective(DatasetsDirective):
+    """Generates the document for a whole repository"""
+
+    has_content = True
+    required_arguments = 1
+    optional_arguments = 0
+
+    def run(self):
+        (repository_id,) = self.arguments
+        repository = datamaestro.Context.instance().repository(
+            repository_id
+        )  # type: Optional[datamaestro.Repository]
+        assert repository is not None
+
+        docnodes = []
+        for module in repository.modules():
+            section = nodes.section(ids=[f"dm-datasets-{repository_id}-{module.id}"])
+            docnodes.append(section)
+
+            section += nodes.title("", nodes.Text(module.title))
+            section += nodes.paragraph()
+            if module.description:
+                section += to_docutils(module.description).children
+
+            for ds in module.datasets:
+                section += self.dataset_desc(ds)
+
+        return docnodes
+
+
+class DatasetDirective(DatasetsDirective):
     has_content = True
     required_arguments = 1
     optional_arguments = 1
 
     def run(self):
         # --- Retrieve the datasets
-
         if len(self.arguments) == 2:
             module_name, repository_name = self.arguments
         else:
@@ -46,92 +160,13 @@ class DatasetDirective(SphinxDirective):
 
         # --- Start documenting
 
-        dm = self.env.get_domain("dm")
         docnodes = []
         # node.document = self.state.document
         if datasets.description:
             docnodes.extend(to_docutils(datasets.description))
 
         for ds in datasets:
-            dm.add_dataset(ds.id)
-
-            # indexnode = addnodes.index(entries=[])
-            desc = addnodes.desc()
-            desc["domain"] = DatamaestroDomain.name
-            desc["objtype"] = desc["desctype"] = "dataset"
-            desc["classes"].append(DatamaestroDomain.name)
-
-            signodes = addnodes.desc_signature(ds.id, "", is_multiline=True)
-            desc.append(signodes)
-
-            signode = addnodes.desc_signature_line()
-            signode += nodes.Text("Dataset ")
-            signode += addnodes.desc_name(text=ds.id)
-            signode["ids"].append("dataset" + "-" + ds.id)
-            signodes.append(signode)
-
-            content = addnodes.desc_content()
-            desc.append(content)
-
-            if ds.configtype:
-                ctype = ds.configtype
-                name = f"{ctype.__module__}.{ctype.__qualname__}"
-
-                te = nodes.paragraph()
-                te.append(nodes.Text("Experimaestro type: "))
-
-                p = nodes.paragraph()
-                returns = addnodes.desc_returns()
-                xref = addnodes.pending_xref(
-                    "",
-                    nodes.Text(name),
-                    refdomain="py",
-                    reftype="class",
-                    reftarget=name,
-                )
-                returns.append(xref)
-                p.append(returns)
-
-                content.append(p)
-
-            # node.append(nodes.Text(ds.id))
-            if ds.name:
-                content.append(
-                    nodes.paragraph("", "", nodes.strong("", nodes.Text(ds.name)))
-                )
-
-            if ds.tags or ds.tasks:
-                if ds.tags:
-                    content.append(
-                        nodes.paragraph(
-                            "",
-                            "",
-                            nodes.strong("", nodes.Text("Tags: ")),
-                            nodes.Text(", ".join(ds.tags)),
-                        )
-                    )
-                if ds.tasks:
-                    content.append(
-                        nodes.paragraph(
-                            "",
-                            "",
-                            nodes.strong("", "Tasks: "),
-                            nodes.Text(", ".join(ds.tasks)),
-                        )
-                    )
-
-            if ds.url:
-                href = nodes.reference(refuri=ds.url)
-                href.append(nodes.Text(ds.url))
-                p = nodes.paragraph()
-                p.append(nodes.Text("External link: "))
-                p.append(href)
-                content.append(p)
-
-            if ds.description:
-                content.extend(to_docutils(ds.description))
-
-            docnodes.append(desc)
+            docnodes.append(self.dataset_desc(ds))
         return docnodes
 
 
@@ -141,6 +176,7 @@ class DatamaestroDomain(Domain):
         "dataset": ObjType(_("dataset"), "ds"),
     }
     directives = {
+        "repository": RepositoryDirective,
         "datasets": DatasetDirective,
     }
     roles = {"ref": XRefRole()}

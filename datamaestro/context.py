@@ -228,14 +228,43 @@ class Datasets(Iterable["AbstractDataset"]):
     def __init__(self, module: Module):
         """Initialize with a module"""
         self.module = module
+        self._title = None
+        self._description = None
 
     @property
     def id(self):
         return ".".join(self.module.__name__.split(".", 2)[2:])
 
     @property
+    def title(self):
+        self._getdoc()
+        return self._title
+
+    @property
     def description(self):
-        return self.module.__doc__ or ""
+        self._getdoc()
+        return self._description
+
+    def _getdoc(self):
+        if self._title is not None:
+            return
+
+        if not self.module.__doc__:
+            self._title = ""
+            self._description = ""
+            return
+
+        intitle = True
+        title = []
+        description = []
+        for line in self.module.__doc__.split("\n"):
+            if line.strip() == "" and intitle:
+                intitle = False
+            else:
+                (title if intitle else description).append(line)
+
+        self._title = " ".join(title)
+        self._description = "\n".join(description)
 
     def __iter__(self) -> Iterable["AbstractDataset"]:
         from .definitions import DatasetWrapper
@@ -299,8 +328,7 @@ class Repository:
         return self.basedir == other.basedir
 
     def search(self, name: str):
-        """Search for a dataset in the definitions
-        """
+        """Search for a dataset in the definitions"""
         logging.debug("Searching for %s in %s", name, self.configdir)
 
         candidates: List[str] = []
@@ -335,7 +363,7 @@ class Repository:
             return None
         return Datasets(module)
 
-    def modules(self) -> "Module":
+    def modules(self) -> Iterator["Module"]:
         """Iterates over all modules in this repository"""
         for _, fid, package in self._modules():
             try:
