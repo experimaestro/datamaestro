@@ -1,7 +1,9 @@
 # Sphinx extension for datamaestro datasets
 
+import logging
 from typing import Any, Dict, List, Optional, Tuple
 import importlib
+from sphinx.ext.autodoc.mock import mock
 
 from docutils import nodes
 
@@ -24,6 +26,7 @@ class DatasetNode(nodes.paragraph):
 
 class DatasetsDirective(SphinxDirective):
     def dataset_desc(self, ds: AbstractDataset):
+
         dm = self.env.get_domain("dm")
         dm.add_dataset(ds.id)
 
@@ -115,23 +118,26 @@ class RepositoryDirective(DatasetsDirective):
 
     def run(self):
         (repository_id,) = self.arguments
-        repository = datamaestro.Context.instance().repository(
-            repository_id
-        )  # type: Optional[datamaestro.Repository]
-        assert repository is not None
+        with mock(self.config.autodoc_mock_imports):
+            repository = datamaestro.Context.instance().repository(
+                repository_id
+            )  # type: Optional[datamaestro.Repository]
+            assert repository is not None
 
-        docnodes = []
-        for module in repository.modules():
-            section = nodes.section(ids=[f"dm-datasets-{repository_id}-{module.id}"])
-            docnodes.append(section)
+            docnodes = []
+            for module in repository.modules():
+                section = nodes.section(
+                    ids=[f"dm-datasets-{repository_id}-{module.id}"]
+                )
+                docnodes.append(section)
 
-            section += nodes.title("", nodes.Text(module.title))
-            section += nodes.paragraph()
-            if module.description:
-                section += to_docutils(module.description).children
+                section += nodes.title("", nodes.Text(module.title))
+                section += nodes.paragraph()
+                if module.description:
+                    section += to_docutils(module.description).children
 
-            for ds in module.datasets:
-                section += self.dataset_desc(ds)
+                for ds in module.datasets:
+                    section += self.dataset_desc(ds)
 
         return docnodes
 
@@ -150,11 +156,12 @@ class DatasetDirective(DatasetsDirective):
             repository_name = self.env.config["datamaestro_repository"]
 
         datasets = None
-        for repository in datamaestro.Context.instance().repositories():
-            if repository_name is None or repository.id == repository_name:
-                datasets = repository.datasets(module_name)
-                if datasets is not None:
-                    break
+        with mock(self.config.autodoc_mock_imports):
+            for repository in datamaestro.Context.instance().repositories():
+                if repository_name is None or repository.id == repository_name:
+                    datasets = repository.datasets(module_name)
+                    if datasets is not None:
+                        break
 
         assert datasets is not None
 
