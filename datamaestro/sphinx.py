@@ -2,32 +2,40 @@
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple
-import importlib
 from sphinx.ext.autodoc.mock import mock
 
 from docutils import nodes
 
 from sphinx.application import Sphinx
-from sphinx.domains import Domain, ObjType, XRefRole
+from sphinx.domains import Domain, ObjType
+from sphinx.roles import XRefRole
 from sphinx.util.docutils import SphinxDirective
-from sphinx.directives import ObjectDescription
 from sphinx.locale import _, __
 from sphinx import addnodes
 from sphinx.util.nodes import make_refnode
-from myst_parser.main import to_docutils
 import datamaestro
-from datamaestro.context import Datasets
 from datamaestro.data import AbstractDataset
+
+from myst_parser.config.main import MdParserConfig
+from myst_parser.mdit_to_docutils.base import DocutilsRenderer
+from myst_parser.parsers.mdit import create_md_parser
 
 
 class DatasetNode(nodes.paragraph):
     pass
 
 
+def to_docutils(source: str):
+    parser = create_md_parser(MdParserConfig(), DocutilsRenderer)
+    return parser.render(source)
+
+
 class DatasetsDirective(SphinxDirective):
     def dataset_desc(self, ds: AbstractDataset):
 
         dm = self.env.get_domain("dm")
+
+        assert isinstance(dm, DatamaestroDomain)
         dm.add_dataset(ds.id)
 
         # indexnode = addnodes.index(entries=[])
@@ -104,6 +112,7 @@ class DatasetsDirective(SphinxDirective):
             content.append(p)
 
         if ds.description:
+
             content.extend(to_docutils(ds.description))
 
         return desc
