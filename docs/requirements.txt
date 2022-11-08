@@ -1,2 +1,2 @@
-myst_parser
+myst_parser > 0.18
 sphinx >= 4.2

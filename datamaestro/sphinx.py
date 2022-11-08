@@ -10,7 +10,7 @@ from sphinx.application import Sphinx
 from sphinx.domains import Domain, ObjType
 from sphinx.roles import XRefRole
 from sphinx.util.docutils import SphinxDirective
-from sphinx.locale import _, __
+from sphinx.locale import _
 from sphinx import addnodes
 from sphinx.util.nodes import make_refnode
 import datamaestro
