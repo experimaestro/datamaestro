@@ -1,7 +1,6 @@
 # Sphinx extension for datamaestro datasets
 
-import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 from sphinx.ext.autodoc.mock import mock
 
 from docutils import nodes

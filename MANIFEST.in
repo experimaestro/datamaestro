@@ -1,4 +1,4 @@
-graft datamaestro
+graft src
 
 include MANIFEST.in
 include setup.py

@@ -1,9 +1,5 @@
-import unittest
-import logging
 from pathlib import Path
-import shutil
 import datamaestro.download.single as single
-from datamaestro import Repository, Context
 from datamaestro.definitions import AbstractDataset
 from .conftest import MyRepository
 

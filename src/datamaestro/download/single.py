@@ -2,14 +2,11 @@ import logging
 import shutil
 import tarfile
 import io
-import tempfile
 import gzip
 import os.path as op, os
 import urllib3
 from pathlib import Path
-from tempfile import NamedTemporaryFile
 import re
-from docstring_parser import parse
 from datamaestro.utils import copyfileobjs
 from datamaestro.stream import Transform
 from datamaestro.download import Download

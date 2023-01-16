@@ -5,10 +5,9 @@ import shutil
 import urllib3
 import tarfile
 import re
-import hashlib
-from typing import List, Set, Optional
+from typing import Set
 from datamaestro.download import Download, initialized
-from datamaestro.utils import CachedFile, HashCheck, FileChecker
+from datamaestro.utils import CachedFile, FileChecker
 
 
 class ArchiveDownloader(Download):
@@ -160,7 +159,10 @@ class tardownloader(ArchiveDownloader):
                         (destination / name).mkdir()
                     else:
                         logging.info(
-                            "File %s (%s) to %s", info.name, name, destination / name,
+                            "File %s (%s) to %s",
+                            info.name,
+                            name,
+                            destination / name,
                         )
                         logging.info("Extracting into %s", destination / name)
                         tar.extract(info, destination / name)

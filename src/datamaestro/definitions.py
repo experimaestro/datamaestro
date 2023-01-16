@@ -54,8 +54,7 @@ class AbstractData:
 
 
 class DataDefinition(AbstractData):
-    """Object that stores the declarative part of a data(set) description
-    """
+    """Object that stores the declarative part of a data(set) description"""
 
     def __init__(self, t, base=None):
         assert base is None or not inspect.isclass(t)

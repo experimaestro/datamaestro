@@ -28,7 +28,8 @@ class LineTransformStream(io.RawIOBase):
             self.current = self.transform(line).encode("utf-8")
 
     def readinto(self, b):
-        """Read bytes into a pre-allocated, writable bytes-like object b and return the number of bytes read"""
+        """Read bytes into a pre-allocated, writable bytes-like object b and
+        return the number of bytes read"""
         if self.current is None:
             return 0
 

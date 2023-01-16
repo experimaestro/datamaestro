@@ -1,6 +1,5 @@
 import logging
 import os
-from datamaestro.download import Download
 from datamaestro.utils import deprecated
 from datamaestro.definitions import AbstractDataset
 from typing import List

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# flake8: noqa: T201
 
 import sys
 import logging

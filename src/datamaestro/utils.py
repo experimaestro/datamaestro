@@ -1,5 +1,4 @@
 import logging
-import os.path as op
 from experimaestro import Config
 import json
 from pathlib import PosixPath, Path
