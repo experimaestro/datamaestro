@@ -11,3 +11,4 @@ build
 .tox
 test-reports/
 .eggs/
+src/datamaestro/version.py

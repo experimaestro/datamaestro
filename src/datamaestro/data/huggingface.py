@@ -1,7 +1,7 @@
 """Huggingface datamaestro adapters"""
 
 from functools import cached_property
-from typing import Dict, Optional, Union
+from typing import Optional
 from . import Base
 import logging
 from experimaestro import Param
@@ -16,7 +16,7 @@ class HuggingFaceDataset(Base):
     def data(self):
         try:
             from datasets import load_dataset
-        except:
+        except ModuleNotFoundError:
             logging.error("the datasets library is not installed:")
             logging.error("pip install datasets")
             raise
