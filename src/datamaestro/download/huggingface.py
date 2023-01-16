@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 from typing import Optional
 
 from datamaestro.download import Download
@@ -30,12 +29,13 @@ class hf_download(Download):
     def download(self, force=False):
         try:
             from datasets import load_dataset
-        except:
+        except ModuleNotFoundError:
             logging.error("the datasets library is not installed:")
             logging.error("pip install datasets")
             raise
 
         self.dataset = load_dataset(self.repo_id, data_files=self.data_files)
+        return True
 
     def prepare(self):
         return {
