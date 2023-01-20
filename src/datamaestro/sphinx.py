@@ -1,6 +1,6 @@
 # Sphinx extension for datamaestro datasets
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 from sphinx.ext.autodoc.mock import mock
 
 from docutils import nodes
@@ -14,7 +14,7 @@ from sphinx import addnodes
 from sphinx.util.nodes import make_refnode
 import datamaestro
 from datamaestro.data import AbstractDataset
-
+import logging
 from myst_parser.config.main import MdParserConfig
 from myst_parser.mdit_to_docutils.base import DocutilsRenderer
 from myst_parser.parsers.mdit import create_md_parser
@@ -208,7 +208,7 @@ class DatamaestroDomain(Domain):
         self.data["datasets"][dsid] = (self.env.docname, f"dataset-{dsid}")
 
     def resolve_xref(self, env, fromdocname, builder, typ, target, node, contnode):
-        print("[dm/sphinx] Searching for", target)
+        logging.debug("[dm/sphinx] Searching for", target)
 
         ref = self.data["datasets"].get(target, None)
         if ref:
@@ -225,4 +225,4 @@ def setup(app: Sphinx) -> Dict[str, Any]:
 
     app.add_config_value("datamaestro_repository", None, True)
 
-    return {"version": datamaestro.__version__, "parallel_read_safe": True}
+    return {"version": datamaestro.version, "parallel_read_safe": True}

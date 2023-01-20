@@ -1,3 +1,5 @@
+import datamaestro
+
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -18,13 +20,10 @@
 # -- Project information -----------------------------------------------------
 
 project = "Datamaestro"
-copyright = "2021, Benjamin Piwowarski"
+copyright = "2023, Benjamin Piwowarski"
 author = "Benjamin Piwowarski"
 
-# The full version, including alpha/beta/rc tags
-import datamaestro
-
-release = datamaestro.__version__
+release = datamaestro.version
 
 # -- General configuration ---------------------------------------------------
 
