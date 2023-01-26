@@ -144,7 +144,7 @@ class RepositoryDirective(DatasetsDirective):
                 if module.description:
                     section += to_docutils(module.description).children
 
-                for ds in module.datasets:
+                for ds in iter(module):
                     section += self.dataset_desc(ds)
 
         return docnodes
