@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Any, Dict
 from datamaestro.definitions import AbstractDataset, argument, Param
 from experimaestro import Config
 from experimaestro import documentation  # noqa: F401
@@ -16,6 +17,14 @@ class Base(Config):
     def download(self):
         """Download the dataset"""
         self.__datamaestro_dataset__.download()
+
+    def dataset_information(self) -> Dict[str, Any]:
+        """Returns document meta-informations"""
+        return {
+            "id": self.id,
+            "name": self.__datamaestro_dataset__.name,
+            "description": self.__datamaestro_dataset__.description,
+        }
 
 
 class Generic(Base):
