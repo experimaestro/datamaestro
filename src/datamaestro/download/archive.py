@@ -25,9 +25,14 @@ class ArchiveDownloader(Download):
 
         Args:
             varname: The name of the variable when defining the dataset
+
             url: The archive URL
+
             checker: the hash check for the downloaded file, composed of two
-            subpath: A subpath in the archive; only files from this subpath will be extracted
+
+            subpath: A subpath in the archive; only files from this subpath will
+            be extracted
+
             files: A set of files; if present, only extract those
         """
         super().__init__(varname)
@@ -69,7 +74,8 @@ class ArchiveDownloader(Download):
             if self.subpath and name.startswith(self.subpath):
                 yield info, name[L:]
 
-            yield info, name
+            if not self.subpath:
+                yield info, name
 
     @initialized
     def download(self, force=False):

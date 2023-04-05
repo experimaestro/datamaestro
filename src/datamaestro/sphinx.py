@@ -31,7 +31,6 @@ def to_docutils(source: str):
 
 class DatasetsDirective(SphinxDirective):
     def dataset_desc(self, ds: AbstractDataset):
-
         dm = self.env.get_domain("dm")
 
         assert isinstance(dm, DatamaestroDomain)
@@ -111,7 +110,6 @@ class DatasetsDirective(SphinxDirective):
             content.append(p)
 
         if ds.description:
-
             content.extend(to_docutils(ds.description))
 
         return desc

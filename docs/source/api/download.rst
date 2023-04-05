@@ -1,61 +1,60 @@
-# Download annotations
+Download decorators
+-------------------
 
-## Single files
+Single files
+============
 
 Package `datamaestro.download.single`
 
-```{eval-rst}
 .. autofunction:: datamaestro.download.single.filedownloader
-```
 
-```{eval-rst}
 .. autofunction:: datamaestro.download.single.concatdownload
-```
 
 
 
 
 
-## Archives
+Archives
+========
 
 Package `datamaestro.download.archive`
 
-```{eval-rst}
+The different archive download methods associated with the archive
+a Path. They allow to filter the archives with the ``files`` argument
+and ``subpath`` (to only include a sub-folder of the archive)
+
 .. autofunction:: datamaestro.download.archive.zipdownloader
-```
 
-```{eval-rst}
 .. autofunction:: datamaestro.download.archive.tardownloader
-```
 
 
-
-
-
-## Links
+Links
+=====
 
 Package `datamaestro.download.links`
 
-```{eval-rst}
 .. autofunction:: datamaestro.download.links.links
-```
 
-```{eval-rst}
 .. autofunction:: datamaestro.download.links.linkfolder
-```
 
-```{eval-rst}
 .. autofunction:: datamaestro.download.links.linkfile
-```
 
 
 
 
 
-## Syncing
+Syncing
+=======
 
 Package `datamaestro.download.sync`
 
-```{eval-rst}
 .. autofunction:: datamaestro.download.sync.gsync
-```
+
+Utility functions
+=================
+
+File hashes can be checked with the following checker
+
+.. autoclass:: datamaestro.utils.FileChecker
+.. autoclass:: datamaestro.utils.HashCheck
+       :members: __init__

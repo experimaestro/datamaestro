@@ -6,6 +6,7 @@ maxdepth: 1
 caption: "Contents:"
 ---
 developping
+datasets
 api/index
 ```
 
@@ -34,7 +35,7 @@ The main repository only deals with very generic processing (downloading, basic 
 ## Python definition of datasets
 
 Each dataset (or a set of related datasets) is described in Python using a mix of declarative
-and imperative statements. Its syntax is described in the [documentation](http://experimaestro.github.io/datamaestro/).
+and imperative statements. Its syntax is described in the [documentation](https://datamaestro.readthedocs.io).
 For MNIST, this gives
 
 ```python

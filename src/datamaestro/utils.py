@@ -43,10 +43,6 @@ def copyfileobjs(fsrc, fdsts, length=0):
 
 class FileChecker:
     def check(self, path: Path):
-        """Check if the file is correct and throws an exception if not"""
-        raise NotImplementedError()
-
-    def check(self, path: Path):
         """Check the given file
 
         returns true if OK
@@ -68,9 +64,12 @@ class FileChecker:
 
 
 class HashCheck(FileChecker):
-    """Check a file against a hash"""
-
     def __init__(self, hashstr: str, hasherfn=hashlib.md5):
+        """Check a file against a hash
+
+        :param hashstr: The HASH value
+        :param hasherfn: The hash computer, defaults to hashlib.md5
+        """
         self.hashstr = hashstr
         self.hasherfn = hasherfn
         self.hasher = None

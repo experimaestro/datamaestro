@@ -115,7 +115,7 @@ and imperative statements. This allows to quickly define how to download dataset
 datamaestro declarative API; the imperative part is used when creating the JSON output,
 and is integrated with [experimaestro](http://experimaestro.github.io/experimaestro-python).
 
-Its syntax is described in the [documentation](http://experimaestro.github.io/datamaestro/).
+Its syntax is described in the [documentation](https://datamaestro.readthedocs.io).
 
 
 For MNIST, this corresponds to.

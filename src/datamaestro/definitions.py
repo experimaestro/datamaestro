@@ -8,7 +8,6 @@ from pathlib import Path
 from itertools import chain
 import traceback
 from typing import (
-    Any,
     Dict,
     List,
     Optional,
@@ -17,16 +16,15 @@ from typing import (
     TypeVar,
     Callable,
     TYPE_CHECKING,
-    Union,
 )
-from experimaestro import (
+from experimaestro import (  # noqa: F401 (re-exports)
     argument,
     constant,
     Param,
     Option,
     Config,
     Meta,
-)  # noqa: F401 (re-exports)
+)
 from typing import Type as TypingType  # noqa: F401 (re-exports)
 from experimaestro.core.types import Type  # noqa: F401 (re-exports)
 from .context import Repository, Context, DatafolderPath  # noqa: F401 (re-exports)
@@ -249,7 +247,6 @@ class DatasetWrapper(AbstractDataset):
     """
 
     def __init__(self, annotation, t: type):
-
         self.t = t
         self.base = annotation.base
         assert self.base is not None, f"Could not set the Config type for {t}"
@@ -341,10 +338,11 @@ class DatasetWrapper(AbstractDataset):
             name = self.t.__name__
             filename = inspect.getfile(self.t)
             raise Exception(
-                f"The dataset method {name} defined in {filename} returned a null object"
+                f"The dataset method {name} defined in "
+                f"{filename} returned a null object"
             )
 
-        # Constrcut the object
+        # Construct the object
         data = self.base(**dict)
 
         # Set the ids
@@ -463,12 +461,17 @@ class dataset:
         Meta-datasets are not associated with any base type
 
         Arguments:
-            base {[type]} -- The base type (or None if infered from type annotation)
+            base {[type]} -- The base type (or None if infered from type
+            annotation)
 
         Keyword Arguments:
-            timestamp {bool} -- If the dataset evolves, specify its timestamp (default: None)
+            timestamp {bool} -- If the dataset evolves, specify its timestamp
+            (default: None)
+
             id {[type]} -- [description] (default: {None})
+
             url {[type]} -- [description] (default: {None})
+
             size {str} -- The size (should be a parsable format)
         """
         if hasattr(base, "__datamaestro__") and isinstance(
@@ -499,8 +502,11 @@ class dataset:
 
 
 class metadataset(AbstractDataset):
-    """Annotation for object/functions which are abstract dataset definitions -- i.e. shared
-    by more than one real dataset. This is useful to share tags, urls, etc."""
+    """Annotation for object/functions which are abstract dataset definitions
+
+    i.e. shared by more than one real dataset. This is useful to share tags,
+    urls, etc.
+    """
 
     def __init__(self, base):
         super().__init__(None)
