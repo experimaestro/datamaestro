@@ -1,9 +1,11 @@
+from typing import Optional
 import logging
 import shutil
 import tarfile
 import io
 import gzip
-import os.path as op, os
+import os.path as op
+import os
 import urllib3
 from pathlib import Path
 import re
@@ -39,15 +41,22 @@ class SingleDownload(Download):
 
 class filedownloader(SingleDownload):
     def __init__(
-        self, filename: str, url: str, size: int = None, transforms=None, checker=None
+        self,
+        filename: str,
+        url: str,
+        size: int = None,
+        transforms: Optional[Transform] = None,
+        checker=None,
     ):
         """Downloads a file given by a URL
 
-        Args:
-            filename: The filename within the data folder; the variable name corresponds to the filename without the extension.
-            url: The URL to download
-            transforms: Transform the file before storing it
-            size: size in bytes (or None)
+        :param filename: The filename within the data folder; the variable name
+            corresponds to the filename without the extension.
+
+        :param url: The URL to download.
+
+        :param transforms: Transform the file before storing it size: size in
+            bytes (or None)
         """
         super().__init__(filename)
         self.url = url
@@ -94,9 +103,9 @@ class concatdownload(SingleDownload):
         """Concat the files in an archive
 
         Args:
-            filename: The filename within the data folder; the variable name corresponds to the filename without the extension
-            url: The URL to download
-            transforms: Transform the file before storing it
+            filename: The filename within the data folder; the variable name
+            corresponds to the filename without the extension url: The URL to
+            download transforms: Transform the file before storing it
         """
         super().__init__(filename)
         self.url = url
