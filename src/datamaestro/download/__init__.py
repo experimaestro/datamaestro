@@ -1,4 +1,5 @@
-from datamaestro.definitions import AbstractDataset, DatasetAnnotation, DatasetWrapper
+from abc import ABC, abstractmethod
+from datamaestro.definitions import AbstractDataset, DatasetAnnotation
 from datamaestro.utils import deprecated
 
 
@@ -14,7 +15,7 @@ def initialized(method):
     return wrapper
 
 
-class Download(DatasetAnnotation):
+class Download(DatasetAnnotation, ABC):
     """
     Base class for all download handlers
     """
@@ -42,9 +43,15 @@ class Download(DatasetAnnotation):
     def hasfiles(self):
         return True
 
+    @abstractmethod
     def download(self, force=False):
         """Downloads the content"""
-        raise NotImplementedError()
+        ...
+
+    @abstractmethod
+    def prepare(self):
+        """Prepares the dataset"""
+        ...
 
 
 class reference(Download):
