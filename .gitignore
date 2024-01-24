@@ -12,3 +12,4 @@ build
 test-reports/
 .eggs/
 src/datamaestro/version.py
+docs/_build/
