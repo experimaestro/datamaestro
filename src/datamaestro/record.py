@@ -59,7 +59,7 @@ class Record:
 
     def validate(self, cls: Type["Record"] = None):
         """Validate the record"""
-        cls = cls or self.__class__
+        cls = cls if cls is not None else self.__class__
 
         if cls.itemtypes:
             for itemtype in cls.itemtypes:

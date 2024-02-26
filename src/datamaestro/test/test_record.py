@@ -24,7 +24,7 @@ class CItem(Item):
 
 
 class MyRecord(Record):
-    class_types = [A1Item, BItem]
+    itemtypes = [A1Item, BItem]
 
 
 @recordtypes(CItem)
@@ -65,4 +65,7 @@ def test_record_decorator():
 
 def test_record_newtype():
     MyRecord2 = MyRecord.from_types("MyRecord2", CItem)
-    MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
+    r = MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
+
+    # For a dynamic class, we should have the same MyRecord type
+    assert r.__class__ is MyRecord
