@@ -91,7 +91,7 @@ class Record:
             raise KeyError(f"No entry with type {key}")
         return entry
 
-    def add(self, *entries: T, update_only=False) -> "Record":
+    def add(self, *entries: T, update_only=False, no_check=False) -> "Record":
         """Update the record with this new entry, returns a new record if
         it exists"""
 
@@ -104,7 +104,7 @@ class Record:
                         f"The item type {base} ({entry.__class__})"
                         " is already in the record"
                     )
-                return self.__class__({**self.items, base: entry})
+                return self.__class__({**self.items, base: entry}, no_check=no_check)
 
             # No, just update
             self.items[base] = entry
