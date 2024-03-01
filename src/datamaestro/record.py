@@ -87,6 +87,9 @@ class Record:
         except KeyError:
             return None
 
+    def has(self, key: Type[T]) -> bool:
+        return key.__get_base__() in self.items
+
     def __getitem__(self, key: Type[T]) -> T:
         """Get an item given its type"""
         base = key.__get_base__()
