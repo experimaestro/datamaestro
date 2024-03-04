@@ -171,3 +171,26 @@ def recordtypes(*types: List[Type[T]]):
         return cls
 
     return decorate
+
+
+class RecordTypesCache:
+    """Class to use when new record types need to be created on the fly by
+    adding new items"""
+
+    def __init__(self, name: str, *itemtypes: Type[T], module: str = None):
+        self._module = module
+        self._name = name
+        self._itemtypes = itemtypes
+        self._cache: Dict[Type[Record], Type[Record]] = {}
+
+    def __getitem__(self, record_type: Type[Record]):
+        if updated_type := self._cache.get(record_type, None):
+            return updated_type
+
+        updated_type = record_type.from_types(
+            f"{self._name}_{record_type.__name__}",
+            *self._itemtypes,
+            module=self._module,
+        )
+        self._cache[record_type] = updated_type
+        return updated_type

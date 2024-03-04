@@ -1,4 +1,4 @@
-from datamaestro.record import Record, Item, recordtypes
+from datamaestro.record import Record, Item, RecordTypesCache, recordtypes
 from attrs import define
 import pytest
 
@@ -69,3 +69,13 @@ def test_record_newtype():
 
     # For a dynamic class, we should have the same MyRecord type
     assert r.__class__ is MyRecord
+
+
+def test_record_onthefly():
+    cache = RecordTypesCache("OnTheFly", CItem)
+
+    MyRecord2 = cache[MyRecord]
+    r = MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
+    assert r.__class__ is MyRecord
+
+    assert cache[MyRecord] is MyRecord2
