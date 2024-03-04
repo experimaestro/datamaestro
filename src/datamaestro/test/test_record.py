@@ -75,7 +75,12 @@ def test_record_onthefly():
     cache = RecordTypesCache("OnTheFly", CItem)
 
     MyRecord2 = cache[MyRecord]
-    r = MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
-    assert r.__class__ is MyRecord
+    r2 = MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
+    assert r2.__class__ is MyRecord
 
     assert cache[MyRecord] is MyRecord2
+
+    r = MyRecord(A1Item(1, 2), BItem(2))
+    assert cache[r.__class__] is MyRecord2
+
+    cache.update(r, CItem(3))

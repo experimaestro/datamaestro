@@ -194,3 +194,6 @@ class RecordTypesCache:
         )
         self._cache[record_type] = updated_type
         return updated_type
+
+    def update(self, record: Record, *items: Item):
+        return self[record.__class__](*record.items.values(), *items)
