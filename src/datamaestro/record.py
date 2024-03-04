@@ -26,26 +26,30 @@ class Record:
 
     items: Items
 
-    def __init__(self, *items: Union[Items, T], no_check=False):
+    def __init__(self, *items: Union[Items, T], override=False, cls=None):
         self.items = {}
 
         if len(items) == 1 and isinstance(items[0], dict):
+            # Just copy the dictionary
             self.items = items[0]
         else:
-            for item in items:
-                self._add(item, update_only=True)
+            for entry in items:
+                # Returns a new record if the item exists
+                base = entry.__get_base__()
+                if not override and base in self.items:
+                    raise RuntimeError(
+                        f"The item type {base} ({entry.__class__})"
+                        " is already in the record"
+                    )
+                self.items[base] = entry
 
-        # Check if the record is constructured
-        if not no_check:
-            self.validate()
+        self.validate(cls or self.__class__)
 
-    def __new__(cls, *items: Union[Items, T], no_check=False):
+    def __new__(cls, *items: Union[Items, T], override=False):
         # Without this, impossible to pickle objects
         if cls.__trueclass__ is not None:
             record = object.__new__(cls.__trueclass__)
-            record.__init__(*items, no_check=True)
-            if not no_check:
-                record.validate(cls=cls)
+            record.__init__(*items, cls=cls, override=override)
             return record
 
         return object.__new__(cls)
@@ -100,27 +104,14 @@ class Record:
             raise KeyError(f"No entry with type {key}")
         return entry
 
-    def add(self, *entries: T, update_only=False, no_check=False) -> "Record":
-        """Update the record with these new items, and returns a new record if
-        any item already exists"""
-        return self._add(*entries, update_only=update_only)
+    def update(self, *items: T) -> "Record":
+        """Update some items"""
+        # Create our new dictionary
+        item_dict = {**self.items}
+        for item in items:
+            item_dict[item.__get_base__()] = item
 
-    def _add(self, *entries: T, update_only=False, no_check=False) -> "Record":
-        """Internal method for updating records"""
-        for entry in entries:
-            # Returns a new record if the item exists
-            base = entry.__get_base__()
-            if base in self.items:
-                if update_only:
-                    raise RuntimeError(
-                        f"The item type {base} ({entry.__class__})"
-                        " is already in the record"
-                    )
-                return self.__class__({**self.items, base: entry}, no_check=no_check)
-
-            # No, just update
-            self.items[base] = entry
-        return self
+        return self.__class__(item_dict)
 
     # --- Class methods and variables
 
@@ -199,4 +190,4 @@ class RecordTypesCache:
         return updated_type
 
     def update(self, record: Record, *items: Item):
-        return self[record.__class__](*record.items.values(), *items)
+        return self[record.__class__](*record.items.values(), *items, override=True)

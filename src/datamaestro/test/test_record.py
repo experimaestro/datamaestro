@@ -54,7 +54,7 @@ def test_record_update():
     b = BItem(4)
     r = MyRecord(a, b)
 
-    r2 = r.add(BItem(3))
+    r2 = r.update(BItem(3))
     assert r is not r2
     assert r2[BItem] is not b
 
@@ -83,4 +83,9 @@ def test_record_onthefly():
     r = MyRecord(A1Item(1, 2), BItem(2))
     assert cache[r.__class__] is MyRecord2
 
-    cache.update(r, CItem(3))
+    r = cache.update(r, CItem(3))
+
+    # Same record type
+    cache2 = RecordTypesCache("OnTheFly", CItem)
+
+    cache2.update(r, CItem(4))
