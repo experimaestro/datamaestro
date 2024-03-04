@@ -33,7 +33,7 @@ class Record:
             self.items = items[0]
         else:
             for item in items:
-                self.add(item, update_only=True)
+                self._add(item, update_only=True)
 
         # Check if the record is constructured
         if not no_check:
@@ -101,9 +101,12 @@ class Record:
         return entry
 
     def add(self, *entries: T, update_only=False, no_check=False) -> "Record":
-        """Update the record with this new entry, returns a new record if
-        it exists"""
+        """Update the record with these new items, and returns a new record if
+        any item already exists"""
+        return self._add(*entries, update_only=update_only)
 
+    def _add(self, *entries: T, update_only=False, no_check=False) -> "Record":
+        """Internal method for updating records"""
         for entry in entries:
             # Returns a new record if the item exists
             base = entry.__get_base__()
