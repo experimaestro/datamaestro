@@ -31,12 +31,7 @@ class Record:
 
     items: Items
 
-    unpickled: bool = False
-    """Flags unpickled records"""
-
-    def __init__(
-        self, *items: Union[Items, T], override=False, unpickled=False, cls=None
-    ):
+    def __init__(self, *items: Union[Items, T], override=False, pickled=False):
         self.items = {}
 
         if len(items) == 1 and isinstance(items[0], dict):
@@ -53,19 +48,10 @@ class Record:
                     )
                 self.items[base] = entry
 
-        if unpickled:
-            self.unpickled = True
+        if pickled:
+            self.itemtypes = None
         else:
-            self.validate(cls or self.__class__)
-
-    def __new__(cls, *items: Union[Items, T], override=False, unpickled=False):
-        # Without this, impossible to pickle objects
-        if cls.__trueclass__ is not None:
-            record = object.__new__(cls.__trueclass__)
-            record.__init__(*items, cls=cls, override=override, unpickled=unpickled)
-            return record
-
-        return object.__new__(cls)
+            self.validate()
 
     def __str__(self):
         return (
@@ -74,12 +60,20 @@ class Record:
             + "}"
         )
 
-    def __getstate__(self):
-        return self.items
+    def __reduce__(self):
+        cls = self.__class__
+        if cls.__trueclass__ is None:
+            return (cls.__new__, (cls.__trueclass__ or cls,), {"items": self.items})
+
+        return (
+            cls.__new__,
+            (cls.__trueclass__ or cls,),
+            {"items": self.items, "itemtypes": self.itemtypes},
+        )
 
     def __setstate__(self, state):
-        self.unpickled = True
-        self.items = state
+        self.items = state["items"]
+        self.itemtypes = None
 
     def validate(self, cls: Type["Record"] = None):
         """Validate the record"""
@@ -124,6 +118,9 @@ class Record:
             raise KeyError(f"No entry with type {key}")
         return entry
 
+    def is_pickled(self):
+        return self.itemtypes is None
+
     def update(self, *items: T) -> "Record":
         """Update some items"""
         # Create our new dictionary
@@ -135,13 +132,13 @@ class Record:
 
     # --- Class methods and variables
 
-    itemtypes: ClassVar[Set[Type[T]]] = []
+    itemtypes: ClassVar[Optional[Set[Type[T]]]] = []
     """For specific records, this is the list of types. The list is empty when
     no validation is used (e.g. pickled records created on the fly)"""
 
     __trueclass__: ClassVar[Optional[Type["Record"]]] = None
     """The last class in the type hierarchy corresponding to an actual type,
-    i.e. not created on the fly"""
+    i.e. not created on the fly (only defined when the record is pickled)"""
 
     @classmethod
     def has_type(cls, itemtype: Type[T]):
@@ -172,8 +169,8 @@ class Record:
             (cls,),
             {
                 **extra_dict,
-                "__trueclass__": cls.__trueclass__ or cls,
                 "itemtypes": cls._subclass(*itemtypes),
+                "__trueclass__": cls.__trueclass__ or cls,
             },
         )
 
@@ -199,9 +196,9 @@ class RecordTypesCache:
         self._name = name
         self._itemtypes = itemtypes
         self._cache: Dict[Type[Record], Type[Record]] = {}
-        self._unpickled_warnings = False
+        self._warning = False
 
-    def get(self, record_type: Type[Record], unpickled=False):
+    def get(self, record_type: Type[Record]):
         if updated_type := self._cache.get(record_type, None):
             return updated_type
 
@@ -214,14 +211,12 @@ class RecordTypesCache:
         return updated_type
 
     def update(self, record: Record, *items: Item):
-        if record.unpickled and not self._unpickled_warnings:
-            # In that case, impossible to recover the hierarchy
+        if record.is_pickled() and not self._warning:
             logging.warning(
-                "Updating a pickled record is not recommended:"
-                " prefer using well defined record types"
+                "Updating unpickled records is not recommended"
+                " (no more record checking, and potential speed issues)"
             )
-            self._unpickled_warnings = True
 
         return self.get(record.__class__)(
-            *record.items.values(), *items, override=True, unpickled=record.unpickled
+            *record.items.values(), *items, override=True, pickled=record.is_pickled()
         )

@@ -24,12 +24,14 @@ class CItem(Item):
     c: int
 
 
+@recordtypes(A1Item)
 class BaseRecord(Record):
-    itemtypes = [A1Item]
+    ...
 
 
+@recordtypes(BItem)
 class MyRecord(BaseRecord):
-    itemtypes = [A1Item, BItem]
+    ...
 
 
 @recordtypes(CItem)
@@ -48,6 +50,7 @@ def test_record_simple():
 
 def test_record_missing_init():
     with pytest.raises(KeyError):
+        # A1Item is missing
         MyRecord(AItem(1), BItem(2))
 
     with pytest.raises(KeyError):
@@ -68,20 +71,11 @@ def test_record_decorator():
     MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
 
 
-def test_record_newtype():
-    MyRecord2 = MyRecord.from_types("MyRecord2", CItem)
-    r = MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
-
-    # For a dynamic class, we should have the same MyRecord type
-    assert r.__class__ is MyRecord
-
-
 def test_record_onthefly():
     cache = RecordTypesCache("OnTheFly", CItem)
 
     MyRecord2 = cache.get(MyRecord)
-    r2 = MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
-    assert r2.__class__ is MyRecord
+    MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
 
     assert cache.get(MyRecord) is MyRecord2
 
@@ -103,7 +97,11 @@ def test_record_pickled():
     r = pickle.loads(pickle.dumps(r))
 
     assert isinstance(r, BaseRecord) and not isinstance(r, MyRecord2)
-    assert r.unpickled
     cache = RecordTypesCache("OnTheFly", CItem)
 
-    cache.update(r, CItem(4))
+    assert r.is_pickled()
+
+    r = cache.update(r, CItem(4))
+
+    # The result should still be not pickled
+    assert r.is_pickled()
