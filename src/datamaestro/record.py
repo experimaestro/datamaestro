@@ -92,7 +92,7 @@ class Record:
                     for itemtype in cls.itemtypes
                 )
             ]
-            raise RuntimeError(
+            raise KeyError(
                 f"The record {cls} contains unregistered items: {unregistered}"
             )
 
@@ -182,7 +182,6 @@ class Record:
             "_".join(itemtype.__name__ for itemtype in itemtypes), *itemtypes
         )
         Record.__RECORD_TYPES_CACHE__[itemtypes] = recordtype
-        assert False, recordtype
         return recordtype
 
 
@@ -221,13 +220,19 @@ class RecordTypesCache:
         self._cache[record_type] = updated_type
         return updated_type
 
-    def update(self, record: Record, *items: Item):
-        cls = record.__class__
-        if record.is_pickled() and not self._warning:
-            logging.warning(
-                "Updating unpickled records is not recommended" " (speed issues)"
-            )
-            itemtypes = frozenset(record.items.keys())
-            cls = Record.fromitemtypes(itemtypes)
+    def update(self, record: Record, *items: Item, cls=None):
+        if cls is None:
+            cls = record.__class__
+            if record.is_pickled() and not self._warning:
+                logging.warning(
+                    "Updating unpickled records is not recommended"
+                    " (speed issues): use the pickle record class as the cls input"
+                )
+                itemtypes = frozenset(record.items.keys())
+                cls = Record.fromitemtypes(itemtypes)
+        else:
+            assert (
+                record.is_pickled()
+            ), "cls can be used only when the record as been pickled"
 
         return self.get(cls)(*record.items.values(), *items, override=True)

@@ -101,7 +101,12 @@ def test_record_pickled():
 
     assert r.is_pickled()
 
-    r = cache.update(r, CItem(4))
+    r2 = cache.update(r, CItem(4))
+    assert not r2.is_pickled()
 
-    # The result should not be pickled
-    assert not r.is_pickled()
+    # Test with cls update
+    with pytest.raises(KeyError):
+        cache.update(r, CItem(4), cls=BaseRecord)
+
+    # This is OK
+    cache.update(r, CItem(4), cls=MyRecord)
