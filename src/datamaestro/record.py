@@ -1,4 +1,5 @@
-from typing import ClassVar, Type, TypeVar, Dict, List, Union, Optional
+import logging
+from typing import ClassVar, Type, TypeVar, Dict, List, Union, Optional, Set
 
 
 class Item:
@@ -6,6 +7,7 @@ class Item:
 
     @classmethod
     def __get_base__(cls: Type) -> Type:
+        """Get the most generic superclass for this type of item"""
         if base := getattr(cls, "__base__cache__", None):
             return base
 
@@ -22,11 +24,19 @@ Items = Dict[Type[T], T]
 
 
 class Record:
-    """Associate types with entries"""
+    """Associate types with entries
+
+    A record is a composition of items; each item base class is unique.
+    """
 
     items: Items
 
-    def __init__(self, *items: Union[Items, T], override=False, cls=None):
+    unpickled: bool = False
+    """Flags unpickled records"""
+
+    def __init__(
+        self, *items: Union[Items, T], override=False, unpickled=False, cls=None
+    ):
         self.items = {}
 
         if len(items) == 1 and isinstance(items[0], dict):
@@ -43,13 +53,16 @@ class Record:
                     )
                 self.items[base] = entry
 
-        self.validate(cls or self.__class__)
+        if unpickled:
+            self.unpickled = True
+        else:
+            self.validate(cls or self.__class__)
 
-    def __new__(cls, *items: Union[Items, T], override=False):
+    def __new__(cls, *items: Union[Items, T], override=False, unpickled=False):
         # Without this, impossible to pickle objects
         if cls.__trueclass__ is not None:
             record = object.__new__(cls.__trueclass__)
-            record.__init__(*items, cls=cls, override=override)
+            record.__init__(*items, cls=cls, override=override, unpickled=unpickled)
             return record
 
         return object.__new__(cls)
@@ -60,6 +73,13 @@ class Record:
             + ", ".join(f"{key}: {value}" for key, value in self.items.items())
             + "}"
         )
+
+    def __getstate__(self):
+        return self.items
+
+    def __setstate__(self, state):
+        self.unpickled = True
+        self.items = state
 
     def validate(self, cls: Type["Record"] = None):
         """Validate the record"""
@@ -115,11 +135,13 @@ class Record:
 
     # --- Class methods and variables
 
-    itemtypes: ClassVar[List[Type[T]]] = []
-    """For specific records, this is the list of types"""
+    itemtypes: ClassVar[Set[Type[T]]] = []
+    """For specific records, this is the list of types. The list is empty when
+    no validation is used (e.g. pickled records created on the fly)"""
 
     __trueclass__: ClassVar[Optional[Type["Record"]]] = None
-    """True when the class is defined in a module"""
+    """The last class in the type hierarchy corresponding to an actual type,
+    i.e. not created on the fly"""
 
     @classmethod
     def has_type(cls, itemtype: Type[T]):
@@ -127,7 +149,7 @@ class Record:
 
     @classmethod
     def _subclass(cls, *itemtypes: Type[T]):
-        cls_itemtypes = [x for x in getattr(cls, "itemtypes", [])]
+        cls_itemtypes = set((x for x in getattr(cls, "itemtypes", [])))
         mapping = {
             ix: itemtype.__get_base__() for ix, itemtype in enumerate(cls_itemtypes)
         }
@@ -136,7 +158,7 @@ class Record:
             if ix := mapping.get(itemtype.__get_base__(), None):
                 cls_itemtypes[ix] = itemtype
             else:
-                cls_itemtypes.append(itemtype)
+                cls_itemtypes.add(itemtype)
         return cls_itemtypes
 
     @classmethod
@@ -144,6 +166,7 @@ class Record:
         extra_dict = {}
         if module:
             extra_dict["__module__"] = module
+
         return type(
             name,
             (cls,),
@@ -176,8 +199,9 @@ class RecordTypesCache:
         self._name = name
         self._itemtypes = itemtypes
         self._cache: Dict[Type[Record], Type[Record]] = {}
+        self._unpickled_warnings = False
 
-    def __getitem__(self, record_type: Type[Record]):
+    def get(self, record_type: Type[Record], unpickled=False):
         if updated_type := self._cache.get(record_type, None):
             return updated_type
 
@@ -190,4 +214,14 @@ class RecordTypesCache:
         return updated_type
 
     def update(self, record: Record, *items: Item):
-        return self[record.__class__](*record.items.values(), *items, override=True)
+        if record.unpickled and not self._unpickled_warnings:
+            # In that case, impossible to recover the hierarchy
+            logging.warning(
+                "Updating a pickled record is not recommended:"
+                " prefer using well defined record types"
+            )
+            self._unpickled_warnings = True
+
+        return self.get(record.__class__)(
+            *record.items.values(), *items, override=True, unpickled=record.unpickled
+        )

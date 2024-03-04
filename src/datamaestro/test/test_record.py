@@ -1,3 +1,4 @@
+import pickle
 from datamaestro.record import Record, Item, RecordTypesCache, recordtypes
 from attrs import define
 import pytest
@@ -23,7 +24,11 @@ class CItem(Item):
     c: int
 
 
-class MyRecord(Record):
+class BaseRecord(Record):
+    itemtypes = [A1Item]
+
+
+class MyRecord(BaseRecord):
     itemtypes = [A1Item, BItem]
 
 
@@ -74,14 +79,14 @@ def test_record_newtype():
 def test_record_onthefly():
     cache = RecordTypesCache("OnTheFly", CItem)
 
-    MyRecord2 = cache[MyRecord]
+    MyRecord2 = cache.get(MyRecord)
     r2 = MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
     assert r2.__class__ is MyRecord
 
-    assert cache[MyRecord] is MyRecord2
+    assert cache.get(MyRecord) is MyRecord2
 
     r = MyRecord(A1Item(1, 2), BItem(2))
-    assert cache[r.__class__] is MyRecord2
+    assert cache.get(r.__class__) is MyRecord2
 
     r = cache.update(r, CItem(3))
 
@@ -89,3 +94,16 @@ def test_record_onthefly():
     cache2 = RecordTypesCache("OnTheFly", CItem)
 
     cache2.update(r, CItem(4))
+
+
+def test_record_pickled():
+    # First,
+    MyRecord2 = BaseRecord.from_types("MyRecordBis", BItem)
+    r = MyRecord2(A1Item(1, 2), BItem(2))
+    r = pickle.loads(pickle.dumps(r))
+
+    assert isinstance(r, BaseRecord) and not isinstance(r, MyRecord2)
+    assert r.unpickled
+    cache = RecordTypesCache("OnTheFly", CItem)
+
+    cache.update(r, CItem(4))
