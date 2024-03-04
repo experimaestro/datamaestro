@@ -31,7 +31,7 @@ class Record:
 
     items: Items
 
-    def __init__(self, *items: Union[Items, T], override=False, pickled=False):
+    def __init__(self, *items: Union[Items, T], override=False):
         self.items = {}
 
         if len(items) == 1 and isinstance(items[0], dict):
@@ -48,10 +48,7 @@ class Record:
                     )
                 self.items[base] = entry
 
-        if pickled:
-            self.itemtypes = None
-        else:
-            self.validate()
+        self.validate()
 
     def __str__(self):
         return (
@@ -133,7 +130,7 @@ class Record:
     # --- Class methods and variables
 
     itemtypes: ClassVar[Optional[Set[Type[T]]]] = []
-    """For specific records, this is the list of types. The list is empty when
+    """For specific records, this is the list of types. The value is null when
     no validation is used (e.g. pickled records created on the fly)"""
 
     __trueclass__: ClassVar[Optional[Type["Record"]]] = None
@@ -169,10 +166,24 @@ class Record:
             (cls,),
             {
                 **extra_dict,
-                "itemtypes": cls._subclass(*itemtypes),
+                "itemtypes": frozenset(cls._subclass(*itemtypes)),
                 "__trueclass__": cls.__trueclass__ or cls,
             },
         )
+
+    __RECORD_TYPES_CACHE__: Dict[frozenset, Type["Record"]] = {}
+
+    @staticmethod
+    def fromitemtypes(itemtypes: Set[T]):
+        if recordtype := Record.__RECORD_TYPES_CACHE__.get(itemtypes, None):
+            return recordtype
+
+        recordtype = Record.from_types(
+            "_".join(itemtype.__name__ for itemtype in itemtypes), *itemtypes
+        )
+        Record.__RECORD_TYPES_CACHE__[itemtypes] = recordtype
+        assert False, recordtype
+        return recordtype
 
 
 def recordtypes(*types: List[Type[T]]):
@@ -211,12 +222,12 @@ class RecordTypesCache:
         return updated_type
 
     def update(self, record: Record, *items: Item):
+        cls = record.__class__
         if record.is_pickled() and not self._warning:
             logging.warning(
-                "Updating unpickled records is not recommended"
-                " (no more record checking, and potential speed issues)"
+                "Updating unpickled records is not recommended" " (speed issues)"
             )
+            itemtypes = frozenset(record.items.keys())
+            cls = Record.fromitemtypes(itemtypes)
 
-        return self.get(record.__class__)(
-            *record.items.values(), *items, override=True, pickled=record.is_pickled()
-        )
+        return self.get(cls)(*record.items.values(), *items, override=True)

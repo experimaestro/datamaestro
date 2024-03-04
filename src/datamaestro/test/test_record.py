@@ -103,5 +103,5 @@ def test_record_pickled():
 
     r = cache.update(r, CItem(4))
 
-    # The result should still be not pickled
-    assert r.is_pickled()
+    # The result should not be pickled
+    assert not r.is_pickled()
