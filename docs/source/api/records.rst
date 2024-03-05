@@ -48,7 +48,7 @@ information can be easily added to a record.
     :members:
 
 .. autoclass:: datamaestro.record.Record
-    :members: update, has, get, from_types
+    :members: update, has, get, from_types, from_record
 
 .. autofunction:: datamaestro.record.recordtypes
 

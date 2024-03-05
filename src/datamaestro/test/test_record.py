@@ -77,6 +77,8 @@ def test_record_update():
     assert r is not r2
     assert r2[BItem] is not b
 
+    MyRecord2.from_record(r, CItem(2))
+
 
 def test_record_decorator():
     MyRecord2(A1Item(1, 2), BItem(2), CItem(3))

@@ -50,6 +50,11 @@ class Record:
 
         self.validate()
 
+    @classmethod
+    def from_record(cls, record: "Record", *items: T, override=True):
+        """Build from another record"""
+        return cls({**record.items, **{item.__get_base__(): item for item in items}})
+
     def __str__(self):
         return (
             "{"
