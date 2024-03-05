@@ -1,5 +1,5 @@
 import logging
-from typing import ClassVar, Type, TypeVar, Dict, List, Union, Optional, Set
+from typing import ClassVar, Type, TypeVar, Dict, List, Union, Optional, FrozenSet
 
 
 class Item:
@@ -131,7 +131,7 @@ class Record:
 
     # --- Class methods and variables
 
-    itemtypes: ClassVar[Optional[Set[Type[T]]]] = []
+    itemtypes: ClassVar[Optional[FrozenSet[Type[T]]]] = []
     """For specific records, this is the list of types. The value is null when
     no validation is used (e.g. pickled records created on the fly)"""
 
@@ -182,7 +182,7 @@ class Record:
     __RECORD_TYPES_CACHE__: Dict[frozenset, Type["Record"]] = {}
 
     @staticmethod
-    def fromitemtypes(itemtypes: Set[T]):
+    def fromitemtypes(itemtypes: FrozenSet[T]):
         if recordtype := Record.__RECORD_TYPES_CACHE__.get(itemtypes, None):
             return recordtype
 
@@ -227,7 +227,7 @@ class RecordTypesCache:
 
         updated_type = record_type.from_types(
             f"{self._name}_{record_type.__name__}",
-            *self._itemtypes,
+            *(itemtype.__get_base__() for itemtype in self._itemtypes),
             module=self._module,
         )
         self._cache[record_type] = updated_type

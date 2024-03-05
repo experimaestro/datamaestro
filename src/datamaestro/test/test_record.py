@@ -20,6 +20,11 @@ class BItem(Item):
 
 
 @define
+class B1Item(BItem):
+    b1: int
+
+
+@define
 class CItem(Item):
     c: int
 
@@ -110,3 +115,7 @@ def test_record_pickled():
 
     # This is OK
     cache.update(r, CItem(4), cls=MyRecord)
+
+    # --- Test when we update a pickled record with an of a sub-class
+    cache = RecordTypesCache("OnTheFly", B1Item)
+    r2 = cache.update(r, B1Item(1, 2))
