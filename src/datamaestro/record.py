@@ -145,17 +145,18 @@ class Record:
 
     @classmethod
     def _subclass(cls, *itemtypes: Type[T]):
-        cls_itemtypes = set((x for x in getattr(cls, "itemtypes", [])))
+        cls_itemtypes = [x for x in getattr(cls, "itemtypes", [])]
         mapping = {
-            ix: itemtype.__get_base__() for ix, itemtype in enumerate(cls_itemtypes)
+            itemtype.__get_base__(): ix for ix, itemtype in enumerate(cls_itemtypes)
         }
 
         for itemtype in itemtypes:
-            if ix := mapping.get(itemtype.__get_base__(), None):
+            if (ix := mapping.get(itemtype.__get_base__(), -1)) >= 0:
                 cls_itemtypes[ix] = itemtype
             else:
-                cls_itemtypes.add(itemtype)
-        return cls_itemtypes
+                cls_itemtypes.append(itemtype)
+
+        return frozenset(cls_itemtypes)
 
     @classmethod
     def from_types(cls, name: str, *itemtypes: Type[T], module: str = None):
@@ -205,7 +206,22 @@ def recordtypes(*types: List[Type[T]]):
     return decorate
 
 
-class RecordTypesCache:
+class RecordTypesCacheBase:
+    def __init__(self, name: str, *itemtypes: Type[T], module: str = None):
+        self._module = module
+        self._name = name
+        self._itemtypes = itemtypes
+
+    def _compute(self, record_type: Type[Record]):
+        updated_type = record_type.from_types(
+            f"{self._name}_{record_type.__name__}",
+            *self._itemtypes,
+            module=self._module,
+        )
+        return updated_type
+
+
+class RecordTypesCache(RecordTypesCacheBase):
     """Class to use when new record types need to be created on the fly by
     adding new items"""
 
@@ -215,22 +231,13 @@ class RecordTypesCache:
         :param name: Base name for new record types
         :param module: The module name for new types, defaults to None
         """
-        self._module = module
-        self._name = name
-        self._itemtypes = itemtypes
+        super().__init__(name, *itemtypes, module=module)
         self._cache: Dict[Type[Record], Type[Record]] = {}
         self._warning = False
 
-    def get(self, record_type: Type[Record]):
-        if updated_type := self._cache.get(record_type, None):
-            return updated_type
-
-        updated_type = record_type.from_types(
-            f"{self._name}_{record_type.__name__}",
-            *(itemtype.__get_base__() for itemtype in self._itemtypes),
-            module=self._module,
-        )
-        self._cache[record_type] = updated_type
+    def __call__(self, record_type: Type[Record]):
+        if (updated_type := self._cache.get(record_type, None)) is None:
+            self._cache[record_type] = updated_type = self._compute(record_type)
         return updated_type
 
     def update(self, record: Record, *items: Item, cls=None):
@@ -248,13 +255,53 @@ class RecordTypesCache:
                     "Updating unpickled records is not recommended"
                     " (speed issues): use the pickle record class as the cls input"
                 )
-                itemtypes = frozenset(
-                    itemtype.__get_base__() for itemtype in record.items.keys()
-                )
+                itemtypes = frozenset(type(item) for item in record.items.values())
                 cls = Record.fromitemtypes(itemtypes)
         else:
             assert (
                 record.is_pickled()
             ), "cls can be used only when the record as been pickled"
 
-        return self.get(cls)(*record.items.values(), *items, override=True)
+        return self(cls)(*record.items.values(), *items, override=True)
+
+
+class SingleRecordTypeCache(RecordTypesCacheBase):
+    """Class to use when new record types need to be created on the fly by
+    adding new items
+
+    This class supposes that the input record type is always the same (no check
+    is done to ensure this)"""
+
+    def __init__(self, name: str, *itemtypes: Type[T], module: str = None):
+        """Creates a new cache
+
+        :param name: Base name for new record types
+        :param module: The module name for new types, defaults to None
+        """
+        super().__init__(name, *itemtypes, module=module)
+        self._cache: Optional[Type[Record]] = None
+
+    def __call__(self, record_type: Type[Record]):
+        if self._cache is None:
+            self._cache = self._compute(record_type)
+        return self._cache
+
+    def update(self, record: Record, *items: Item, cls=None):
+        """Update the record with the given items
+
+        :param record: The record to which we add items
+        :param cls: The class of the record, useful if the record has been
+            pickled, defaults to None
+        :return: A new record with the extra items
+        """
+        if self._cache is None:
+            if cls is None:
+                cls = record.__class__
+                itemtypes = frozenset(type(item) for item in record.items.values())
+                cls = Record.fromitemtypes(itemtypes)
+            else:
+                assert (
+                    record.is_pickled()
+                ), "cls can be used only when the record as been pickled"
+
+        return self(cls)(*record.items.values(), *items, override=True)

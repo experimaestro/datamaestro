@@ -1,5 +1,11 @@
 import pickle
-from datamaestro.record import Record, Item, RecordTypesCache, recordtypes
+from datamaestro.record import (
+    Record,
+    Item,
+    RecordTypesCache,
+    recordtypes,
+    SingleRecordTypeCache,
+)
 from attrs import define
 import pytest
 
@@ -76,16 +82,21 @@ def test_record_decorator():
     MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
 
 
+def test_record_type_update():
+    itemtypes = MyRecord2.from_types("Test", B1Item).itemtypes
+    assert itemtypes == frozenset((A1Item, B1Item, CItem))
+
+
 def test_record_onthefly():
     cache = RecordTypesCache("OnTheFly", CItem)
 
-    MyRecord2 = cache.get(MyRecord)
+    MyRecord2 = cache(MyRecord)
     MyRecord2(A1Item(1, 2), BItem(2), CItem(3))
 
-    assert cache.get(MyRecord) is MyRecord2
+    assert cache(MyRecord) is MyRecord2
 
     r = MyRecord(A1Item(1, 2), BItem(2))
-    assert cache.get(r.__class__) is MyRecord2
+    assert cache(r.__class__) is MyRecord2
 
     r = cache.update(r, CItem(3))
 
@@ -119,3 +130,18 @@ def test_record_pickled():
     # --- Test when we update a pickled record with an of a sub-class
     cache = RecordTypesCache("OnTheFly", B1Item)
     r2 = cache.update(r, B1Item(1, 2))
+
+
+def test_record_pickled_single():
+    MyRecord2 = BaseRecord.from_types("MyRecordBis", BItem)
+    r = MyRecord2(A1Item(1, 2), BItem(2))
+    r = pickle.loads(pickle.dumps(r))
+
+    cache = SingleRecordTypeCache("OnTheFly", CItem)
+
+    updated = cache.update(r, CItem(4))
+
+    assert updated.itemtypes == frozenset((A1Item, BItem, CItem))
+
+    # Even with the wrong record, no change now
+    assert cache(BaseRecord).itemtypes == frozenset((A1Item, BItem, CItem))

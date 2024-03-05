@@ -54,3 +54,6 @@ information can be easily added to a record.
 
 .. autoclass:: datamaestro.record.RecordTypesCache
     :members: __init__, update
+
+.. autoclass:: datamaestro.record.SingleRecordTypeCache
+    :members: __init__, update
