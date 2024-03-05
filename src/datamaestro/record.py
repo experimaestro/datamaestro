@@ -228,7 +228,9 @@ class RecordTypesCache:
                     "Updating unpickled records is not recommended"
                     " (speed issues): use the pickle record class as the cls input"
                 )
-                itemtypes = frozenset(record.items.keys())
+                itemtypes = frozenset(
+                    itemtype.__get_base__() for itemtype in record.items.keys()
+                )
                 cls = Record.fromitemtypes(itemtypes)
         else:
             assert (
