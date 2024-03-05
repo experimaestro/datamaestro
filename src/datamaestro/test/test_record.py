@@ -77,7 +77,9 @@ def test_record_update():
     assert r is not r2
     assert r2[BItem] is not b
 
-    MyRecord2.from_record(r, CItem(2))
+    r3 = MyRecord2.from_record(r, CItem(2), BItem(5))
+    assert r[BItem].b == 4
+    assert r3[BItem].b == 5
 
 
 def test_record_decorator():
