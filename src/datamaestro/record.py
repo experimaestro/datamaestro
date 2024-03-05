@@ -97,12 +97,14 @@ class Record:
             )
 
     def get(self, key: Type[T]) -> Optional[T]:
+        """Get a given item or None if it does not exist"""
         try:
             return self[key]
         except KeyError:
             return None
 
     def has(self, key: Type[T]) -> bool:
+        """Returns True if the record has the given item type"""
         return key.__get_base__() in self.items
 
     def __getitem__(self, key: Type[T]) -> T:
@@ -157,6 +159,12 @@ class Record:
 
     @classmethod
     def from_types(cls, name: str, *itemtypes: Type[T], module: str = None):
+        """Construct a new sub-record type
+
+        :param name: The name of the subrecord
+        :param module: The module name, defaults to None
+        :return: A new Record type
+        """
         extra_dict = {}
         if module:
             extra_dict["__module__"] = module
@@ -202,6 +210,11 @@ class RecordTypesCache:
     adding new items"""
 
     def __init__(self, name: str, *itemtypes: Type[T], module: str = None):
+        """Creates a new cache
+
+        :param name: Base name for new record types
+        :param module: The module name for new types, defaults to None
+        """
         self._module = module
         self._name = name
         self._itemtypes = itemtypes
@@ -221,6 +234,13 @@ class RecordTypesCache:
         return updated_type
 
     def update(self, record: Record, *items: Item, cls=None):
+        """Update the record with the given items
+
+        :param record: The record to which we add items
+        :param cls: The class of the record, useful if the record has been
+            pickled, defaults to None
+        :return: A new record with the extra items
+        """
         if cls is None:
             cls = record.__class__
             if record.is_pickled() and not self._warning:
