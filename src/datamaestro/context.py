@@ -110,19 +110,20 @@ class Context:
         if repositoryid is None:
             return None
 
-        l = [
+        entry_points = [
             x
             for x in pkg_resources.iter_entry_points(
                 "datamaestro.repositories", repositoryid
             )
         ]
-        if not l:
+        if not entry_points:
             raise Exception("No datasets repository named %s", repositoryid)
-        if len(l) > 1:
+        if len(entry_points) > 1:
             raise Exception(
-                "Too many datasets repository named %s (%d)" % (repositoryid, len(l))
+                "Too many datasets repository named %s (%d)"
+                % (repositoryid, len(entry_points))
             )
-        return l[0].load()(self)
+        return entry_points[0].load()(self)
 
     @property
     def running_test(self):
@@ -175,7 +176,6 @@ class Context:
         if dlpath.is_file():
             logging.debug("Using cached file %s for %s", dlpath, url)
         else:
-
             logging.info("Downloading %s", url)
             tmppath = dlpath.with_suffix(".tmp")
 
@@ -188,7 +188,7 @@ class Context:
 
     def ask(self, question: str, options: Dict[str, str]):
         """Ask a question to the user"""
-        print(question)
+        print(question)  # noqa: T201
         answer = None
         while answer not in options:
             answer = input().strip().lower()
@@ -268,6 +268,7 @@ class Datasets(Iterable["AbstractDataset"]):
 
     def __iter__(self) -> Iterable["AbstractDataset"]:
         from .definitions import DatasetWrapper
+        from datamaestro.data import Base
 
         # Iterates over defined symbols
         for key, value in self.module.__dict__.items():
@@ -276,10 +277,18 @@ class Datasets(Iterable["AbstractDataset"]):
                 # Ensure it comes from the module
                 if self.module.__name__ == value.t.__module__:
                     yield value
+            elif (
+                inspect.isclass(value)
+                and issubclass(value, Base)
+                and hasattr(value, "__dataset__")
+            ):
+                if self.module.__name__ == value.__module__:
+                    yield value.__dataset__
 
 
 class Repository:
-    """A repository regroup a set of datasets and their corresponding specific handlers (downloading, filtering, etc.)"""
+    """A repository regroup a set of datasets and their corresponding specific
+    handlers (downloading, filtering, etc.)"""
 
     def __init__(self, context: Context):
         """Initialize a new repository
@@ -315,7 +324,7 @@ class Repository:
         try:
             return get_distribution(cls.__module__).version
         except DistributionNotFound:
-            __version__ = None
+            return None
 
     def __repr__(self):
         return "Repository(%s)" % self.basedir

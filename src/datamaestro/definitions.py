@@ -127,6 +127,13 @@ class AbstractDataset(AbstractData):
     """
 
     name: Optional[str] = None
+    """The name of the dataset"""
+
+    url: Optional[str] = None
+    """The URL of the dataset"""
+
+    doi: Optional[str] = None
+    """The DOI of this dataset"""
 
     def __init__(self, repository: Optional["Repository"]):
         super().__init__()
@@ -136,6 +143,7 @@ class AbstractDataset(AbstractData):
 
         # Associated resources
         self.resources: Dict[str, "Download"] = {}
+        self.ordered_resources = []
 
         # Hooks
         # pre-use: before returning the dataset object
@@ -194,13 +202,15 @@ class AbstractDataset(AbstractData):
     def download(self, force=False):
         """Download all the necessary resources"""
         success = True
-        for key, resource in self.resources.items():
+        logging.info("Materializing %d resources", len(self.ordered_resources))
+        for resource in self.ordered_resources:
             try:
                 resource.download(force)
             except Exception:
-                logging.error("Could not download resource %s", key)
+                logging.error("Could not download resource %s", resource)
                 traceback.print_exc()
                 success = False
+                break
         return success
 
     @staticmethod
@@ -249,6 +259,7 @@ class DatasetWrapper(AbstractDataset):
     def __init__(self, annotation, t: type):
         self.t = t
         self.base = annotation.base
+        self.config = None
         assert self.base is not None, f"Could not set the Config type for {t}"
 
         repository, components = DataDefinition.repository_relpath(t)
@@ -323,7 +334,18 @@ class DatasetWrapper(AbstractDataset):
         """Returns a pointer to a potential attribute"""
         return FutureAttr(self, [key])
 
+    def download(self, force=False):
+        if self.base is self.t:
+            self._prepare()
+        return super().download(force=force)
+
     def _prepare(self, download=False) -> "Base":
+        if self.config is not None:
+            return self.config
+
+        if self.base is self.t:
+            self.config = self.base.__create_dataset__(self)
+
         if download:
             for hook in self.hooks["pre-download"]:
                 hook(self)
@@ -333,23 +355,23 @@ class DatasetWrapper(AbstractDataset):
         for hook in self.hooks["pre-use"]:
             hook(self)
 
-        resources = {key: value.prepare() for key, value in self.resources.items()}
-        dict = self.t(**resources)
-        if dict is None:
-            name = self.t.__name__
-            filename = inspect.getfile(self.t)
-            raise Exception(
-                f"The dataset method {name} defined in "
-                f"{filename} returned a null object"
-            )
-
         # Construct the object
-        data = self.base(**dict)
+        if self.config is None:
+            resources = {key: value.prepare() for key, value in self.resources.items()}
+            dict = self.t(**resources)
+            if dict is None:
+                name = self.t.__name__
+                filename = inspect.getfile(self.t)
+                raise Exception(
+                    f"The dataset method {name} defined in "
+                    f"{filename} returned a null object"
+                )
+            self.config = self.base(**dict)
 
         # Set the ids
-        self.setDataIDs(data, self.id)
+        self.setDataIDs(self.config, self.id)
 
-        return data
+        return self.config
 
     @property
     def _path(self) -> Path:
@@ -496,14 +518,26 @@ class dataset:
     def __call__(self, t):
         try:
             if self.base is None:
-                # Get type from return annotation
-                self.base = t.__annotations__["return"]
+                from datamaestro.data import Base
+
+                if inspect.isclass(t) and issubclass(t, Base):
+                    self.base = t
+                else:
+                    # Get type from return annotation
+                    try:
+                        self.base = t.__annotations__["return"]
+                    except KeyError:
+                        logging.warning("No return annotation in %s", t)
+                        raise
             object.__getattribute__(t, "__datamaestro__")
             raise AssertionError("@data should only be called once")
         except AttributeError:
             pass
 
         dw = DatasetWrapper(self, t)
+        t.__dataset__ = dw
+        if inspect.isclass(t) and issubclass(t, Base):
+            return t
         return dw
 
 

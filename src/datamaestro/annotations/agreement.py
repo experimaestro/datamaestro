@@ -1,9 +1,15 @@
-import logging
-from datamaestro.definitions import DatasetAnnotation, AbstractDataset, hook
+from typing import Optional
+from datamaestro.definitions import AbstractDataset, hook
 
 
 @hook("pre-use")
-def useragreement(definition: AbstractDataset, message, id=None):
+def useragreement(definition: AbstractDataset, message: str, id: Optional[str] = None):
+    """Asks for a user-agreement
+
+    :param definition: The dataset for which the agreement is asked
+    :param message: The agreement text
+    :param id: The ID of the agreement (default to the dataset ID)
+    """
     # Skip agreement when testing
     if definition.context.running_test:
         return

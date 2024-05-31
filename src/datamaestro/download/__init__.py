@@ -1,6 +1,8 @@
+from typing import Union
 from abc import ABC, abstractmethod
 from datamaestro.definitions import AbstractDataset, DatasetAnnotation
 from datamaestro.utils import deprecated
+from attrs import define
 
 
 def initialized(method):
@@ -15,7 +17,12 @@ def initialized(method):
     return wrapper
 
 
-class Download(DatasetAnnotation, ABC):
+@define(kw_only=True)
+class SetupOptions:
+    pass
+
+
+class Resource(DatasetAnnotation, ABC):
     """
     Base class for all download handlers
     """
@@ -24,13 +31,16 @@ class Download(DatasetAnnotation, ABC):
         self.varname = varname
         # Ensures that the object is initialized
         self._post = False
+        self.definition = None
 
     def annotate(self, dataset: AbstractDataset):
+        assert self.definition is None
         # Register has a resource download
         if self.varname in dataset.resources:
             raise AssertionError("Name %s already declared as a resource", self.varname)
 
         dataset.resources[self.varname] = self
+        dataset.ordered_resources.append(self)
         self.definition = dataset
 
     @property
@@ -53,10 +63,29 @@ class Download(DatasetAnnotation, ABC):
         """Prepares the dataset"""
         ...
 
+    def setup(
+        self,
+        dataset: Union[AbstractDataset],
+        options: SetupOptions = None,
+    ):
+        """Direct way to setup the resource (no annotation)"""
+        self(dataset)
+        return self.prepare()
+
+
+# Keeps downwards compatibility
+Download = Resource
+
 
 class reference(Download):
-    def __init__(self, varname, reference):
+    def __init__(self, varname=None, reference=None):
+        """References another dataset
+
+        :param varname: The name of the variable
+        :param reference: Another dataset
+        """
         super().__init__(varname)
+        assert reference is not None, "Reference cannot be null"
         self.reference = reference
 
     def prepare(self):
