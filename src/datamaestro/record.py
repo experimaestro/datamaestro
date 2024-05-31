@@ -129,7 +129,20 @@ class Record:
     def __str__(self):
         return (
             "{"
-            + ", ".join(f"{key}: {value}" for key, value in self.items.items())
+            + ", ".join(
+                f"{key.__module__}.{key.__qualname__}: {value}"
+                for key, value in self.items.items()
+            )
+            + "}"
+        )
+
+    def __repr__(self):
+        return (
+            "{"
+            + ", ".join(
+                f"{key.__module__}.{key.__qualname__}: {repr(value)}"
+                for key, value in self.items.items()
+            )
             + "}"
         )
 
