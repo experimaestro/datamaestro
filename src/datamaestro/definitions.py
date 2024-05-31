@@ -256,6 +256,7 @@ class DatasetWrapper(AbstractDataset):
 
         # Set some variables
         self.url = annotation.url
+        self.doi = annotation.doi
 
         # Builds the ID:
         # Removes module_name.config prefix
@@ -455,7 +456,9 @@ datatasks = DataTagging(lambda d: d.tasks)
 
 
 class dataset:
-    def __init__(self, base=None, *, timestamp=None, id=None, url=None, size=None):
+    def __init__(
+        self, base=None, *, timestamp=None, id=None, url=None, size=None, doi=None
+    ):
         """Creates a new (meta)dataset
 
         Meta-datasets are not associated with any base type
@@ -473,6 +476,8 @@ class dataset:
             url {[type]} -- [description] (default: {None})
 
             size {str} -- The size (should be a parsable format)
+
+            doi {str} -- The DOI of the corresponding paper
         """
         if hasattr(base, "__datamaestro__") and isinstance(
             base.__datamaestro__, metadataset
@@ -486,6 +491,7 @@ class dataset:
         self.meta = False
         self.timestamp = timestamp
         self.size = size
+        self.doi = doi
 
     def __call__(self, t):
         try:
