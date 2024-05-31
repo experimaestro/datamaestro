@@ -40,6 +40,10 @@ Package `datamaestro.download.links`
 .. autofunction:: datamaestro.download.links.linkfile
 
 
+Other
+=====
+
+.. autofunction:: datamaestro.download.wayback.wayback_documents
 
 
 
