@@ -1,4 +1,4 @@
-import regex
+import re
 from typing import Iterator, Optional
 from functools import cached_property
 from attrs import field
@@ -11,7 +11,7 @@ from datamaestro.definitions import AbstractDataset, DatasetWrapper
 from datamaestro.data import Base
 
 
-re_spec = regex.compile(r"""^(\w\.)+:(\w+)""")
+re_spec = re.compile(r"""^(\w\.)+:(\w+)""")
 
 
 @define
