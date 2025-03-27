@@ -1,7 +1,8 @@
 from typing import Optional, Tuple, List, Any
 from csv import reader as csv_reader
 from experimaestro import Param, Meta
-from . import File, documentation
+from experimaestro import documentation
+from . import File
 
 
 class Generic(File):

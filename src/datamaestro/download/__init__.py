@@ -84,7 +84,7 @@ class Resource(DatasetAnnotation, ABC):
 Download = Resource
 
 
-class reference(Download):
+class reference(Resource):
     def __init__(self, varname=None, reference=None):
         """References another dataset
 

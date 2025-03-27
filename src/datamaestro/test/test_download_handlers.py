@@ -12,6 +12,9 @@ class Dataset(AbstractDataset):
         super().__init__(repository)
         self.datapath = Path(repository.context._path)
 
+    def _prepare(self):
+        pass
+
 
 def test_filedownloader(context):
     repository = MyRepository(context)

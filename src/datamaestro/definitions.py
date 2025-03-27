@@ -20,6 +20,7 @@ from typing import (
     TYPE_CHECKING,
     Union,
     ClassVar,
+    _GenericAlias,
 )
 from experimaestro import (  # noqa: F401 (re-exports)
     argument,
@@ -83,6 +84,8 @@ class DataDefinition(AbstractData):
     @staticmethod
     def repository_relpath(t: type) -> Tuple["Repository", List[str]]:
         """Find the repository of the current data or dataset definition"""
+        from .context import Context  # noqa: F811
+
         repositorymap = Context.instance().repositorymap
 
         fullname = f"{t.__module__}.{t.__name__}"
@@ -164,6 +167,10 @@ class AbstractDataset(AbstractData):
 
     @property
     def context(self):
+        if self.repository is None:
+            from datamaestro.context import Context  # noqa: F811
+
+            return Context.instance()
         return self.repository.context
 
     def prepare(self, download=False) -> "Base":
@@ -199,7 +206,10 @@ class AbstractDataset(AbstractData):
         from datamaestro.data import Base
 
         if isinstance(data, Base):
-            data.id = f"{id}@{self.repository.name}"
+            if self.repository is None:
+                data.id = id
+            else:
+                data.id = f"{id}@{self.repository.name}"
         for key, value in data.__xpm__.values.items():
             if isinstance(value, Config):
                 self.setDataIDs(value, f"{id}.{key}")
@@ -222,7 +232,7 @@ class AbstractDataset(AbstractData):
     @staticmethod
     def find(name: str) -> "DataDefinition":
         """Find a dataset given its name"""
-        from datamaestro.context import Context
+        from datamaestro.context import Context  # noqa: F811
 
         logging.debug("Searching dataset %s", name)
         for repository in Context.instance().repositories():
@@ -268,9 +278,10 @@ class DatasetWrapper(AbstractDataset):
     """Currently built dataset"""
 
     def __init__(self, annotation, t: type):
+        self.config = None
+        self.repository: Optional[Repository] = None
         self.t = t
         self.base = annotation.base
-        self.config = None
         assert self.base is not None, f"Could not set the Config type for {t}"
 
         repository, components = DataDefinition.repository_relpath(t)
@@ -282,8 +293,8 @@ class DatasetWrapper(AbstractDataset):
 
         # Builds the ID:
         # Removes module_name.config prefix
-        path = ".".join(components[1:-1])
-        if annotation.id == "":
+        if annotation.id is None or annotation.id == "":
+            # Computes an ID
             assert (
                 # id is empty string = use the module id
                 components[0]
@@ -292,13 +303,12 @@ class DatasetWrapper(AbstractDataset):
                 "A @dataset without `id` should be in the "
                 f".config module (not {t.__module__})"
             )
+            path = ".".join(components[1:-1])
 
             self.id = path
         else:
-            self.id = "%s.%s" % (
-                path,
-                annotation.id or t.__name__.lower().replace("_", "."),
-            )
+            # Use the provided ID
+            self.id = annotation.id
 
         self.aliases.add(self.id)
 
@@ -415,7 +425,20 @@ class DatasetWrapper(AbstractDataset):
     @property
     def datapath(self):
         """Returns the destination path for downloads"""
-        return self.repository.datapath / self._path
+        from datamaestro import Context  # noqa: F811
+
+        path = Context.instance().storepath / self._path
+
+        if (self.repository is not None) and (not path.exists()):
+            old_path: Path = self.repository.datapath / self._path
+            if old_path.exists():
+                logging.info(
+                    "Moving from old path [%s] to new path [%s]", old_path, path
+                )
+                path.parent.mkdir(exist_ok=True, parents=True)
+                old_path.rename(path)
+
+        return path
 
     def hasfiles(self) -> bool:
         """Returns whether this dataset has files or only includes references"""
@@ -581,7 +604,9 @@ class dataset:
                     try:
                         # Get type from return annotation
                         return_type = t.__annotations__["return"]
-                        self.base = return_type.__origin__
+                        if isinstance(return_type, _GenericAlias):
+                            return_type = return_type.__origin__
+                        self.base = return_type
                     except KeyError:
                         logging.warning("No return annotation in %s", t)
                         raise
@@ -615,3 +640,5 @@ class metadataset(AbstractDataset):
             pass
         t.__datamaestro__ = self
         return t
+
+    _prepare = None

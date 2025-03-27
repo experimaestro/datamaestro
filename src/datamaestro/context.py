@@ -89,6 +89,11 @@ class Context:
         return ContextManager()
 
     @property
+    def storepath(self):
+        """Replaces the data path"""
+        return self._path.joinpath("store")
+
+    @property
     def datapath(self):
         return self._path.joinpath("data")
 
@@ -429,10 +434,11 @@ def prepare_dataset(dataset_id: Union[str, "DatasetWrapper", Config]):
 
     if isinstance(dataset_id, DatasetWrapper):
         ds = dataset_id
-    if isinstance(dataset_id, Config):
+    elif isinstance(dataset_id, Config):
         ds = dataset_id.__datamaestro_dataset__
     else:
         ds = AbstractDataset.find(dataset_id)
+
     return ds.prepare(download=True)
 
 
