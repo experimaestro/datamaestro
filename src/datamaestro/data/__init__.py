@@ -1,22 +1,18 @@
+from abc import abstractmethod
 import logging
 from pathlib import Path
 from typing import Any, Dict
-from datamaestro.definitions import AbstractDataset, argument, Param
-from experimaestro import Config
-from experimaestro import documentation  # noqa: F401
+from experimaestro import Config, Param, Meta
+from datamaestro.definitions import AbstractDataset
 
 
 class Base(Config):
     """Base object for all data types"""
 
     id: Param[str]
-    """The unique dataset ID"""
+    """The unique (sub-)dataset ID"""
 
-    __datamaestro_dataset__: AbstractDataset
-
-    def download(self):
-        """Download the dataset"""
-        self.__datamaestro_dataset__.download()
+    __datamaestro_dataset__: "AbstractDataset"
 
     def dataset_information(self) -> Dict[str, Any]:
         """Returns document meta-informations"""
@@ -25,6 +21,16 @@ class Base(Config):
             "name": self.__datamaestro_dataset__.name,
             "description": self.__datamaestro_dataset__.description,
         }
+
+    def download(self):
+        """Download the dataset"""
+        self.__datamaestro_dataset__.download()
+
+    @abstractmethod
+    def prepare(self, *args, **kwargs):
+        """Prepare the dataset"""
+        self.__datamaestro_dataset__.prepare()
+        return self
 
 
 class Generic(Base):
@@ -44,16 +50,17 @@ class Generic(Base):
 class File(Base):
     """A data file"""
 
-    path: Param[Path]
+    path: Meta[Path]
     """The path of the file"""
 
     def open(self, mode):
         return self.path.open(mode)
 
 
-@argument("path", type=Path)
 class Folder(Base):
     """A data folder"""
+
+    path: Meta[Path]
 
     def open(self, mode):
         return self.path.open(mode)

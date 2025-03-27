@@ -1,21 +1,22 @@
 from pathlib import Path
-from experimaestro.compat import cached_property
+from typing import Iterable, Iterator, Dict, Union
 import importlib
 import os
 import hashlib
 import logging
 import inspect
 import json
-from experimaestro.mkdocs.metaloader import Module
+from abc import ABC, abstractmethod
+from experimaestro import Config
 import pkg_resources
-from typing import Iterable, Iterator, List, Dict
+from experimaestro.compat import cached_property
+from experimaestro.mkdocs.metaloader import Module
 from .utils import CachedFile, downloadURL
 from .settings import UserSettings, Settings
-
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from datamaestro.definitions import AbstractDataset
+    from datamaestro.definitions import AbstractDataset, DatasetWrapper
 
 
 class Compression:
@@ -98,7 +99,9 @@ class Context:
     @cached_property
     def repositorymap(self) -> Dict[str, "Repository"]:
         return {
-            repository.basemodule(): repository for repository in self.repositories()
+            repository.basemodule(): repository
+            for repository in self.repositories()
+            if repository.basemodule() is not None
         }
 
     def repositories(self) -> Iterable["Repository"]:
@@ -286,9 +289,52 @@ class Datasets(Iterable["AbstractDataset"]):
                     yield value.__dataset__
 
 
-class Repository:
-    """A repository regroup a set of datasets and their corresponding specific
+class BaseRepository(ABC):
+    """A repository groups a set of datasets and their corresponding specific
     handlers (downloading, filtering, etc.)"""
+
+    def __init__(self, context: Context):
+        self.context = context
+        p = inspect.getabsfile(self.__class__)
+        self.basedir = Path(p).parent
+
+    @abstractmethod
+    def __iter__(self) -> Iterator["AbstractDataset"]:
+        ...
+
+    def search(self, name: str):
+        """Search for a dataset in the definitions"""
+        for dataset in self:
+            if name in dataset.aliases:
+                return dataset
+
+    @classmethod
+    def instance(cls, context=None):
+        try:
+            return cls.__getattribute__(cls, "INSTANCE")
+        except AttributeError:
+            return cls(context if context else Context.instance())
+
+    @classmethod
+    def basemodule(cls):
+        return cls.__module__
+
+    @property
+    def generatedpath(self):
+        return self.basedir / "generated"
+
+    @property
+    def datapath(self):
+        return self.context.datapath.joinpath(self.id)
+
+    @property
+    def extrapath(self):
+        """Path to the directory containing extra configuration files"""
+        return self.basedir / "data"
+
+
+class Repository(BaseRepository):
+    """(deprecated) Repository where datasets are located in __module__.config"""
 
     def __init__(self, context: Context):
         """Initialize a new repository
@@ -297,25 +343,13 @@ class Repository:
         :param basedir: The base directory of the repository
             (by default, the same as the repository class)
         """
+        super().__init__(context)
         self.context = context
-        p = inspect.getabsfile(self.__class__)
-        self.basedir = Path(p).parent
         self.configdir = self.basedir.joinpath("config")
         self.id = self.__class__.NAMESPACE
         self.name = self.id
         self.module = self.__class__.__module__
         self.__class__.INSTANCE = self
-
-    @classmethod
-    def basemodule(cls):
-        return cls.__module__
-
-    @classmethod
-    def instance(cls, context=None):
-        try:
-            return cls.__getattribute__(cls, "INSTANCE")
-        except AttributeError:
-            return cls(context if context else Context.instance())
 
     @classmethod
     def version(cls):
@@ -336,36 +370,8 @@ class Repository:
         assert isinstance(other, Repository)
         return self.basedir == other.basedir
 
-    def search(self, name: str):
-        """Search for a dataset in the definitions"""
-        logging.debug("Searching for %s in %s", name, self.configdir)
-
-        candidates: List[str] = []
-        components = name.split(".")
-        path = self.configdir
-        for i, c in enumerate(components):
-            path = path / c
-
-            if (path / "__init__.py").is_file():
-                candidates.append(".".join(components[: i + 1]))
-
-            if path.with_suffix(".py").is_file():
-                candidates.append(".".join(components[: i + 1]))
-
-            if not path.is_dir():
-                break
-
-        # Get the dataset
-        for candidate in candidates[::-1]:
-            logging.debug("Searching in module %s.config.%s", self.module, candidate)
-            module = importlib.import_module("%s.config.%s" % (self.module, candidate))
-            for value in Datasets(module):
-                if name in value.aliases:
-                    return value
-
-        return None
-
-    def datasets(self, candidate):
+    def datasets(self, candidate: str):
+        """Returns the dataset candidates from a module"""
         try:
             module = importlib.import_module("%s.config.%s" % (self.module, candidate))
         except ModuleNotFoundError:
@@ -409,19 +415,6 @@ class Repository:
             for dataset in datasets:
                 yield dataset
 
-    @property
-    def generatedpath(self):
-        return self.basedir.joinpath("generated")
-
-    @property
-    def datapath(self):
-        return self.context.datapath.joinpath(self.id)
-
-    @property
-    def extrapath(self):
-        """Path to the directory containing extra configuration files"""
-        return self.basedir.joinpath("data")
-
 
 def find_dataset(dataset_id: str):
     """Find a dataset given its id"""
@@ -430,11 +423,16 @@ def find_dataset(dataset_id: str):
     return AbstractDataset.find(dataset_id)
 
 
-def prepare_dataset(dataset_id: str):
+def prepare_dataset(dataset_id: Union[str, "DatasetWrapper", Config]):
     """Find a dataset given its id and download the resources"""
-    from .definitions import AbstractDataset
+    from .definitions import AbstractDataset, DatasetWrapper
 
-    ds = AbstractDataset.find(dataset_id)
+    if isinstance(dataset_id, DatasetWrapper):
+        ds = dataset_id
+    if isinstance(dataset_id, Config):
+        ds = dataset_id.__datamaestro_dataset__
+    else:
+        ds = AbstractDataset.find(dataset_id)
     return ds.prepare(download=True)
 
 

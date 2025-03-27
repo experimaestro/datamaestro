@@ -42,6 +42,8 @@ def copyfileobjs(fsrc, fdsts, length=0):
 
 
 class FileChecker:
+    """Checks a file"""
+
     def check(self, path: Path):
         """Check the given file
 

@@ -39,11 +39,6 @@ Package `datamaestro.data.ml`
 .. autoxpmconfig:: datamaestro.data.ml.Supervised
 ```
 
-```{eval-rst}
-.. autoxpmconfig:: datamaestro.data.ml.FolderBased
-```
-
-
 ## Tensor
 
 Package `datamaestro.data.tensor`

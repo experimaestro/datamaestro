@@ -43,6 +43,13 @@ class Resource(DatasetAnnotation, ABC):
         dataset.ordered_resources.append(self)
         self.definition = dataset
 
+    def contextualize(self):
+        """When using an annotation inline, uses the current dataset wrapper object"""
+        from datamaestro.definitions import DatasetWrapper
+
+        wrapper = DatasetWrapper.BUILDING[-1]
+        self.annotate(wrapper)
+
     @property
     def context(self):
         return self.definition.context

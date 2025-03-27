@@ -1,7 +1,7 @@
 """Machine learning generic data formats"""
-from typing import Generic, TypeVar, Optional
 from pathlib import Path
-from experimaestro import Param, Meta, argument
+from typing import Generic, TypeVar, Optional
+from experimaestro import Param, Meta
 from . import Base
 
 Train = TypeVar("Train", bound=Base)
@@ -20,8 +20,8 @@ class Supervised(Base, Generic[Train, Validation, Test]):
     """The training optional"""
 
 
-@argument("classes")
 class FolderBased(Base):
     """Classification dataset where folders give the basis"""
 
+    classes: Param[list[str]]
     path: Meta[Path]
