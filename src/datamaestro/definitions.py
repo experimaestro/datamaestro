@@ -7,7 +7,6 @@ import inspect
 from pathlib import Path
 from itertools import chain
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
 import traceback
 from typing import (
     Dict,
@@ -19,7 +18,6 @@ from typing import (
     Callable,
     TYPE_CHECKING,
     Union,
-    ClassVar,
     _GenericAlias,
 )
 from experimaestro import (  # noqa: F401 (re-exports)
@@ -217,8 +215,8 @@ class AbstractDataset(AbstractData):
     def download(self, force=False):
         """Download all the necessary resources"""
         success = True
-        logging.info("Materializing %d resources", len(self.ordered_resources))
         self.prepare()
+        logging.info("Materializing %d resources", len(self.ordered_resources))
         for resource in self.ordered_resources:
             try:
                 resource.download(force)
@@ -274,9 +272,6 @@ class DatasetWrapper(AbstractDataset):
     annotations (otherwise, derive from `AbstractDataset`).
     """
 
-    BUILDING: ClassVar[list["DatasetWrapper"]] = []
-    """Currently built dataset"""
-
     def __init__(self, annotation, t: type):
         self.config = None
         self.repository: Optional[Repository] = None
@@ -286,6 +281,11 @@ class DatasetWrapper(AbstractDataset):
 
         repository, components = DataDefinition.repository_relpath(t)
         super().__init__(repository)
+
+        self.module_name = None
+        if repository is None:
+            # Try to find the module name
+            self.module_name, _ = t.__module__.split(".", 1)
 
         # Set some variables
         self.url = annotation.url
@@ -361,12 +361,6 @@ class DatasetWrapper(AbstractDataset):
             self._prepare()
         return super().download(force=force)
 
-    @contextmanager
-    def building(self):
-        DatasetWrapper.BUILDING.append(self)
-        yield self
-        DatasetWrapper.BUILDING.pop()
-
     def _prepare(self) -> "Base":
         if self.config is not None:
             return self.config
@@ -378,8 +372,7 @@ class DatasetWrapper(AbstractDataset):
         # Construct the object
         resources = {key: value.prepare() for key, value in self.resources.items()}
 
-        with self.building():
-            result = self.t(**resources)
+        result = self.t(**resources)
 
         # Download resources
         logging.debug("Building with data type %s and dataset %s", self.base, self.t)
@@ -425,18 +418,11 @@ class DatasetWrapper(AbstractDataset):
     @property
     def datapath(self):
         """Returns the destination path for downloads"""
-        from datamaestro import Context  # noqa: F811
+        if self.repository is not None:
+            return self.repository.datapath / self._path
 
-        path = Context.instance().storepath / self._path
-
-        if (self.repository is not None) and (not path.exists()):
-            old_path: Path = self.repository.datapath / self._path
-            if old_path.exists():
-                logging.info(
-                    "Moving from old path [%s] to new path [%s]", old_path, path
-                )
-                path.parent.mkdir(exist_ok=True, parents=True)
-                old_path.rename(path)
+        # No repository, use __custom__/[MODULE NAME]
+        path = self.context.datapath / "__custom__" / self.module_name / self._path
 
         return path
 

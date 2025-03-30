@@ -1,7 +1,6 @@
 from typing import Protocol
 from pathlib import Path
 from datamaestro import Context
-from datamaestro.definitions import DatasetWrapper
 from datamaestro.download import Resource
 
 
@@ -10,20 +9,13 @@ class Downloader(Protocol):
         pass
 
 
-class CustomResource(Resource):
-    def __init__(self, ds_wrapper: DatasetWrapper, downloader: Downloader):
-        self.ds_wrapper = ds_wrapper
+class custom_download(Resource):
+    def __init__(self, varname: str, downloader: Downloader):
+        super().__init__(varname)
         self.downloader = downloader
 
     def prepare(self):
-        pass
+        return self.definition.datapath
 
     def download(self, force=False):
-        self.downloader(self.context, self.ds_wrapper.datapath, force=force)
-
-
-def custom_download(downloader: Downloader) -> Path:
-    ds_wrapper = DatasetWrapper.BUILDING[-1]
-    ds_wrapper.ordered_resources.append(CustomResource(ds_wrapper, downloader))
-
-    return ds_wrapper.datapath
+        self.downloader(self.context, self.definition.datapath, force=force)

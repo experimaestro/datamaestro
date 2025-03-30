@@ -4,3 +4,10 @@ fallback_version = "0.0.0-dev"
 
 [build-system]
 requires = ["setuptools", "setuptools-scm", "wheel"]  # PEP 508 specifications.
+
+[tool.flake8]
+doctests = "True"
+exclude = ".git, .eggs, __pycache__, tests/, docs/, build/, dist/, app/"
+max-line-length = "88"
+# See https://github.com/PyCQA/pycodestyle/issues/373
+extend-ignore = "E203"

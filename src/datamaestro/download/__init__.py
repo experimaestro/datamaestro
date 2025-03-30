@@ -31,7 +31,7 @@ class Resource(DatasetAnnotation, ABC):
         self.varname = varname
         # Ensures that the object is initialized
         self._post = False
-        self.definition = None
+        self.definition: AbstractDataset = None
 
     def annotate(self, dataset: AbstractDataset):
         assert self.definition is None
@@ -45,9 +45,9 @@ class Resource(DatasetAnnotation, ABC):
 
     def contextualize(self):
         """When using an annotation inline, uses the current dataset wrapper object"""
-        from datamaestro.definitions import DatasetWrapper
+        from datamaestro.definitions import AbstractDataset
 
-        wrapper = DatasetWrapper.BUILDING[-1]
+        wrapper = AbstractDataset.processing()
         self.annotate(wrapper)
 
     @property

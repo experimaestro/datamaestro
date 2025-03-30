@@ -57,22 +57,10 @@ $ datamaestro search tag:image
 [image] com.lecun.mnist
 
 $ datamaestro prepare com.lecun.mnist
-INFO:root:Downloading http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-labels-idx1-ubyte
-INFO:root:Transforming file
-INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-labels-idx1-ubyte
-INFO:root:Downloading http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-images-idx3-ubyte
-INFO:root:Transforming file
-INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/t10k-images-idx3-ubyte
-INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-labels-idx1-ubyte
-INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz
-Downloading http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz: 32.8kB [00:00, 92.1kB/s]                                                            INFO:root:Transforming file
-INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-labels-idx1-ubyte
-INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz into /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-images-idx3-ubyte
-INFO:root:Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz
-Downloading http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz: 9.92MB [00:00, 10.6MB/s]
-INFO:root:Transforming file
-INFO:root:Created file /home/bpiwowar/datamaestro/data/image/com/lecun/mnist/train-images-idx3-ubyte
-...JSON...
+INFO:root:Materializing 4 resources
+INFO:root:Downloading https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz into .../datamaestro/store/com/lecun/train_images.idx
+INFO:root:Downloading https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz into .../datamaestro/store/com/lecun/test_images.idx
+INFO:root:Downloading https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz into .../datamaestro/store/com/lecun/test_labels.idx
 ```
 
 The previous command also returns a JSON on standard output
@@ -118,13 +106,12 @@ and is integrated with [experimaestro](http://experimaestro.github.io/experimaes
 Its syntax is described in the [documentation](https://datamaestro.readthedocs.io).
 
 
-For MNIST, this corresponds to.
+For instance, the MNIST dataset can be described by the following
 
 ```python
-from datamaestro_image.data import ImageClassification, LabelledImages, Base, IDXImage
-from datamaestro.download.single import filedownloader
-from datamaestro.definitions import  argument, datatasks, datatags, dataset
-from datamaestro.data.tensor import IDX
+from datamaestro import dataset
+from datamaestro.download.single import download_file
+from datamaestro_image.data import ImageClassification, LabelledImages, IDXImage
 
 
 @filedownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
@@ -135,22 +122,33 @@ from datamaestro.data.tensor import IDX
   ImageClassification,
   url="http://yann.lecun.com/exdb/mnist/",
 )
-def MNIST(train_images, train_labels, test_images, test_labels):
-  """The MNIST database
 
-  The MNIST database of handwritten digits, available from this page, has a
-  training set of 60,000 examples, and a test set of 10,000 examples. It is a
-  subset of a larger set available from NIST. The digits have been
-  size-normalized and centered in a fixed-size image.
-  """
-  return {
-    "train": LabelledImages(
-      images=IDXImage(path=train_images),
-      labels=IDX(path=train_labels)
-    ),
-    "test": LabelledImages(
-      images=IDXImage(path=test_images),
-      labels=IDX(path=test_labels)
-    ),
-  }
+    return ImageClassification(
+        train=LabelledImages(
+            images=IDXImage(path=train_images), labels=IDXImage(path=train_labels)
+        ),
+        test=LabelledImages(
+            images=IDXImage(path=test_images), labels=IDXImage(path=test_labels)
+        ),
+    )
 ```
+
+When building dataset modules, some extra documentation can be provided:
+
+```yaml
+  ids: [com.lecun.mnist]
+  entry_point: "datamaestro_image.config.com.lecun:mnist"
+  title: The MNIST database
+  url: http://yann.lecun.com/exdb/mnist/
+  groups: [image-classification]
+  description: |
+    The MNIST database of handwritten digits, available from this page,
+    has a training set of 60,000 examples, and a test set of 10,000
+    examples. It is a subset of a larger set available from NIST. The
+    digits have been size-normalized and centered in a fixed-size image.
+```
+
+This will allow to
+
+1. Document the dataset
+2. Allow to use the command line interface to manipulate it (download resources, etc.)

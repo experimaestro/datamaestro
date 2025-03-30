@@ -7,8 +7,6 @@ from .context import (
     prepare_dataset,
 )
 
-from .datasets.yaml_repository import YAMLRepository
-
 from pkg_resources import get_distribution, DistributionNotFound
 from .definitions import dataset, metadata
 from .data import Base

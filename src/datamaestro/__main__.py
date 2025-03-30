@@ -319,13 +319,17 @@ def search(config: Config, searchterms):
 
     logging.debug("Search: %s", condition)
     for dataset in config.context.datasets():
-        if condition.match(dataset):
-            cfg = dataset.configtype
-            print(
-                "[%s] %s (%s)"
-                % (
-                    dataset.repository.id,
-                    dataset.id,
-                    cfg.__name__ if cfg is not None else "?",
+        try:
+            if condition.match(dataset):
+                cfg = dataset.configtype
+                print(
+                    "[%s] %s (%s)"
+                    % (
+                        dataset.repository.id,
+                        dataset.id,
+                        cfg.__name__ if cfg is not None else "?",
+                    )
                 )
-            )
+        except Exception:
+            logging.error("Error while matching with dataset %s", dataset)
+            raise

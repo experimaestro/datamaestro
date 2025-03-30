@@ -9,7 +9,7 @@ import os
 import urllib3
 from pathlib import Path
 import re
-from datamaestro.utils import copyfileobjs, FileChecker
+from datamaestro.utils import copyfileobjs
 from datamaestro.stream import Transform
 from datamaestro.download import Download
 
@@ -35,7 +35,7 @@ class SingleDownload(Download):
         return self.path
 
     def download(self, force=False):
-        if not self.path.is_file():
+        if not self.path.is_file() and not force:
             self._download(self.path)
 
 
@@ -94,20 +94,6 @@ class filedownloader(SingleDownload):
                 (shutil.copy if file.keep else shutil.move)(file.path, destination)
 
         logging.info("Created file %s" % destination)
-
-
-def file_from_url(
-    filename: str,
-    url: str,
-    *,
-    size: Optional[int] = None,
-    transforms: Optional[Transform] = None,
-    checker: Optional[FileChecker] = None,
-) -> Path:
-    """Defines a file that should be downloaded from"""
-    downloader = filedownloader(filename, url, size, transforms, checker)
-    downloader.contextualize()
-    return downloader.path
 
 
 class concatdownload(SingleDownload):

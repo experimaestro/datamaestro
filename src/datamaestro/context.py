@@ -89,11 +89,6 @@ class Context:
         return ContextManager()
 
     @property
-    def storepath(self):
-        """Replaces the data path"""
-        return self._path.joinpath("store")
-
-    @property
     def datapath(self):
         return self._path.joinpath("data")
 
