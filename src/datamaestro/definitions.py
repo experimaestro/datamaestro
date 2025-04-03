@@ -102,7 +102,7 @@ class DataDefinition(AbstractData):
             if components[0] == "datamaestro":
                 longest_ix = 0
 
-        return repository, components[(longest_ix + 1) :]
+        return repository, [s.lower() for s in components[(longest_ix + 1) :]]
 
     def ancestors(self):
         ancestors = []
@@ -293,7 +293,11 @@ class DatasetWrapper(AbstractDataset):
 
         # Builds the ID:
         # Removes module_name.config prefix
-        if annotation.id is None or annotation.id == "":
+        if (
+            (annotation.id is None)
+            or (annotation.id == "")
+            or ("." not in annotation.id)
+        ):
             # Computes an ID
             assert (
                 # id is empty string = use the module id
@@ -303,7 +307,15 @@ class DatasetWrapper(AbstractDataset):
                 "A @dataset without `id` should be in the "
                 f".config module (not {t.__module__})"
             )
-            path = ".".join(components[1:-1])
+
+            if annotation.id is None:
+                # There is nothing, use the full path
+                path = ".".join(components[1:])
+            else:
+                # Replace
+                path = ".".join(components[1:-1])
+                if annotation.id != "":
+                    path = f"{path}.{annotation.id}"
 
             self.id = path
         else:
@@ -557,13 +569,15 @@ class dataset:
             timestamp {bool} -- If the dataset evolves, specify its timestamp
             (default: None)
 
-            id {[type]} -- [description] (default: {None})
+            id {[type]} -- [description] (default: {None}) Gives the full ID of
+            the dataset if it contains a ., or just the last component otherwise
 
             url {[type]} -- [description] (default: {None})
 
             size {str} -- The size (should be a parsable format)
 
             doi {str} -- The DOI of the corresponding paper
+
         """
         if hasattr(base, "__datamaestro__") and isinstance(
             base.__datamaestro__, metadataset
