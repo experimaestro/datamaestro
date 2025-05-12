@@ -40,7 +40,7 @@ class AndCondition(Condition):
         return True
 
     def __repr__(self):
-        return " AND ".join(self.conditions)
+        return " AND ".join([repr(x) for x in self.conditions])
 
 
 class OrCondition(Condition):

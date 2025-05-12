@@ -31,7 +31,7 @@ class Resource(DatasetAnnotation, ABC):
         self.varname = varname
         # Ensures that the object is initialized
         self._post = False
-        self.definition = None
+        self.definition: AbstractDataset = None
 
     def annotate(self, dataset: AbstractDataset):
         assert self.definition is None
@@ -42,6 +42,13 @@ class Resource(DatasetAnnotation, ABC):
         dataset.resources[self.varname] = self
         dataset.ordered_resources.append(self)
         self.definition = dataset
+
+    def contextualize(self):
+        """When using an annotation inline, uses the current dataset wrapper object"""
+        from datamaestro.definitions import AbstractDataset
+
+        wrapper = AbstractDataset.processing()
+        self.annotate(wrapper)
 
     @property
     def context(self):
@@ -77,7 +84,7 @@ class Resource(DatasetAnnotation, ABC):
 Download = Resource
 
 
-class reference(Download):
+class reference(Resource):
     def __init__(self, varname=None, reference=None):
         """References another dataset
 

@@ -5,7 +5,7 @@ from datamaestro.download import Download
 
 
 class hf_download(Download):
-    """Use Hugging Face to donwload a file"""
+    """Use Hugging Face to download a file"""
 
     def __init__(
         self,

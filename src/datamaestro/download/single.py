@@ -35,7 +35,7 @@ class SingleDownload(Download):
         return self.path
 
     def download(self, force=False):
-        if not self.path.is_file():
+        if not self.path.is_file() and not force:
             self._download(self.path)
 
 

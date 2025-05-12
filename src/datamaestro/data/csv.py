@@ -1,7 +1,8 @@
+from typing import Optional, Tuple, List, Any
 from csv import reader as csv_reader
-from . import File, argument, documentation
-from datamaestro.definitions import Meta
-from typing import Tuple, List, Any
+from experimaestro import Param, Meta
+from experimaestro import documentation
+from . import File
 
 
 class Generic(File):
@@ -26,11 +27,12 @@ class Generic(File):
                     return row
 
 
-@argument("names_row", type=int, default=-1)
-@argument("size_row", type=int, default=-1)
-@argument("target", type=str, default=None)
 class Matrix(Generic):
     """A numerical dataset"""
+
+    names_row: Param[int] = -1
+    size_row: Param[int] = -1
+    target: Param[Optional[str]] = None
 
     @documentation
     def data(self) -> Tuple[List[str], Any]:

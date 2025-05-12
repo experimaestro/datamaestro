@@ -62,3 +62,10 @@ File hashes can be checked with the following checker
 .. autoclass:: datamaestro.utils.FileChecker
 .. autoclass:: datamaestro.utils.HashCheck
        :members: __init__
+
+
+Custom
+======
+
+.. autoclass:: datamaestro.download.custom.Downloader
+.. autofunction:: datamaestro.download.custom.custom_download

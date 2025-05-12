@@ -6,6 +6,7 @@ import logging
 import inspect
 from pathlib import Path
 from itertools import chain
+from abc import ABC, abstractmethod
 import traceback
 from typing import (
     Dict,
@@ -16,6 +17,8 @@ from typing import (
     TypeVar,
     Callable,
     TYPE_CHECKING,
+    Union,
+    _GenericAlias,
 )
 from experimaestro import (  # noqa: F401 (re-exports)
     argument,
@@ -27,16 +30,16 @@ from experimaestro import (  # noqa: F401 (re-exports)
 )
 from typing import Type as TypingType  # noqa: F401 (re-exports)
 from experimaestro.core.types import Type  # noqa: F401 (re-exports)
-from .context import Repository, Context, DatafolderPath  # noqa: F401 (re-exports)
 
 if TYPE_CHECKING:
+    from .data import Base, Dataset
+    from .context import Repository, Context, DatafolderPath  # noqa: F401 (re-exports)
     from datamaestro.download import Download
-    from .data import Base
 
 # --- Objects holding information into classes/function
 
 
-class AbstractData:
+class AbstractData(ABC):
     """Data definition groups common fields between a dataset and a data piece,
     such as tags and tasks"""
 
@@ -77,8 +80,10 @@ class DataDefinition(AbstractData):
         return self._description
 
     @staticmethod
-    def repository_relpath(t: type) -> Tuple[Repository, List[str]]:
+    def repository_relpath(t: type) -> Tuple["Repository", List[str]]:
         """Find the repository of the current data or dataset definition"""
+        from .context import Context  # noqa: F811
+
         repositorymap = Context.instance().repositorymap
 
         fullname = f"{t.__module__}.{t.__name__}"
@@ -97,10 +102,7 @@ class DataDefinition(AbstractData):
             if components[0] == "datamaestro":
                 longest_ix = 0
 
-        if repository is None:
-            raise Exception(f"Could not find the repository for {fullname}")
-
-        return repository, components[(longest_ix + 1) :]
+        return repository, [s.lower() for s in components[(longest_ix + 1) :]]
 
     def ancestors(self):
         ancestors = []
@@ -163,18 +165,26 @@ class AbstractDataset(AbstractData):
 
     @property
     def context(self):
+        if self.repository is None:
+            from datamaestro.context import Context  # noqa: F811
+
+            return Context.instance()
         return self.repository.context
 
     def prepare(self, download=False) -> "Base":
-        ds = self._prepare(download)
+        ds = self._prepare()
         ds.__datamaestro_dataset__ = self
+
+        if download:
+            ds.download()
         return ds
 
     def register_hook(self, hookname: str, hook: Callable):
         self.hooks[hookname].append(hook)
 
-    def _prepare(self, download=False) -> "Base":
-        raise NotImplementedError(f"prepare() in {self.__class__}")
+    @abstractmethod
+    def _prepare(self) -> "Base":
+        ...
 
     def format(self, encoder: str) -> str:
         s = self.prepare()
@@ -194,7 +204,10 @@ class AbstractDataset(AbstractData):
         from datamaestro.data import Base
 
         if isinstance(data, Base):
-            data.id = f"{id}@{self.repository.name}"
+            if self.repository is None:
+                data.id = id
+            else:
+                data.id = f"{id}@{self.repository.name}"
         for key, value in data.__xpm__.values.items():
             if isinstance(value, Config):
                 self.setDataIDs(value, f"{id}.{key}")
@@ -202,6 +215,7 @@ class AbstractDataset(AbstractData):
     def download(self, force=False):
         """Download all the necessary resources"""
         success = True
+        self.prepare()
         logging.info("Materializing %d resources", len(self.ordered_resources))
         for resource in self.ordered_resources:
             try:
@@ -216,6 +230,8 @@ class AbstractDataset(AbstractData):
     @staticmethod
     def find(name: str) -> "DataDefinition":
         """Find a dataset given its name"""
+        from datamaestro.context import Context  # noqa: F811
+
         logging.debug("Searching dataset %s", name)
         for repository in Context.instance().repositories():
             logging.debug("Searching dataset %s in %s", name, repository)
@@ -226,7 +242,7 @@ class AbstractDataset(AbstractData):
 
 
 class FutureAttr:
-    """Allows to access a dataset subproperty"""
+    """Allows to access a dataset sub-property"""
 
     def __init__(self, dataset, keys):
         self.dataset = dataset
@@ -257,13 +273,19 @@ class DatasetWrapper(AbstractDataset):
     """
 
     def __init__(self, annotation, t: type):
+        self.config = None
+        self.repository: Optional[Repository] = None
         self.t = t
         self.base = annotation.base
-        self.config = None
         assert self.base is not None, f"Could not set the Config type for {t}"
 
         repository, components = DataDefinition.repository_relpath(t)
         super().__init__(repository)
+
+        self.module_name = None
+        if repository is None:
+            # Try to find the module name
+            self.module_name, _ = t.__module__.split(".", 1)
 
         # Set some variables
         self.url = annotation.url
@@ -271,19 +293,34 @@ class DatasetWrapper(AbstractDataset):
 
         # Builds the ID:
         # Removes module_name.config prefix
-        assert (
-            components[0] == "config"
-        ), f"A @dataset object should be in the .config module (not {t.__module__})"
+        if (
+            (annotation.id is None)
+            or (annotation.id == "")
+            or ("." not in annotation.id)
+        ):
+            # Computes an ID
+            assert (
+                # id is empty string = use the module id
+                components[0]
+                == "config"
+            ), (
+                "A @dataset without `id` should be in the "
+                f".config module (not {t.__module__})"
+            )
 
-        path = ".".join(components[1:-1])
-        if annotation.id == "":
-            # id is empty string = use the module id
+            if annotation.id is None:
+                # There is nothing, use the full path
+                path = ".".join(components[1:])
+            else:
+                # Replace
+                path = ".".join(components[1:-1])
+                if annotation.id != "":
+                    path = f"{path}.{annotation.id}"
+
             self.id = path
         else:
-            self.id = "%s.%s" % (
-                path,
-                annotation.id or t.__name__.lower().replace("_", "."),
-            )
+            # Use the provided ID
+            self.id = annotation.id
 
         self.aliases.add(self.id)
 
@@ -327,9 +364,6 @@ class DatasetWrapper(AbstractDataset):
     def configtype(self):
         return self.base
 
-    def __call__(self, *args, **kwargs):
-        self.t(*args, **kwargs)
-
     def __getattr__(self, key):
         """Returns a pointer to a potential attribute"""
         return FutureAttr(self, [key])
@@ -339,39 +373,51 @@ class DatasetWrapper(AbstractDataset):
             self._prepare()
         return super().download(force=force)
 
-    def _prepare(self, download=False) -> "Base":
+    def _prepare(self) -> "Base":
         if self.config is not None:
             return self.config
 
+        # Direct creation of the dataset
         if self.base is self.t:
             self.config = self.base.__create_dataset__(self)
 
-        if download:
-            for hook in self.hooks["pre-download"]:
-                hook(self)
-            if not self.download(False):
-                raise Exception("Could not load necessary resources")
+        # Construct the object
+        resources = {key: value.prepare() for key, value in self.resources.items()}
+
+        result = self.t(**resources)
+
+        # Download resources
         logging.debug("Building with data type %s and dataset %s", self.base, self.t)
         for hook in self.hooks["pre-use"]:
             hook(self)
 
-        # Construct the object
-        if self.config is None:
-            resources = {key: value.prepare() for key, value in self.resources.items()}
-            dict = self.t(**resources)
-            if dict is None:
-                name = self.t.__name__
-                filename = inspect.getfile(self.t)
-                raise Exception(
-                    f"The dataset method {name} defined in "
-                    f"{filename} returned a null object"
-                )
-            self.config = self.base(**dict)
+        if result is None:
+            name = self.t.__name__
+            filename = inspect.getfile(self.t)
+            raise Exception(
+                f"The dataset method {name} defined in "
+                f"{filename} returned a null object"
+            )
+
+        if isinstance(result, dict):
+            self.config = self.base(**result)
+        elif isinstance(result, self.base):
+            self.config = result
+        else:
+            raise RuntimeError(
+                f"The dataset method {name} defined in "
+                f"{filename} returned an object of type {type(dict)}"
+            )
+
+        # Setup ourself
+        self.config.__datamaestro_dataset__ = self
 
         # Set the ids
         self.setDataIDs(self.config, self.id)
 
         return self.config
+
+    __call__ = _prepare
 
     @property
     def _path(self) -> Path:
@@ -384,7 +430,13 @@ class DatasetWrapper(AbstractDataset):
     @property
     def datapath(self):
         """Returns the destination path for downloads"""
-        return self.repository.datapath / self._path
+        if self.repository is not None:
+            return self.repository.datapath / self._path
+
+        # No repository, use __custom__/[MODULE NAME]
+        path = self.context.datapath / "__custom__" / self.module_name / self._path
+
+        return path
 
     def hasfiles(self) -> bool:
         """Returns whether this dataset has files or only includes references"""
@@ -426,10 +478,16 @@ class DatasetAnnotation:
     """Base class for all annotations"""
 
     def __call__(self, dataset: AbstractDataset):
-        assert isinstance(
-            dataset, AbstractDataset
-        ), f"Only datasets can be annotated with {self}, but {dataset} is not a dataset"
-        self.annotate(dataset)
+        if isinstance(dataset, AbstractDataset):
+            self.annotate(dataset)
+        elif issubclass(dataset, Dataset):
+            self.annotate(dataset.__datamaestro__)
+        else:
+            raise RuntimeError(
+                f"Only datasets can be annotated with {self}, "
+                f"but {dataset} is not a dataset"
+            )
+
         return dataset
 
     def annotate(self, dataset: AbstractDataset):
@@ -477,9 +535,27 @@ datatags = DataTagging(lambda d: d.tags)
 datatasks = DataTagging(lambda d: d.tasks)
 
 
+class metadata:
+    def __init__(
+        self, tags: Union[str, List[str]] = None, tasks: Union[str, List[str]] = None
+    ):
+        pass
+
+    def __call__(self, object: type):
+        # FIXME: todo
+        return object
+
+
 class dataset:
     def __init__(
-        self, base=None, *, timestamp=None, id=None, url=None, size=None, doi=None
+        self,
+        base=None,
+        *,
+        timestamp=None,
+        id=None,
+        url=None,
+        size=None,
+        doi=None,
     ):
         """Creates a new (meta)dataset
 
@@ -493,13 +569,15 @@ class dataset:
             timestamp {bool} -- If the dataset evolves, specify its timestamp
             (default: None)
 
-            id {[type]} -- [description] (default: {None})
+            id {[type]} -- [description] (default: {None}) Gives the full ID of
+            the dataset if it contains a ., or just the last component otherwise
 
             url {[type]} -- [description] (default: {None})
 
             size {str} -- The size (should be a parsable format)
 
             doi {str} -- The DOI of the corresponding paper
+
         """
         if hasattr(base, "__datamaestro__") and isinstance(
             base.__datamaestro__, metadataset
@@ -523,9 +601,12 @@ class dataset:
                 if inspect.isclass(t) and issubclass(t, Base):
                     self.base = t
                 else:
-                    # Get type from return annotation
                     try:
-                        self.base = t.__annotations__["return"]
+                        # Get type from return annotation
+                        return_type = t.__annotations__["return"]
+                        if isinstance(return_type, _GenericAlias):
+                            return_type = return_type.__origin__
+                        self.base = return_type
                     except KeyError:
                         logging.warning("No return annotation in %s", t)
                         raise
@@ -533,7 +614,6 @@ class dataset:
             raise AssertionError("@data should only be called once")
         except AttributeError:
             pass
-
         dw = DatasetWrapper(self, t)
         t.__dataset__ = dw
         if inspect.isclass(t) and issubclass(t, Base):
@@ -560,3 +640,5 @@ class metadataset(AbstractDataset):
             pass
         t.__datamaestro__ = self
         return t
+
+    _prepare = None

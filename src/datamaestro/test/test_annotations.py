@@ -5,6 +5,7 @@ from datamaestro.definitions import AbstractDataset
 def test_useragreements(context):
     # Fake dataset
     class t(AbstractDataset):
-        pass
+        def _prepare(self):
+            pass
 
     useragreement("test")(t(None))
