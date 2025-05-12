@@ -381,33 +381,36 @@ class DatasetWrapper(AbstractDataset):
         if self.base is self.t:
             self.config = self.base.__create_dataset__(self)
 
-        # Construct the object
-        resources = {key: value.prepare() for key, value in self.resources.items()}
-
-        result = self.t(**resources)
-
-        # Download resources
-        logging.debug("Building with data type %s and dataset %s", self.base, self.t)
-        for hook in self.hooks["pre-use"]:
-            hook(self)
-
-        if result is None:
-            name = self.t.__name__
-            filename = inspect.getfile(self.t)
-            raise Exception(
-                f"The dataset method {name} defined in "
-                f"{filename} returned a null object"
-            )
-
-        if isinstance(result, dict):
-            self.config = self.base(**result)
-        elif isinstance(result, self.base):
-            self.config = result
         else:
-            raise RuntimeError(
-                f"The dataset method {name} defined in "
-                f"{filename} returned an object of type {type(dict)}"
+            # Construct the object
+            resources = {key: value.prepare() for key, value in self.resources.items()}
+
+            result = self.t(**resources)
+
+            # Download resources
+            logging.debug(
+                "Building with data type %s and dataset %s", self.base, self.t
             )
+            for hook in self.hooks["pre-use"]:
+                hook(self)
+
+            if result is None:
+                name = self.t.__name__
+                filename = inspect.getfile(self.t)
+                raise Exception(
+                    f"The dataset method {name} defined in "
+                    f"{filename} returned a null object"
+                )
+
+            if isinstance(result, dict):
+                self.config = self.base(**result)
+            elif isinstance(result, self.base):
+                self.config = result
+            else:
+                raise RuntimeError(
+                    f"The dataset method {name} defined in "
+                    f"{filename} returned an object of type {type(dict)}"
+                )
 
         # Setup ourself
         self.config.__datamaestro_dataset__ = self
