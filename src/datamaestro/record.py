@@ -160,11 +160,20 @@ class Record:
     def __getitem__(self, key: Type[T]) -> T:
         """Get an item given its type"""
         base = key.__get_base__()
-        entry = self.items[base]
+        try:
+            entry = self.items[base]
+        except KeyError:
+            raise KeyError(
+                f"""No entry with type {key}: """
+                f"""{",".join(str(s) for s in self.items.keys())}"""
+            )
 
         # Check if this matches the expected class
         if not isinstance(entry, key):
-            raise KeyError(f"No entry with type {key}")
+            raise KeyError(
+                f"""No entry with type {key}: """
+                f"""{",".join(str(s) for s in self.items.keys())}"""
+            )
         return entry
 
     def update(self, *items: T, target: RecordType = None) -> "Record":
