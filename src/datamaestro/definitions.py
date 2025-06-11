@@ -403,7 +403,7 @@ class DatasetWrapper(AbstractDataset):
                 )
 
             if isinstance(result, dict):
-                self.config = self.base(**result)
+                self.config = self.base.C(**result)
             elif isinstance(result, self.base):
                 self.config = result
             else:
