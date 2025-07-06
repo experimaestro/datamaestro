@@ -142,13 +142,13 @@ class wayback_documents(Resource):
             return True
 
         # Reads the URLs
-        logging.info("Retrieving URLs from wayback")
+        logging.info("Retrieving URLs from wayback into %s", destination)
         pos = 0
         urls = set()
         with destination.open("at+") as fp:
             fp.seek(0)
             try:
-                for line in fp:
+                while line := fp.readline():
                     pos = fp.tell()
                     urls.add(json.loads(line)["url"])
             except json.JSONDecodeError:
@@ -157,7 +157,8 @@ class wayback_documents(Resource):
 
             # Get the remaining ones
             for url in tqdm(self.urls_fn()):
-                fp.write(json.dumps(download_link(url, self.timestamp)))
+                if url not in urls:
+                    fp.write(json.dumps(download_link(url, self.timestamp)))
 
         # Everything is fine
         done_path.touch()
