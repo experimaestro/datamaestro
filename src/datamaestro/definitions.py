@@ -297,6 +297,7 @@ class DatasetWrapper(AbstractDataset):
             (annotation.id is None)
             or (annotation.id == "")
             or ("." not in annotation.id)
+            or (annotation.id[0] == ".")
         ):
             # Computes an ID
             assert (
@@ -550,38 +551,30 @@ class metadata:
 
 
 class dataset:
+    """Dataset decorator
+
+    Meta-datasets are not associated with any base type.
+
+    :param base: The base type (or None if inferred from type annotation).
+    :param timestamp: If the dataset evolves, specify its timestamp.
+    :param id: Gives the full ID of the dataset if it contains a '.',
+        the last component if not containing a '.', or the last components
+        if starting with '.'
+    :param url: The URL associated with the dataset.
+    :param size: The size of the dataset (should be a parsable format).
+    :param doi: The DOI of the corresponding paper.
+    """
+
     def __init__(
         self,
         base=None,
         *,
-        timestamp=None,
-        id=None,
-        url=None,
-        size=None,
-        doi=None,
+        timestamp: str | None = None,
+        id: None | str = None,
+        url: None | str = None,
+        size: None | int | str = None,
+        doi: None | str = None,
     ):
-        """Creates a new (meta)dataset
-
-        Meta-datasets are not associated with any base type
-
-        Arguments:
-            base {[type]} -- The base type (or None if infered from type
-            annotation)
-
-        Keyword Arguments:
-            timestamp {bool} -- If the dataset evolves, specify its timestamp
-            (default: None)
-
-            id {[type]} -- [description] (default: {None}) Gives the full ID of
-            the dataset if it contains a ., or just the last component otherwise
-
-            url {[type]} -- [description] (default: {None})
-
-            size {str} -- The size (should be a parsable format)
-
-            doi {str} -- The DOI of the corresponding paper
-
-        """
         if hasattr(base, "__datamaestro__") and isinstance(
             base.__datamaestro__, metadataset
         ):

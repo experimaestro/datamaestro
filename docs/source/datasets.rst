@@ -6,9 +6,9 @@ Dataset definition
 A dataset definition is composed of various parts:
 
 1. ID of the dataset determined by its location
-1. Meta-information: tags, tasks
-1. What to download
-1. How the data can be accessed in Python
+2. Meta-information: tags, tasks
+3. What to download
+4. How the data can be accessed in Python
 
 
 Example
@@ -59,3 +59,10 @@ In the example above, the dataset ID ``com.lecun.mnist`` is determined by the mo
 and the name of the function ``MNIST``.
 
 ``filedownloader`` returns a :py:class:`pathlib.Path`.
+
+
+The `@dataset` annotation
+=========================
+
+
+.. autoclass:: datamaestro.definitions.dataset

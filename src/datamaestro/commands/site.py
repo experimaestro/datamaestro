@@ -18,6 +18,7 @@ from mkdocs.structure.pages import Page as MkdocPage
 from docstring_parser import parse as docstring_parse
 
 import experimaestro
+import experimaestro.mkdocs.base
 from experimaestro.core.types import ObjectType
 
 from ..context import Context, Repository, Datasets
@@ -97,7 +98,7 @@ def document_data(datatype: ObjectType):
                 if doc.long_description:
                     s += doc.long_description + "\n"
                 s += method_documentation(doc, method.__annotations__)
-            except Exception as e:
+            except Exception:
                 logging.error(
                     "Error while parsing documetnation of %s (%s)",
                     method,
@@ -108,8 +109,6 @@ def document_data(datatype: ObjectType):
 
 
 def document_object(object):
-    from datamaestro.data import Base
-
     try:
         name = object.__name__
         # Get the documentation
@@ -141,7 +140,7 @@ def document_object(object):
 
         return s
 
-    except Exception as e:
+    except Exception:
         logging.exception(
             "Exception while generating the documentation for %s" % object.__name__
         )
@@ -159,7 +158,7 @@ def document(match):
     module = importlib.import_module(modulename)
     try:
         object = getattr(module, name)
-    except:
+    except Exception:
         return "<div class='error'>Cannot find %s in %s</div>" % (name, modulename)
 
     if ismodule(object):
@@ -182,7 +181,7 @@ class Classification:
 
     def add(self, name, value):
         key = name.lower()
-        if not key in self.map:
+        if key not in self.map:
             self.map[key] = ClassificationItem(name)
         self.map[key].values.append(value)
 
@@ -201,7 +200,6 @@ class Classification:
             )
 
     def match(self, path):
-
         if path == "datamaestro/%s.md" % self.id:
             r = io.StringIO()
             r.write("# List of %s\n\n" % self.name)
@@ -275,7 +273,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
     def parse_nav(self, nav):
         for entry in nav:
             assert len(entry) == 1
-            key, value = *entry.keys(), *entry.values()
+            _, value = *entry.keys(), *entry.values()
             if isinstance(value, list):
                 for value in self.parse_nav(value):
                     yield value
@@ -382,7 +380,7 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
             builder()
 
         logging.info("Watching %s", path)
-        server.watch(path, rebuild)
+        # server.watch(path, rebuild)
 
     def on_page_markdown(self, markdown, page, config, **kwargs):
         if page.url.startswith("api/"):
@@ -420,7 +418,10 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         r.write("## List of datasets\n\n")
         for ds in df:
             r.write(
-                """<div class="dataset-entry"><div class='dataset-id'>%s<a name="%s"></a></div>\n\n"""
+                (
+                    """<div class="dataset-entry"><div class='dataset-id'>"""
+                    """%s<a name="%s"></a></div>\n\n"""
+                )
                 % (ds.id, ds.id)
             )
             if ds.name:
