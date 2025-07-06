@@ -1,4 +1,3 @@
-from abc import abstractmethod
 import logging
 from pathlib import Path
 from typing import Any, Dict
@@ -26,7 +25,6 @@ class Base(Config):
         """Download the dataset"""
         self.__datamaestro_dataset__.download()
 
-    @abstractmethod
     def prepare(self, *args, **kwargs):
         """Prepare the dataset"""
         self.__datamaestro_dataset__.prepare()
