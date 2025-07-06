@@ -386,7 +386,7 @@ class DatasetWrapper(AbstractDataset):
             # Construct the object
             resources = {key: value.prepare() for key, value in self.resources.items()}
 
-            result = self.t(**resources)
+            result = self.t.C(**resources)
 
             # Download resources
             logging.debug(
@@ -590,10 +590,10 @@ class dataset:
         self.doi = doi
 
     def __call__(self, t):
+        from datamaestro.data import Base
+
         try:
             if self.base is None:
-                from datamaestro.data import Base
-
                 if inspect.isclass(t) and issubclass(t, Base):
                     self.base = t
                 else:
