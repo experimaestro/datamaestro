@@ -204,6 +204,14 @@ class AbstractDataset(AbstractData):
         from datamaestro.data import Base
 
         if isinstance(data, Base):
+            try:
+                if data.id:
+                    # There is already an ID, skip this
+                    # and the descendants
+                    return
+            except KeyError:
+                pass
+
             if self.repository is None:
                 data.id = id
             else:
