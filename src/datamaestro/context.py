@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable, Iterator, Dict, Union
+from typing import Iterable, Iterator, Dict, Optional, Union
 import importlib
 import os
 import hashlib
@@ -423,16 +423,23 @@ def find_dataset(dataset_id: str):
     return AbstractDataset.find(dataset_id)
 
 
-def prepare_dataset(dataset_id: Union[str, "DatasetWrapper", Config]):
+def prepare_dataset(
+    dataset_id: Union[str, "DatasetWrapper", Config],
+    context: Optional[Union[Context, Path]] = None,
+):
     """Find a dataset given its id and download the resources"""
     from .definitions import AbstractDataset, DatasetWrapper
+
+    match context:
+        case Path() | str():
+            context = Context(Path(context))
 
     if isinstance(dataset_id, DatasetWrapper):
         ds = dataset_id
     elif isinstance(dataset_id, Config):
         ds = dataset_id.__datamaestro_dataset__
     else:
-        ds = AbstractDataset.find(dataset_id)
+        ds = AbstractDataset.find(dataset_id, context=context)
 
     return ds.prepare(download=True)
 

@@ -10,4 +10,4 @@ from .context import (
 from pkg_resources import get_distribution, DistributionNotFound
 from .definitions import dataset, metadata
 from .data import Base
-from .version import version, version_tuple
+from .version import __version__

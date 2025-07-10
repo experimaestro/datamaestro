@@ -236,9 +236,11 @@ class AbstractDataset(AbstractData):
         return success
 
     @staticmethod
-    def find(name: str) -> "DataDefinition":
+    def find(name: str, context: Optional["Context"] = None) -> "DataDefinition":
         """Find a dataset given its name"""
         from datamaestro.context import Context  # noqa: F811
+
+        context = Context.instance() if context is None else context
 
         logging.debug("Searching dataset %s", name)
         for repository in Context.instance().repositories():

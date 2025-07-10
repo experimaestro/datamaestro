@@ -38,6 +38,12 @@ dev = [
     "twine>=6.1.0",
 ]
 
+[project.scripts]
+datamaestro = "datamaestro.__main__:main"
+
+[project.entry-points."mkdocs.plugins"]
+datamaestro = "datamaestro.commands.site:DatasetGenerator"
+
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
@@ -50,13 +56,6 @@ fallback-version = "0.0.0"
 
 [tool.hatch.build.hooks.version]
 path = "src/datamaestro/version.py"
-
-[tool.flake8]
-doctests = "True"
-exclude = ".git, .eggs, __pycache__, tests/, docs/, build/, dist/, app/"
-max-line-length = "88"
-# See https://github.com/PyCQA/pycodestyle/issues/373
-extend-ignore = "E203"
 
 [tool.mypy]
 python_version = 3.10
