@@ -1,9 +1,58 @@
-[tool.setuptools_scm]
-write_to = "src/datamaestro/version.py"
-fallback_version = "0.0.0-dev"
+[project]
+name = "datamaestro"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Benjamin Piwowarski", email = "benjamin@piwowarski.fr"}
+]
+dynamic = ["version"]
+dependencies = [
+    "bitmath>=1.3.3.1",
+    "cached-property>=2.0.1",
+    "click>=8.2.1",
+    "docstring-parser>=0.16",
+    "experimaestro>=1.8.9",
+    "marshmallow>=3.26.1",
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.15",
+    "numpy",
+    "pymdown-extensions>=10.16",
+    "requests>=2.32.4",
+    "tqdm>=4.67.1",
+    "urllib3>=2.5.0",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "pytest>=8.4.1",
+    "twine>=6.1.0",
+]
 
 [build-system]
-requires = ["setuptools", "setuptools-scm", "wheel"]  # PEP 508 specifications.
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+fallback-version = "0.0.0"
+
+[tool.hatch.build.hooks.version]
+path = "src/datamaestro/version.py"
+template = '''
+version = "{version}"
+'''
 
 [tool.flake8]
 doctests = "True"
@@ -11,3 +60,7 @@ exclude = ".git, .eggs, __pycache__, tests/, docs/, build/, dist/, app/"
 max-line-length = "88"
 # See https://github.com/PyCQA/pycodestyle/issues/373
 extend-ignore = "E203"
+
+[tool.mypy]
+python_version = 3.10
+warn_unused_ignores = "True"

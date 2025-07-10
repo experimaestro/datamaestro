@@ -11,7 +11,7 @@ sphinx:
 build:
   os: "ubuntu-20.04"
   tools:
-    python: "3.9"
+    python: "3.10"
 
 # Install the package
 python:
