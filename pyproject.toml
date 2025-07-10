@@ -50,9 +50,6 @@ fallback-version = "0.0.0"
 
 [tool.hatch.build.hooks.version]
 path = "src/datamaestro/version.py"
-template = '''
-version = "{version}"
-'''
 
 [tool.flake8]
 doctests = "True"

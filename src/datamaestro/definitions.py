@@ -204,6 +204,14 @@ class AbstractDataset(AbstractData):
         from datamaestro.data import Base
 
         if isinstance(data, Base):
+            try:
+                if data.id:
+                    # There is already an ID, skip this
+                    # and the descendants
+                    return
+            except KeyError:
+                pass
+
             if self.repository is None:
                 data.id = id
             else:
@@ -272,7 +280,7 @@ class DatasetWrapper(AbstractDataset):
     annotations (otherwise, derive from `AbstractDataset`).
     """
 
-    def __init__(self, annotation, t: type):
+    def __init__(self, annotation: "dataset", t: type):
         self.config = None
         self.repository: Optional[Repository] = None
         self.t = t
@@ -290,6 +298,7 @@ class DatasetWrapper(AbstractDataset):
         # Set some variables
         self.url = annotation.url
         self.doi = annotation.doi
+        self.as_prepare = annotation.as_prepare
 
         # Builds the ID:
         # Removes module_name.config prefix
@@ -384,9 +393,16 @@ class DatasetWrapper(AbstractDataset):
 
         else:
             # Construct the object
-            resources = {key: value.prepare() for key, value in self.resources.items()}
+            if self.as_prepare:
+                result = self.t(self, None)
+            else:
+                resources = {
+                    key: value.prepare() for key, value in self.resources.items()
+                }
+                result = self.t(**resources)
 
-            result = self.t(**resources)
+            if result is None:
+                raise RuntimeError(f"{self.base} did not return any resource")
 
             # Download resources
             logging.debug(
@@ -408,6 +424,8 @@ class DatasetWrapper(AbstractDataset):
             elif isinstance(result, self.base):
                 self.config = result
             else:
+                name = self.t.__name__
+                filename = inspect.getfile(self.t)
                 raise RuntimeError(
                     f"The dataset method {name} defined in "
                     f"{filename} returned an object of type {type(dict)}"
@@ -563,6 +581,7 @@ class dataset:
     :param url: The URL associated with the dataset.
     :param size: The size of the dataset (should be a parsable format).
     :param doi: The DOI of the corresponding paper.
+    :param as_prepare: Resources are setup within the method itself
     """
 
     def __init__(
@@ -574,6 +593,7 @@ class dataset:
         url: None | str = None,
         size: None | int | str = None,
         doi: None | str = None,
+        as_prepare: bool = False,
     ):
         if hasattr(base, "__datamaestro__") and isinstance(
             base.__datamaestro__, metadataset
@@ -588,12 +608,13 @@ class dataset:
         self.timestamp = timestamp
         self.size = size
         self.doi = doi
+        self.as_prepare = as_prepare
 
     def __call__(self, t):
+        from datamaestro.data import Base
+
         try:
             if self.base is None:
-                from datamaestro.data import Base
-
                 if inspect.isclass(t) and issubclass(t, Base):
                     self.base = t
                 else:
