@@ -7,7 +7,6 @@ from .context import (
     prepare_dataset,
 )
 
-from pkg_resources import get_distribution, DistributionNotFound
 from .definitions import dataset, metadata
 from .data import Base
 from .version import __version__

@@ -8,8 +8,7 @@ import inspect
 import json
 from abc import ABC, abstractmethod
 from experimaestro import Config
-import pkg_resources
-from experimaestro.compat import cached_property
+from functools import cached_property
 from experimaestro.mkdocs.metaloader import Module
 from .utils import CachedFile, downloadURL
 from .settings import UserSettings, Settings
@@ -17,6 +16,22 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from datamaestro.definitions import AbstractDataset, DatasetWrapper
+
+from importlib.metadata import (
+    entry_points as _entry_points,
+    version as _version,
+    PackageNotFoundError as _PackageNotFoundError,
+)
+
+
+def iter_entry_points(group, name=None):
+    """Yield entry points for a given group (and optional name) using importlib.metadata."""
+    eps = _entry_points()
+    selected = eps.select(group=group)
+    if name:
+        selected = [ep for ep in selected if ep.name == name]
+    for ep in selected:
+        yield ep
 
 
 class Compression:
@@ -106,7 +121,7 @@ class Context:
 
     def repositories(self) -> Iterable["Repository"]:
         """Returns an iterator over repositories"""
-        for entry_point in pkg_resources.iter_entry_points("datamaestro.repositories"):
+        for entry_point in iter_entry_points("datamaestro.repositories"):
             yield entry_point.load().instance()
 
     def repository(self, repositoryid):
@@ -114,10 +129,7 @@ class Context:
             return None
 
         entry_points = [
-            x
-            for x in pkg_resources.iter_entry_points(
-                "datamaestro.repositories", repositoryid
-            )
+            x for x in iter_entry_points("datamaestro.repositories", repositoryid)
         ]
         if not entry_points:
             raise Exception("No datasets repository named %s", repositoryid)
@@ -299,8 +311,7 @@ class BaseRepository(ABC):
         self.basedir = Path(p).parent
 
     @abstractmethod
-    def __iter__(self) -> Iterator["AbstractDataset"]:
-        ...
+    def __iter__(self) -> Iterator["AbstractDataset"]: ...
 
     def search(self, name: str):
         """Search for a dataset in the definitions"""
@@ -353,11 +364,9 @@ class Repository(BaseRepository):
 
     @classmethod
     def version(cls):
-        from pkg_resources import get_distribution, DistributionNotFound
-
         try:
-            return get_distribution(cls.__module__).version
-        except DistributionNotFound:
+            return _version(cls.__module__)
+        except _PackageNotFoundError:
             return None
 
     def __repr__(self):

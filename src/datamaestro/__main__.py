@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # flake8: noqa: T201
 
+from importlib.metadata import entry_points
 import sys
 import logging
 from functools import update_wrapper
@@ -38,7 +39,7 @@ def pass_cfg(f):
 # Get all the available repositories
 
 REPOSITORIES = {}
-for entry_point in pkg_resources.iter_entry_points("datamaestro.repositories"):
+for entry_point in entry_points(group="datamaestro.repositories"):
     REPOSITORIES[entry_point.name] = entry_point
 
 
