@@ -21,8 +21,6 @@ from typing import (
     _GenericAlias,
 )
 from experimaestro import (  # noqa: F401 (re-exports)
-    argument,
-    constant,
     Param,
     Option,
     Config,
@@ -183,8 +181,7 @@ class AbstractDataset(AbstractData):
         self.hooks[hookname].append(hook)
 
     @abstractmethod
-    def _prepare(self) -> "Base":
-        ...
+    def _prepare(self) -> "Base": ...
 
     def format(self, encoder: str) -> str:
         s = self.prepare()
