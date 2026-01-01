@@ -6,7 +6,6 @@ import sys
 import logging
 from functools import update_wrapper
 import traceback as tb
-import pkg_resources
 import re
 from pathlib import Path
 import shutil
