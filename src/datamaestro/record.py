@@ -1,4 +1,50 @@
+"""Record module for type-safe heterogeneous containers.
+
+.. deprecated:: 2.0
+    This module will be removed in v2. Use :class:`typing.TypedDict` instead
+    for type-safe heterogeneous data structures. TypedDict provides better IDE
+    support, type checking, and is part of the standard library.
+
+    When using TypedDict, define key constants in classes (e.g., ``MyItem.ID``)
+    to avoid typos and enable IDE autocomplete. Prefix keys with package name
+    using underscore ``_`` as delimiter to avoid conflicts between different
+    data sources.
+
+Example migration::
+
+    # Old way (deprecated)
+    @define
+    class MyItem(Item):
+        value: int
+
+    record = Record(MyItem(42))
+    print(record[MyItem].value)
+
+    # New way (recommended)
+    from typing import TypedDict
+
+    # Define key constants in classes
+    class MyItem:
+        ID = "mypackage_value"
+
+    class MyRecord(TypedDict):
+        mypackage_value: int
+
+    data: MyRecord = {MyItem.ID: 42}
+    print(data[MyItem.ID])
+"""
+
+import warnings
 from typing import Type, TypeVar, Dict, Union, Optional
+
+# Emit deprecation warning when module is imported
+warnings.warn(
+    "The datamaestro.record module is deprecated and will be removed in v2. "
+    "Use typing.TypedDict instead (use class constants like MyItem.ID for keys, "
+    "prefixed with package name).",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class Item:
@@ -28,8 +74,8 @@ class RecordType:
         self.mapping = {item_type.__get_base__(): item_type for item_type in item_types}
 
     def __repr__(self):
-        return f"""Record({",".join(item_type.__name__ for item_type in
-                self.item_types)})"""
+        names = ",".join(item_type.__name__ for item_type in self.item_types)
+        return f"Record({names})"
 
     def contains(self, other: "RecordType"):
         """Checks that each item type in other has an item type of a compatible

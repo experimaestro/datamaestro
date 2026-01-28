@@ -9,13 +9,13 @@ sphinx:
   configuration: docs/source/conf.py
 
 build:
-  os: "ubuntu-20.04"
+  os: "ubuntu-22.04"
   tools:
     python: "3.10"
-
-# Install the package
-python:
-  install:
-    - method: pip
-      path: .
-    - requirements: docs/requirements.txt
+  commands:
+    # Install uv
+    - pip install uv
+    # Install the package with docs dependency group
+    - uv sync --group docs
+    # Build the documentation
+    - uv run sphinx-build -b html docs/source $READTHEDOCS_OUTPUT/html

@@ -1,15 +1,84 @@
-Records
-=======
+Records (Deprecated)
+====================
 
-Records are flexible ways to compose information coming from various sources. For instance,
-your processing chain can produce records only containing an ID. Later, you add can retrieve
-the item content and add it to the record. Further in the processing, you would want to add
-some transformation of the item content.
+.. deprecated:: 2.0
+   The Record system will be removed in v2. Use :py:class:`~typing.TypedDict` instead.
 
-Records allow to perform this type of transformations by holding a set of **items**. Record types
-form a lattice of types so that checking that some item types are present in an item is easy.
+   When using TypedDict, define key constants in classes (e.g., ``MyItem.ID``)
+   to avoid typos and enable IDE autocomplete. Prefix keys with package name
+   using underscore ``_`` as delimiter to avoid conflicts between different
+   data sources.
+
+Migration to TypedDict
+----------------------
+
+The Record system provided a way to compose heterogeneous data from various sources.
+The recommended replacement is Python's built-in :py:class:`~typing.TypedDict`, which offers
+better IDE support and static type checking.
+
+**Old way (deprecated):**
 
 .. code-block:: python
+
+    from attrs import define
+    from datamaestro.record import Item, Record, record_type
+
+    @define
+    class DocumentItem(Item):
+        text: str
+
+    @define
+    class ScoreItem(Item):
+        value: float
+
+    record = Record(DocumentItem("hello"), ScoreItem(0.95))
+    print(record[DocumentItem].text)  # "hello"
+
+**New way (recommended):**
+
+.. code-block:: python
+
+    from typing import TypedDict
+
+    # Define key constants in classes for IDE autocomplete and to avoid typos
+    class DocumentItem:
+        ID = "mypackage_document"
+
+    class ScoreItem:
+        ID = "mypackage_score"
+
+    class MyRecord(TypedDict):
+        mypackage_document: str
+        mypackage_score: float
+
+    record: MyRecord = {
+        DocumentItem.ID: "hello",
+        ScoreItem.ID: 0.95
+    }
+    print(record[DocumentItem.ID])  # "hello"
+
+For optional fields, use :py:class:`~typing.NotRequired` (Python 3.11+) or
+``total=False``:
+
+.. code-block:: python
+
+    from typing import TypedDict, NotRequired
+
+    class MyRecord(TypedDict):
+        mypackage_document: str
+        mypackage_score: NotRequired[float]  # Optional field
+
+Legacy API Reference
+--------------------
+
+The following API is deprecated and will be removed in a future version.
+
+Records were flexible ways to compose information coming from various sources.
+For instance, your processing chain could produce records only containing an ID.
+Later, you could retrieve the item content and add it to the record.
+
+.. code-block:: python
+
     @define
     class AItem(Item):
         a: int
