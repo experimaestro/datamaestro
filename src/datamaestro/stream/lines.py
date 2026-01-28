@@ -42,12 +42,14 @@ class LineTransformStream(io.RawIOBase):
                     return offset
 
             # How many bytes to read from current line
-            l = min(lb, len(self.current) - self.offset)
+            chunk_len = min(lb, len(self.current) - self.offset)
 
-            b[offset : (offset + l)] = self.current[self.offset : (self.offset + l)]
-            lb -= l
-            offset += l
-            self.offset += l
+            b[offset : (offset + chunk_len)] = self.current[
+                self.offset : (self.offset + chunk_len)
+            ]
+            lb -= chunk_len
+            offset += chunk_len
+            self.offset += chunk_len
 
         return offset
 

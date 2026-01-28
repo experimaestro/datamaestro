@@ -36,6 +36,7 @@ dev = [
     "git-cliff>=2.11.0",
     "pre-commit>=4.2.0",
     "pytest>=8.4.1",
+    "ruff>=0.9.0",
     "twine>=6.1.0",
 ]
 docs = [
@@ -68,3 +69,21 @@ path = "src/datamaestro/version.py"
 [tool.mypy]
 python_version = 3.10
 warn_unused_ignores = "True"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "T20",    # flake8-print
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.ruff.format]
+quote-style = "double"

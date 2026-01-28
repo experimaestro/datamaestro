@@ -13,7 +13,7 @@ class hf_download(Download):
         repo_id: str,
         *,
         data_files: Optional[str] = None,
-        split: Optional[str] = None
+        split: Optional[str] = None,
     ):
         """Use
 

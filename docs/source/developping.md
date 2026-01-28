@@ -11,14 +11,14 @@ This guide covers how to contribute to datamaestro or develop dataset plugins.
 git clone https://github.com/experimaestro/datamaestro.git
 cd datamaestro
 
-# Install in development mode
-pip install -e .
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install development dependencies
-pip install -e ".[dev]"
+# Install dependencies and set up development environment
+uv sync --group dev
 
 # Install pre-commit hooks
-pre-commit install
+uv run pre-commit install
 ```
 
 ### Plugin Development
@@ -30,40 +30,34 @@ To develop a plugin (e.g., `datamaestro_text`):
 git clone https://github.com/experimaestro/datamaestro_text.git
 cd datamaestro_text
 
-# Install both core and plugin in development mode
-pip install -e ../datamaestro
-pip install -e .
+# Install with uv (will also install datamaestro as dependency)
+uv sync --group dev
 ```
 
 ## Code Quality
 
-### Formatting
+### Formatting and Linting
 
-Code is formatted with [black](https://black.readthedocs.io/) with a maximum line length of 80 characters:
-
-```bash
-# Format all files
-pre-commit run black --all-files
-
-# Or run black directly
-black --line-length 80 src/
-```
-
-### Linting
-
-Code is linted with [flake8](https://flake8.pycqa.org/):
+Code is formatted and linted with [ruff](https://docs.astral.sh/ruff/) with a maximum line length of 88 characters:
 
 ```bash
-# Lint all files
-pre-commit run flake8 --all-files
+# Check for issues
+uv run ruff check src/
 
-# Or run flake8 directly
-flake8 src/
+# Fix auto-fixable issues
+uv run ruff check --fix src/
+
+# Format code
+uv run ruff format src/
+
+# Check formatting without changing files
+uv run ruff format --check src/
 ```
 
-Plugins used:
-- `flake8-print` - Warns about print statements
-- `flake8-fixme` - Warns about TODO/FIXME comments
+Ruff rules enabled:
+- `E`, `W` - pycodestyle errors and warnings
+- `F` - Pyflakes
+- `T20` - flake8-print (warns about print statements)
 
 ### Pre-commit Hooks
 
@@ -109,19 +103,19 @@ docs(readme): update installation instructions
 
 ```bash
 # Run all tests
-pytest
+uv run pytest
 
 # Run a specific test file
-pytest src/datamaestro/test/test_record.py
+uv run pytest src/datamaestro/test/test_record.py
 
 # Run a specific test
-pytest src/datamaestro/test/test_record.py -k test_name
+uv run pytest src/datamaestro/test/test_record.py -k test_name
 
 # Run with coverage
-pytest --cov=datamaestro
+uv run pytest --cov=datamaestro
 
 # Run with verbose output
-pytest -v
+uv run pytest -v
 ```
 
 ### Test Fixtures
@@ -302,7 +296,7 @@ This automatically generates documentation from registered datasets.
 If you get import errors after installing in development mode:
 
 ```bash
-pip install -e . --force-reinstall
+uv sync --reinstall
 ```
 
 ### Pre-commit Hook Failures
@@ -311,10 +305,10 @@ If pre-commit hooks fail:
 
 ```bash
 # Update hooks
-pre-commit autoupdate
+uv run pre-commit autoupdate
 
 # Clear cache
-pre-commit clean
+uv run pre-commit clean
 ```
 
 ### Test Discovery Issues

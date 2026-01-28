@@ -3,7 +3,6 @@ from datamaestro import Repository, Context
 import shutil
 import logging
 import pytest
-import shutil
 
 
 class MyRepository(Repository):
@@ -23,7 +22,7 @@ def context(tmp_path_factory):
     context = Context(Path(dir))
     logging.info("Created datamaestro test directory %s", dir)
 
-    repository = MyRepository(context)
+    _repository = MyRepository(context)  # noqa: F841 - registered on creation
 
     yield context
 

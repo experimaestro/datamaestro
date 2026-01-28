@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# flake8: noqa: T201
+# ruff: noqa: T201
 
 from importlib.metadata import entry_points
 import sys
@@ -9,11 +9,13 @@ import traceback as tb
 import re
 from pathlib import Path
 import shutil
-from .context import Context
 from typing import Set
-import datamaestro
+from urllib.parse import urlparse
 
 import click
+
+import datamaestro
+from .context import Context
 
 logging.basicConfig(level=logging.INFO)
 
@@ -60,7 +62,10 @@ for entry_point in entry_points(group="datamaestro.repositories"):
     "--traceback", is_flag=True, help="Display traceback if an exception occurs"
 )
 @click.option(
-    "--data", type=Path, help="Directory containing datasets", default=Context.MAINDIR
+    "--data",
+    type=Path,
+    help="Directory containing datasets",
+    default=Context.MAINDIR,
 )
 @click.pass_context
 def cli(ctx, quiet, debug, traceback, data, keep_downloads, host, pythonpath):
@@ -207,7 +212,6 @@ def datafolder_set(config: Config, key: str, path: Path):
 # --- Create a dataset
 
 DATASET_REGEX = re.compile(r"^\w[\w\.-]+\w$")
-from urllib.parse import urlparse
 
 
 def dataset_id_check(ctx, param, value):

@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 
 from datamaestro.download import Download
-from datamaestro.definitions import AbstractDataset
 
 from subprocess import run
 

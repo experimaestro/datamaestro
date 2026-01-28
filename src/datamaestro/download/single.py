@@ -79,9 +79,10 @@ class filedownloader(SingleDownload):
             # Transform if need be
             if self.transforms:
                 logging.info("Transforming file")
-                with self.transforms(file.path.open("rb")) as stream, destination.open(
-                    "wb"
-                ) as out:
+                with (
+                    self.transforms(file.path.open("rb")) as stream,
+                    destination.open("wb") as out,
+                ):
                     if self.checker:
                         copyfileobjs(stream, [out, self.checker])
                         self.checker.close()
@@ -112,7 +113,10 @@ class concatdownload(SingleDownload):
         self.transforms = transforms
 
     def _download(self, destination):
-        with self.context.downloadURL(self.url) as dl, tarfile.open(dl.path) as archive:
+        with (
+            self.context.downloadURL(self.url) as dl,
+            tarfile.open(dl.path) as archive,
+        ):
             destination.parent.mkdir(parents=True, exist_ok=True)
 
             with open(destination, "wb") as out:

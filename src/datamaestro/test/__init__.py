@@ -1,1 +1,3 @@
-from .checks import *
+from .checks import DatasetTests
+
+__all__ = ["DatasetTests"]

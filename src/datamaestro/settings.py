@@ -1,7 +1,8 @@
 """Global and user settings utility classes"""
+
 import marshmallow as mm
 from typing import Dict, Any
-from experimaestro.utils.settings import JsonSettings, PathField
+from experimaestro.utils.settings import JsonSettings
 from pathlib import Path
 
 # --- Global settings

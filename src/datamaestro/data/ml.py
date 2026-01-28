@@ -1,4 +1,5 @@
 """Machine learning generic data formats"""
+
 from pathlib import Path
 from typing import Generic, TypeVar, Optional
 from experimaestro import Param, Meta

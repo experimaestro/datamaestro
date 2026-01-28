@@ -159,9 +159,9 @@ def downloadURL(url: str, path: Path, resume: bool = False, size: int = None):
         response = requests.get(url, stream=True)
 
     # Valid response
-    assert (
-        response.status_code >= 200 and response.status_code < 300
-    ), f"Status code is not 2XX ({response.status_code})"
+    assert response.status_code >= 200 and response.status_code < 300, (
+        f"Status code is not 2XX ({response.status_code})"
+    )
 
     # Get the total size (or use the provided one)
     total_size = int(response.headers.get("content-length", size or 0))
@@ -171,9 +171,10 @@ def downloadURL(url: str, path: Path, resume: bool = False, size: int = None):
         total_size += pos
 
     CHUNK_SIZE = 1024
-    with path.open("ab") as f, tqdm(
-        initial=pos, total=total_size, unit_scale=True, unit="B"
-    ) as t:
+    with (
+        path.open("ab") as f,
+        tqdm(initial=pos, total=total_size, unit_scale=True, unit="B") as t,
+    ):
         for data in response.iter_content(chunk_size=CHUNK_SIZE):
             f.write(data)
             t.update(len(data))

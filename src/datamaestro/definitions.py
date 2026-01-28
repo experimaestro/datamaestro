@@ -310,8 +310,7 @@ class DatasetWrapper(AbstractDataset):
             # Computes an ID
             assert (
                 # id is empty string = use the module id
-                components[0]
-                == "config"
+                components[0] == "config"
             ), (
                 "A @dataset without `id` should be in the "
                 f".config module (not {t.__module__})"
@@ -482,9 +481,9 @@ class DataAnnotation:
                 self.annotate(object.__datamaestro__)
             else:
                 # With configuration objects, add a __datamaestro__ member to the class
-                assert issubclass(
-                    object, Config
-                ), f"{object} cannot be annotated (only dataset or data definitions)"
+                assert issubclass(object, Config), (
+                    f"{object} cannot be annotated (only dataset or data definitions)"
+                )
                 if "__datamaestro__" not in object.__dict__:
                     object.__datamaestro__ = AbstractData()
                 self.annotate(object.__datamaestro__)
@@ -558,7 +557,9 @@ datatasks = DataTagging(lambda d: d.tasks)
 
 class metadata:
     def __init__(
-        self, tags: Union[str, List[str]] = None, tasks: Union[str, List[str]] = None
+        self,
+        tags: Union[str, List[str]] = None,
+        tasks: Union[str, List[str]] = None,
     ):
         pass
 

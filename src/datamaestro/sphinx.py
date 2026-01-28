@@ -125,9 +125,7 @@ class RepositoryDirective(DatasetsDirective):
     def run(self):
         (repository_id,) = self.arguments
         with mock(self.config.autodoc_mock_imports):
-            repository = datamaestro.Context.instance().repository(
-                repository_id
-            )  # type: Optional[datamaestro.Repository]
+            repository = datamaestro.Context.instance().repository(repository_id)  # type: Optional[datamaestro.Repository]
             assert repository is not None
 
             docnodes = []

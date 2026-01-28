@@ -50,7 +50,10 @@ templates_path = ["_templates"]
 # Intersphinx mapping to external documentation
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "experimaestro": ("https://experimaestro-python.readthedocs.io/en/latest/", None),
+    "experimaestro": (
+        "https://experimaestro-python.readthedocs.io/en/latest/",
+        None,
+    ),
 }
 
 # The root document.

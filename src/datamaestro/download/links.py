@@ -6,8 +6,6 @@ from typing import List
 from datamaestro.download import Download
 from datamaestro.context import ResolvablePath
 from pathlib import Path
-import os
-import logging
 
 
 class links(Download):
@@ -120,5 +118,5 @@ class linkfile(linkpath):
         super().__init__(varname, proposals)
 
     def check(self, path):
-        print("Checking", path, path.is_file())
+        logging.debug("Checking %s (exists: %s)", path, path.is_file())
         return path.is_file()

@@ -68,7 +68,7 @@ class ArchiveDownloader(Download):
         for info in iterable:
             name = getname(info)
             logging.debug("Looking at %s", name)
-            if self._files and not (name in self._files):
+            if self._files and name not in self._files:
                 continue
 
             if self.subpath and name.startswith(self.subpath):
@@ -139,9 +139,10 @@ class zipdownloader(ArchiveDownloader):
                             name,
                             destination / name,
                         )
-                        with zip.open(zip_info) as fp, (destination / name).open(
-                            "wb"
-                        ) as out:
+                        with (
+                            zip.open(zip_info) as fp,
+                            (destination / name).open("wb") as out,
+                        ):
                             shutil.copyfileobj(fp, out)
 
 

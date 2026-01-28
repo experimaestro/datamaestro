@@ -159,7 +159,10 @@ def document(match):
     try:
         object = getattr(module, name)
     except Exception:
-        return "<div class='error'>Cannot find %s in %s</div>" % (name, modulename)
+        return "<div class='error'>Cannot find %s in %s</div>" % (
+            name,
+            modulename,
+        )
 
     if ismodule(object):
         return "\n\n".join(
@@ -220,7 +223,12 @@ class Classification:
                 module = Datasets(importlib.import_module(meta.t.__module__))
                 r.write(
                     "- [%s](../df/%s/%s.html#%s)\n"
-                    % (meta.name or meta.id, meta.repository.id, module.id, meta.id)
+                    % (
+                        meta.name or meta.id,
+                        meta.repository.id,
+                        module.id,
+                        meta.id,
+                    )
                 )
 
             return r.getvalue()
@@ -326,9 +334,12 @@ class DatasetGenerator(mkdocs.plugins.BasePlugin):
         import shutil
 
         path = Path(config["site_dir"]) / "mainstyle.css"
-        with importlib.resources.open_binary(
-            "datamaestro.commands", "mainstyle.css"
-        ) as source, path.open("wb") as dest:
+        with (
+            importlib.resources.open_binary(
+                "datamaestro.commands", "mainstyle.css"
+            ) as source,
+            path.open("wb") as dest,
+        ):
             shutil.copyfileobj(source, dest)
 
     def on_files(self, files, config):
