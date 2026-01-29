@@ -1,64 +1,83 @@
-from typing import Optional
-import logging
-import shutil
-import tarfile
+"""Single file download resources.
+
+Provides FileResource subclasses for downloading individual files
+from URLs, with optional transforms and integrity checking.
+"""
+
+from __future__ import annotations
+
 import io
 import gzip
-import os.path as op
+import logging
 import os
-import urllib3
+import os.path as op
+import shutil
+import tarfile
 from pathlib import Path
-import re
-from datamaestro.utils import copyfileobjs
+
+import urllib3
+
+from datamaestro.download import FileResource
 from datamaestro.stream import Transform
-from datamaestro.download import Download
+from datamaestro.utils import copyfileobjs
+
+logger = logging.getLogger(__name__)
 
 
 def open_ext(*args, **kwargs):
-    """Opens a file according to its extension"""
+    """Opens a file according to its extension."""
     name = args[0]
     if name.endswith(".gz"):
         return gzip.open(*args, *kwargs)
     return io.open(*args, **kwargs)
 
 
-class SingleDownload(Download):
-    def __init__(self, filename: str):
-        super().__init__(re.sub(r"\..*$", "", filename))
-        self.name = filename
+class FileDownloader(FileResource):
+    """Downloads a single file from a URL.
 
-    @property
-    def path(self):
-        return self.definition.datapath / self.name
+    Supports optional transforms (e.g., gzip decompression)
+    and integrity checking.
 
-    def prepare(self):
-        return self.path
+    Usage as class attribute (preferred)::
 
-    def download(self, force=False):
-        if not self.path.is_file() and not force:
-            self._download(self.path)
+        @dataset(url="...")
+        class MyDataset(Base):
+            DATA = FileDownloader.apply(
+                "data.csv", "http://example.com/data.csv.gz"
+            )
 
+    Usage as decorator (deprecated)::
 
-class filedownloader(SingleDownload):
+        @filedownloader("data.csv", "http://example.com/data.csv.gz")
+        @dataset(Base)
+        def my_dataset(data): ...
+    """
+
     def __init__(
         self,
         filename: str,
         url: str,
-        size: int = None,
-        transforms: Optional[Transform] = None,
+        size: int | None = None,
+        transforms: Transform | None = None,
         checker=None,
+        *,
+        varname: str | None = None,
+        transient: bool = False,
     ):
-        """Downloads a file given by a URL
-
-        :param filename: The filename within the data folder; the variable name
-            corresponds to the filename without the extension.
-
-        :param url: The URL to download.
-
-        :param transforms: Transform the file before storing it size: size in
-            bytes (or None)
         """
-        super().__init__(filename)
+        Args:
+            filename: The filename within the data folder; the variable
+                name corresponds to the filename without the extension.
+            url: The URL to download.
+            size: Expected size in bytes (or None).
+            transforms: Transform the file before storing it.
+                Auto-detected from URL path if None.
+            checker: File integrity checker.
+            varname: Explicit resource name.
+            transient: If True, data can be deleted after dependents
+                complete.
+        """
+        super().__init__(filename, varname=varname, transient=transient)
         self.url = url
         self.checker = checker
         self.size = size
@@ -67,8 +86,8 @@ class filedownloader(SingleDownload):
         path = Path(Path(p.path).name)
         self.transforms = transforms if transforms else Transform.createFromPath(path)
 
-    def _download(self, destination):
-        logging.info("Downloading %s into %s", self.url, destination)
+    def _download(self, destination: Path) -> None:
+        logger.info("Downloading %s into %s", self.url, destination)
 
         # Creates directory if needed
         dir = op.dirname(destination)
@@ -78,7 +97,7 @@ class filedownloader(SingleDownload):
         with self.context.downloadURL(self.url, size=self.size) as file:
             # Transform if need be
             if self.transforms:
-                logging.info("Transforming file")
+                logger.info("Transforming file")
                 with (
                     self.transforms(file.path.open("rb")) as stream,
                     destination.open("wb") as out,
@@ -89,30 +108,54 @@ class filedownloader(SingleDownload):
                     else:
                         shutil.copyfileobj(stream, out)
             else:
-                logging.info("Keeping original downloaded file %s", file.path)
+                logger.info("Keeping original downloaded file %s", file.path)
                 if self.checker:
                     self.checker.check(file.path)
                 (shutil.copy if file.keep else shutil.move)(file.path, destination)
 
-        logging.info("Created file %s" % destination)
+        logger.info("Created file %s", destination)
 
 
-class concatdownload(SingleDownload):
-    """Concatenate all files in an archive"""
+# Factory alias for backward compat and convenient usage
+filedownloader = FileDownloader.apply
 
-    def __init__(self, filename: str, url: str, transforms=None):
-        """Concat the files in an archive
 
-        Args:
-            filename: The filename within the data folder; the variable name
-            corresponds to the filename without the extension url: The URL to
-            download transforms: Transform the file before storing it
+class ConcatDownloader(FileResource):
+    """Concatenate all files from an archive into a single file.
+
+    Usage as class attribute (preferred)::
+
+        @dataset(url="...")
+        class MyDataset(Base):
+            DATA = ConcatDownloader.apply(
+                "data.txt", "http://example.com/data.tar.gz"
+            )
+    """
+
+    def __init__(
+        self,
+        filename: str,
+        url: str,
+        transforms=None,
+        *,
+        varname: str | None = None,
+        transient: bool = False,
+    ):
         """
-        super().__init__(filename)
+        Args:
+            filename: The filename within the data folder; the variable
+                name corresponds to the filename without the extension.
+            url: The URL to download.
+            transforms: Transform the file before storing it.
+            varname: Explicit resource name.
+            transient: If True, data can be deleted after dependents
+                complete.
+        """
+        super().__init__(filename, varname=varname, transient=transient)
         self.url = url
         self.transforms = transforms
 
-    def _download(self, destination):
+    def _download(self, destination: Path) -> None:
         with (
             self.context.downloadURL(self.url) as dl,
             tarfile.open(dl.path) as archive,
@@ -125,6 +168,16 @@ class concatdownload(SingleDownload):
                         transforms = self.transforms or Transform.createFromPath(
                             Path(tarinfo.name)
                         )
-                        logging.debug("Processing file %s", tarinfo.name)
+                        logger.debug("Processing file %s", tarinfo.name)
                         with transforms(archive.fileobject(archive, tarinfo)) as fp:
                             shutil.copyfileobj(fp, out)
+
+
+# Factory alias for backward compat
+concatdownload = ConcatDownloader.apply
+
+
+# --- Backward compat aliases ---
+# Keep old class names importable but they now point to new classes
+
+SingleDownload = FileDownloader

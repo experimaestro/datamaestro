@@ -36,8 +36,9 @@ Datamaestro is a Python framework for managing, organizing, and downloading data
 
 1. **Dataset Registry**: A reference for available resources with qualified names (e.g., `com.lecun.mnist`)
 2. **Automatic Downloads**: Tools to automatically download and preprocess resources when freely available
-3. **Experimaestro Integration**: Seamless integration with the [experimaestro](http://experimaestro.github.io/experimaestro-python/) experiment manager
-4. **Extensible Architecture**: Plugin system for domain-specific datasets
+3. **Resource Pipelines**: A DAG-based resource system with dependency tracking, transient intermediaries, and two-path download safety
+4. **Experimaestro Integration**: Seamless integration with the [experimaestro](http://experimaestro.github.io/experimaestro-python/) experiment manager
+5. **Extensible Architecture**: Plugin system for domain-specific datasets
 
 Each dataset is uniquely identified by a qualified name derived from the website's domain (e.g., `com.lecun.mnist` for MNIST from yann.lecun.com).
 
@@ -104,41 +105,56 @@ The main datamaestro package provides generic processing capabilities. Domain-sp
 
 ### Python Definition of Datasets
 
-Each dataset is described in Python using decorators that combine declarative metadata with imperative data processing. Here's the MNIST example:
+Datasets are defined as Python classes with resource attributes that describe how to download and process data:
 
 ```python
 from datamaestro_image.data import ImageClassification, LabelledImages
 from datamaestro.data.tensor import IDX
-from datamaestro.download.single import filedownloader
-from datamaestro.definitions import dataset
+from datamaestro.download.single import FileDownloader
+from datamaestro.definitions import AbstractDataset, dataset
 
 
-@filedownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
-@filedownloader("train_labels.idx", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
-@filedownloader("test_images.idx", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
-@filedownloader("test_labels.idx", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
-@dataset(
-  ImageClassification,
-  url="http://yann.lecun.com/exdb/mnist/",
-)
-def MNIST(train_images, train_labels, test_images, test_labels):
-  """The MNIST database
+@dataset(url="http://yann.lecun.com/exdb/mnist/")
+class MNIST(ImageClassification):
+    """The MNIST database of handwritten digits."""
 
-  The MNIST database of handwritten digits has a training set of 60,000
-  examples, and a test set of 10,000 examples. The digits have been
-  size-normalized and centered in a fixed-size image.
-  """
-  return {
-    "train": LabelledImages(
-      images=IDX(path=train_images),
-      labels=IDX(path=train_labels)
-    ),
-    "test": LabelledImages(
-      images=IDX(path=test_images),
-      labels=IDX(path=test_labels)
-    ),
-  }
+    TRAIN_IMAGES = FileDownloader(
+        "train_images.idx",
+        "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz",
+    )
+    TRAIN_LABELS = FileDownloader(
+        "train_labels.idx",
+        "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz",
+    )
+    TEST_IMAGES = FileDownloader(
+        "test_images.idx",
+        "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz",
+    )
+    TEST_LABELS = FileDownloader(
+        "test_labels.idx",
+        "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz",
+    )
+
+    @classmethod
+    def __create_dataset__(cls, dataset: AbstractDataset):
+        return cls.C(
+            train=LabelledImages(
+                images=IDX(path=cls.TRAIN_IMAGES.path),
+                labels=IDX(path=cls.TRAIN_LABELS.path),
+            ),
+            test=LabelledImages(
+                images=IDX(path=cls.TEST_IMAGES.path),
+                labels=IDX(path=cls.TEST_LABELS.path),
+            ),
+        )
 ```
+
+Resources are automatically discovered from class attributes and form a
+dependency graph. The framework handles:
+
+- **Two-path downloads**: writes to a temporary path, moves to final path on success
+- **State tracking**: resource states (NONE/PARTIAL/COMPLETE) persisted in `.state.json`
+- **Transient cleanup**: intermediate files deleted after all dependents complete
 
 ### Retrieve and Download
 
@@ -186,8 +202,8 @@ print(ds.train.labels.data().shape)   # (60000,)
 
 - **Dataset ID**: Qualified name like `com.lecun.mnist` derived from the source URL
 - **Repository**: A collection of related datasets (e.g., `datamaestro_image`) - see {py:class}`~datamaestro.context.Repository`
+- **Resources**: Steps in a download/processing pipeline (files, archives, links) - see [Download Resources](api/download.rst)
 - **Data Types**: Structured representations of data (CSV, tensors, etc.) - see {py:class}`~datamaestro.data.Base`
-- **Download Handlers**: Decorators that specify how to fetch resources - see [Download Decorators](api/download.rst)
 - **Context**: Global configuration for data paths and settings - see {py:class}`~datamaestro.context.Context`
 
 See the documentation sections for detailed information on each concept.

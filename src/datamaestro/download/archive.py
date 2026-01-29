@@ -1,41 +1,68 @@
+"""Archive download resources.
+
+Provides FolderResource subclasses for downloading and extracting
+ZIP and TAR archives.
+"""
+
+from __future__ import annotations
+
 import logging
-from pathlib import Path
-import zipfile
-import shutil
-import urllib3
-import tarfile
 import re
+import shutil
+import tarfile
+import zipfile
+from pathlib import Path
 from typing import Set
-from datamaestro.download import Download, initialized
+
+import urllib3
+
+from datamaestro.download import FolderResource
 from datamaestro.utils import CachedFile, FileChecker
 
+logger = logging.getLogger(__name__)
 
-class ArchiveDownloader(Download):
-    """Abstract class for all archive related extractors"""
+
+class ArchiveDownloader(FolderResource):
+    """Abstract base for all archive-related extractors.
+
+    Usage as class attribute (preferred)::
+
+        @dataset(url="...")
+        class MyDataset(Base):
+            DATA = ZipDownloader.apply(
+                "archive", "http://example.com/data.zip"
+            )
+
+    Usage as decorator (deprecated)::
+
+        @zipdownloader("archive", "http://example.com/data.zip")
+        @dataset(Base)
+        def my_dataset(archive): ...
+    """
 
     def __init__(
         self,
-        varname,
+        varname: str,
         url: str,
-        subpath: str = None,
-        checker: FileChecker = None,
-        files: Set[str] = None,
+        subpath: str | None = None,
+        checker: FileChecker | None = None,
+        files: Set[str] | None = None,
+        *,
+        transient: bool = False,
     ):
-        """Downloads and extract the content of the archive
+        """Downloads and extract the content of the archive.
 
         Args:
-            varname: The name of the variable when defining the dataset
-
-            url: The archive URL
-
-            checker: the hash check for the downloaded file, composed of two
-
-            subpath: A subpath in the archive; only files from this subpath will
-            be extracted
-
-            files: A set of files; if present, only extract those
+            varname: The name of the variable when defining the dataset.
+            url: The archive URL.
+            subpath: A subpath in the archive; only files from this
+                subpath will be extracted.
+            checker: The hash check for the downloaded file.
+            files: A set of files; if present, only extract those.
+            transient: If True, data can be deleted after dependents
+                complete.
         """
-        super().__init__(varname)
+        super().__init__(varname=varname, transient=transient)
         self.url = url
         self.subpath = subpath
         self.checker = checker
@@ -46,20 +73,33 @@ class ArchiveDownloader(Download):
     def postinit(self):
         # Define the path
         p = urllib3.util.parse_url(self.url)
-        name = self._name(Path(p.path).name)
+        self._archive_name = self._name(Path(p.path).name)
 
-        if len(self.definition.resources) > 1:
-            self.path = self.definition.datapath / name
-        else:
-            self.path = self.definition.datapath
+    @property
+    def path(self) -> Path:
+        """Final path to the extracted directory."""
+        if not self._post:
+            self._post = True
+            self.postinit()
 
-    @initialized
-    def prepare(self):
-        return self.path
+        if len(self.dataset.resources) > 1:
+            return self.dataset.datapath / self._archive_name
+        return self.dataset.datapath
+
+    @property
+    def transient_path(self) -> Path:
+        """Temporary path for extraction."""
+        if not self._post:
+            self._post = True
+            self.postinit()
+
+        if len(self.dataset.resources) > 1:
+            return self.dataset.datapath / ".downloads" / self._archive_name
+        return self.dataset.datapath / ".downloads" / self.name
 
     @property
     def extractall(self):
-        """Returns whether everything can be extracted"""
+        """Returns whether everything can be extracted."""
         return self._files is None and self.subpath is None
 
     def filter(self, iterable, getname):
@@ -67,7 +107,7 @@ class ArchiveDownloader(Download):
 
         for info in iterable:
             name = getname(info)
-            logging.debug("Looking at %s", name)
+            logger.debug("Looking at %s", name)
             if self._files and name not in self._files:
                 continue
 
@@ -77,63 +117,58 @@ class ArchiveDownloader(Download):
             if not self.subpath:
                 yield info, name
 
-    @initialized
-    def download(self, force=False):
-        # Already downloaded
-        destination = self.definition.datapath
-        if destination.is_dir():
-            return
-
-        logging.info("Downloading %s into %s", self.url, destination)
+    def _download(self, destination: Path) -> None:
+        logger.info("Downloading %s into %s", self.url, destination)
 
         destination.parent.mkdir(parents=True, exist_ok=True)
-        tmpdestination = destination.with_suffix(".tmp")
-        if tmpdestination.exists():
-            logging.warn("Removing temporary directory %s", tmpdestination)
-            shutil.rmtree(tmpdestination)
 
         with self.context.downloadURL(self.url) as file:
             if self.checker:
                 self.checker.check(file.path)
-            self.unarchive(file, tmpdestination)
+            self.unarchive(file, destination)
 
-        # Look at the content
-        for ix, path in enumerate(tmpdestination.iterdir()):
-            if ix > 1:
-                break
-
-        # Just one folder: move
-        if ix == 0 and path.is_dir():
-            logging.info(
-                "Moving single file/directory {} into destination {}".format(
-                    path, destination
-                )
+        # Look at the content - if single directory, unwrap
+        children = list(destination.iterdir())
+        if len(children) == 1 and children[0].is_dir():
+            single_dir = children[0]
+            logger.info(
+                "Moving single directory %s into destination %s",
+                single_dir,
+                destination,
             )
-            shutil.move(str(path), str(destination))
-            shutil.rmtree(tmpdestination)
-        else:
-            shutil.move(tmpdestination, destination)
+            # Move contents up one level
+            tmp = destination.with_suffix(".unwrap")
+            shutil.move(str(single_dir), str(tmp))
+            shutil.rmtree(destination)
+            shutil.move(str(tmp), str(destination))
+
+    def unarchive(self, file, destination: Path):
+        raise NotImplementedError()
+
+    def _name(self, name: str) -> str:
+        raise NotImplementedError()
 
 
-class zipdownloader(ArchiveDownloader):
-    """ZIP Archive handler"""
+class ZipDownloader(ArchiveDownloader):
+    """ZIP Archive handler."""
 
     def _name(self, name):
         return re.sub(r"\.zip$", "", name)
 
     def unarchive(self, file, destination: Path):
-        logging.info("Unzipping file")
+        logger.info("Unzipping file")
         with zipfile.ZipFile(file.path) as zip:
             if self.extractall:
                 zip.extractall(destination)
             else:
                 for zip_info, name in self.filter(
-                    zip.infolist(), lambda zip_info: zip_info.filename
+                    zip.infolist(),
+                    lambda zip_info: zip_info.filename,
                 ):
                     if zip_info.is_dir():
                         (destination / name).mkdir()
                     else:
-                        logging.info(
+                        logger.info(
                             "File %s (%s) to %s",
                             zip_info.filename,
                             name,
@@ -146,14 +181,14 @@ class zipdownloader(ArchiveDownloader):
                             shutil.copyfileobj(fp, out)
 
 
-class tardownloader(ArchiveDownloader):
-    """TAR archive handler"""
+class TarDownloader(ArchiveDownloader):
+    """TAR archive handler."""
 
     def _name(self, name):
         return re.sub(r"\.tar(\.gz|\.bz\|xz)?$", "", name)
 
     def unarchive(self, file: CachedFile, destination: Path):
-        logging.info("Unarchiving file")
+        logger.info("Unarchiving file")
         if self.subpath:
             raise NotImplementedError()
 
@@ -165,11 +200,19 @@ class tardownloader(ArchiveDownloader):
                     if info.isdir():
                         (destination / name).mkdir()
                     else:
-                        logging.info(
+                        logger.info(
                             "File %s (%s) to %s",
                             info.name,
                             name,
                             destination / name,
                         )
-                        logging.info("Extracting into %s", destination / name)
+                        logger.info(
+                            "Extracting into %s",
+                            destination / name,
+                        )
                         tar.extract(info, destination / name)
+
+
+# Factory aliases for backward compat and convenient usage
+zipdownloader = ZipDownloader.apply
+tardownloader = TarDownloader.apply

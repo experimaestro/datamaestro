@@ -98,57 +98,50 @@ Out[3]: (dtype('uint8'), (60000, 28, 28))
 
 ## Python definition of datasets
 
-Each dataset (or a set of related datasets) is described in Python using a mix of declarative
-and imperative statements. This allows to quickly define how to download dataset using the
-datamaestro declarative API; the imperative part is used when creating the JSON output,
-and is integrated with [experimaestro](http://experimaestro.github.io/experimaestro-python).
-
-Its syntax is described in the [documentation](https://datamaestro.readthedocs.io).
-
-
-For instance, the MNIST dataset can be described by the following
+Datasets are defined as Python classes with resource attributes that describe how
+to download and process data. The framework automatically builds a dependency graph
+and handles downloads with two-path safety and state tracking.
 
 ```python
-from datamaestro import dataset
-from datamaestro.download.single import download_file
-from datamaestro_image.data import ImageClassification, LabelledImages, IDXImage
+from datamaestro_image.data import ImageClassification, LabelledImages
+from datamaestro.data.tensor import IDX
+from datamaestro.download.single import FileDownloader
+from datamaestro.definitions import AbstractDataset, dataset
 
 
-@filedownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
-@filedownloader("train_labels.idx", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
-@filedownloader("test_images.idx", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
-@filedownloader("test_labels.idx", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
-@dataset(
-  ImageClassification,
-  url="http://yann.lecun.com/exdb/mnist/",
-)
+@dataset(url="http://yann.lecun.com/exdb/mnist/")
+class MNIST(ImageClassification):
+    """The MNIST database of handwritten digits."""
 
-    return ImageClassification(
-        train=LabelledImages(
-            images=IDXImage(path=train_images), labels=IDXImage(path=train_labels)
-        ),
-        test=LabelledImages(
-            images=IDXImage(path=test_images), labels=IDXImage(path=test_labels)
-        ),
+    TRAIN_IMAGES = FileDownloader(
+        "train_images.idx",
+        "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz",
     )
+    TRAIN_LABELS = FileDownloader(
+        "train_labels.idx",
+        "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz",
+    )
+    TEST_IMAGES = FileDownloader(
+        "test_images.idx",
+        "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz",
+    )
+    TEST_LABELS = FileDownloader(
+        "test_labels.idx",
+        "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz",
+    )
+
+    @classmethod
+    def __create_dataset__(cls, dataset: AbstractDataset):
+        return cls.C(
+            train=LabelledImages(
+                images=IDX(path=cls.TRAIN_IMAGES.path),
+                labels=IDX(path=cls.TRAIN_LABELS.path),
+            ),
+            test=LabelledImages(
+                images=IDX(path=cls.TEST_IMAGES.path),
+                labels=IDX(path=cls.TEST_LABELS.path),
+            ),
+        )
 ```
 
-When building dataset modules, some extra documentation can be provided:
-
-```yaml
-  ids: [com.lecun.mnist]
-  entry_point: "datamaestro_image.config.com.lecun:mnist"
-  title: The MNIST database
-  url: http://yann.lecun.com/exdb/mnist/
-  groups: [image-classification]
-  description: |
-    The MNIST database of handwritten digits, available from this page,
-    has a training set of 60,000 examples, and a test set of 10,000
-    examples. It is a subset of a larger set available from NIST. The
-    digits have been size-normalized and centered in a fixed-size image.
-```
-
-This will allow to
-
-1. Document the dataset
-2. Allow to use the command line interface to manipulate it (download resources, etc.)
+Its syntax is described in the [documentation](https://datamaestro.readthedocs.io).

@@ -2,8 +2,11 @@
 # Main datamaestro functions and data models
 #
 
+from __future__ import annotations
+
 import logging
 import inspect
+import shutil
 from pathlib import Path
 from itertools import chain
 from abc import ABC, abstractmethod
@@ -32,7 +35,100 @@ from experimaestro.core.types import Type  # noqa: F401 (re-exports)
 if TYPE_CHECKING:
     from .data import Base, Dataset
     from .context import Repository, Context, DatafolderPath  # noqa: F401 (re-exports)
-    from datamaestro.download import Download
+    from datamaestro.download import Download, Resource
+
+# --- DAG utilities ---
+
+
+def topological_sort(resources: dict[str, "Resource"]) -> list["Resource"]:
+    """Topological sort of resources by their dependencies.
+
+    Args:
+        resources: Dict mapping resource names to Resource instances.
+
+    Returns:
+        List of resources in dependency order (dependencies first).
+
+    Raises:
+        ValueError: If a cycle is detected in the dependency graph.
+    """
+    visited: set[str] = set()
+    visiting: set[str] = set()  # For cycle detection
+    result: list["Resource"] = []
+
+    def visit(resource: "Resource"):
+        if resource.name in visited:
+            return
+        if resource.name in visiting:
+            raise ValueError(
+                f"Cycle detected in resource dependencies involving {resource.name}"
+            )
+
+        visiting.add(resource.name)
+        for dep in resource.dependencies:
+            visit(dep)
+        visiting.discard(resource.name)
+        visited.add(resource.name)
+        result.append(resource)
+
+    for resource in resources.values():
+        visit(resource)
+
+    return result
+
+
+def _compute_dependents(resources: dict[str, "Resource"]) -> None:
+    """Compute the dependents (inverse edges) for all resources."""
+    # Clear existing dependents
+    for resource in resources.values():
+        resource._dependents = []
+
+    # Build inverse edges
+    for resource in resources.values():
+        for dep in resource.dependencies:
+            if resource not in dep._dependents:
+                dep._dependents.append(resource)
+
+
+def _bind_class_resources(cls: type, dataset_wrapper: "AbstractDataset") -> None:
+    """Scan class attributes for Resource instances and bind them.
+
+    This is called when a class-based dataset is processed by the
+    @dataset decorator. It detects Resource instances defined as
+    class attributes and binds them to the dataset.
+
+    Args:
+        cls: The dataset class to scan.
+        dataset_wrapper: The AbstractDataset to bind resources to.
+    """
+    from datamaestro.download import Resource
+
+    for attr_name, attr_value in vars(cls).items():
+        if isinstance(attr_value, Resource):
+            attr_value.bind(attr_name, dataset_wrapper)
+
+    # Build the dependency DAG
+    _compute_dependents(dataset_wrapper.resources)
+
+    # Validate: topological sort will raise on cycles
+    dataset_wrapper.ordered_resources = topological_sort(dataset_wrapper.resources)
+
+
+def _delete_path(path: Path) -> None:
+    """Delete a file or directory at path."""
+    if path.exists():
+        if path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+
+
+def _move_path(src: Path, dst: Path) -> None:
+    """Move a file or directory from src to dst."""
+    if src.exists():
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src), str(dst))
+
 
 # --- Objects holding information into classes/function
 
@@ -218,18 +314,127 @@ class AbstractDataset(AbstractData):
                 self.setDataIDs(value, f"{id}.{key}")
 
     def download(self, force=False):
-        """Download all the necessary resources"""
-        success = True
+        """Download all the necessary resources.
+
+        Uses DAG-based topological ordering and the two-path system:
+        1. Acquire exclusive lock (.state.lock)
+        2. Resource writes to transient_path (under .downloads/)
+        3. Framework moves transient_path → path (main folder)
+        4. State marked COMPLETE
+        5. Transient dependencies cleaned up eagerly
+        6. .downloads/ directory removed after all resources complete
+        7. Release lock
+        """
+        import fcntl
+
+        from datamaestro.download import ResourceState
+
         self.prepare()
-        logging.info("Materializing %d resources", len(self.ordered_resources))
+        logging.info(
+            "Materializing %d resources",
+            len(self.ordered_resources),
+        )
+
+        self.datapath.mkdir(parents=True, exist_ok=True)
+        lock_path = self.datapath / ".state.lock"
+        lock_file = lock_path.open("w")
+        try:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            success = self._download_locked(force, ResourceState)
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
+            lock_file.close()
+
+        return success
+
+    def _download_locked(self, force, ResourceState):
+        """Inner download logic, called while holding .state.lock."""
+        success = True
+
         for resource in self.ordered_resources:
+            # Step 1: Check state
+            current_state = resource.state
+
+            if current_state == ResourceState.COMPLETE and not force:
+                # Verify files are actually present on disk
+                if resource.has_files() and not resource.path.exists():
+                    logging.warning(
+                        "Resource %s marked COMPLETE but files "
+                        "missing at %s — re-downloading",
+                        resource.name,
+                        resource.path,
+                    )
+                    resource.state = ResourceState.NONE
+                    current_state = ResourceState.NONE
+                else:
+                    continue
+
+            # Adopt pre-existing files (old downloads without state file)
+            if (
+                current_state == ResourceState.NONE
+                and not force
+                and resource.has_files()
+                and resource.path.exists()
+            ):
+                logging.info(
+                    "Resource %s already exists at %s — marking COMPLETE",
+                    resource.name,
+                    resource.path,
+                )
+                resource.state = ResourceState.COMPLETE
+                continue
+
+            if current_state == ResourceState.PARTIAL:
+                if not resource.can_recover:
+                    _delete_path(resource.transient_path)
+                    resource.state = ResourceState.NONE
+
+            # Verify all dependencies are COMPLETE
+            for dep in resource.dependencies:
+                if dep.state != ResourceState.COMPLETE:
+                    logging.error(
+                        "Dependency %s of %s is not COMPLETE",
+                        dep.name,
+                        resource.name,
+                    )
+                    return False
+
+            # Step 2-4: Download with framework-managed state
             try:
-                resource.download(force)
+                resource.download(force=force)
+
+                # Move transient -> final, mark COMPLETE
+                if resource.has_files():
+                    _move_path(resource.transient_path, resource.path)
+                resource.state = ResourceState.COMPLETE
+
             except Exception:
                 logging.error("Could not download resource %s", resource)
                 traceback.print_exc()
+
+                # Handle PARTIAL state
+                if resource.has_files() and resource.transient_path.exists():
+                    if resource.can_recover:
+                        resource.state = ResourceState.PARTIAL
+                    else:
+                        _delete_path(resource.transient_path)
+                        resource.state = ResourceState.NONE
                 success = False
                 break
+
+            # Step 5: Eager transient cleanup
+            for dep in resource.dependencies:
+                if dep.transient and all(
+                    d.state == ResourceState.COMPLETE for d in dep.dependents
+                ):
+                    dep.cleanup()
+
+        # Step 6: Remove .downloads/ directory after success
+        if success:
+            downloads_dir = self.datapath / ".downloads"
+            if downloads_dir.is_dir():
+                shutil.rmtree(downloads_dir)
+
         return success
 
     @staticmethod
@@ -458,13 +663,23 @@ class DatasetWrapper(AbstractDataset):
 
         return path
 
-    def hasfiles(self) -> bool:
-        """Returns whether this dataset has files or only includes references"""
+    def has_files(self) -> bool:
+        """Returns whether this dataset has files or only includes references."""
         for resource in self.resources.values():
-            if resource.hasfiles():
+            if resource.has_files():
                 return True
-
         return False
+
+    def hasfiles(self) -> bool:
+        """Deprecated: use has_files() instead."""
+        import warnings
+
+        warnings.warn(
+            "hasfiles() is deprecated, use has_files()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.has_files()
 
 
 # --- Annotations
@@ -633,7 +848,10 @@ class dataset:
             pass
         dw = DatasetWrapper(self, t)
         t.__dataset__ = dw
+
+        # For class-based datasets, scan for Resource class attributes
         if inspect.isclass(t) and issubclass(t, Base):
+            _bind_class_resources(t, dw)
             return t
         return dw
 

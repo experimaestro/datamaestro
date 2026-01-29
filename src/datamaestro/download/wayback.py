@@ -129,12 +129,12 @@ class wayback_documents(Resource):
         self.urls_fn = urls_fn
 
     def prepare(self):
-        return self.definition.datapath / self.varname
+        return self.dataset.datapath / self.name
 
     def download(self, force=False):
         # Creates directory if needed
-        destination: Path = self.definition.datapath / self.varname
-        self.definition.datapath.mkdir(exist_ok=True)
+        destination: Path = self.dataset.datapath / self.name
+        self.dataset.datapath.mkdir(exist_ok=True)
 
         # Early exit
         done_path = destination.with_suffix(".done")

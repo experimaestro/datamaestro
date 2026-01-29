@@ -9,51 +9,94 @@ Components of a Dataset
 
 Every dataset definition includes:
 
-1. **ID**: Unique identifier determined by module location and function name
+1. **ID**: Unique identifier determined by module location and class/function name
 2. **Meta-information**: Tags, tasks, URL, description
-3. **Download specification**: What resources to fetch
+3. **Resources**: What files/data to fetch (defined as class attributes)
 4. **Data access**: How to structure the data in Python
 
-Basic Example
-=============
+Class-based Datasets (Preferred)
+================================
 
-Here's the complete MNIST example from `datamaestro_image`:
+The preferred way to define datasets uses class-based definitions where
+resources are declared as class attributes. The framework automatically
+detects resources and builds a dependency DAG.
+
+Basic Example
+-------------
 
 .. code-block:: python
     :caption: File: ``datamaestro_image/config/com/lecun.py``
 
     from datamaestro_image.data import ImageClassification, LabelledImages
     from datamaestro.data.tensor import IDX
-    from datamaestro.download.single import filedownloader
-    from datamaestro.definitions import dataset
+    from datamaestro.download.single import FileDownloader
+    from datamaestro.definitions import AbstractDataset, dataset
 
 
-    @filedownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
-    @filedownloader("train_labels.idx", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
-    @filedownloader("test_images.idx", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
-    @filedownloader("test_labels.idx", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
-    @dataset(
-        ImageClassification,
-        url="http://yann.lecun.com/exdb/mnist/",
-    )
-    def MNIST(train_images, train_labels, test_images, test_labels):
-        """The MNIST database
+    @dataset(url="http://yann.lecun.com/exdb/mnist/")
+    class MNIST(ImageClassification):
+        """The MNIST database of handwritten digits."""
 
-        The MNIST database of handwritten digits, available from this page, has a
-        training set of 60,000 examples, and a test set of 10,000 examples. It is a
-        subset of a larger set available from NIST. The digits have been
-        size-normalized and centered in a fixed-size image.
-        """
-        return {
-            "train": LabelledImages(
-                images=IDX(path=train_images),
-                labels=IDX(path=train_labels)
-            ),
-            "test": LabelledImages(
-                images=IDX(path=test_images),
-                labels=IDX(path=test_labels)
-            ),
-        }
+        TRAIN_IMAGES = FileDownloader(
+            "train_images.idx",
+            "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz",
+        )
+        TRAIN_LABELS = FileDownloader(
+            "train_labels.idx",
+            "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz",
+        )
+        TEST_IMAGES = FileDownloader(
+            "test_images.idx",
+            "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz",
+        )
+        TEST_LABELS = FileDownloader(
+            "test_labels.idx",
+            "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz",
+        )
+
+        @classmethod
+        def __create_dataset__(cls, dataset: AbstractDataset):
+            return cls.C(
+                train=LabelledImages(
+                    images=IDX(path=cls.TRAIN_IMAGES.path),
+                    labels=IDX(path=cls.TRAIN_LABELS.path),
+                ),
+                test=LabelledImages(
+                    images=IDX(path=cls.TEST_IMAGES.path),
+                    labels=IDX(path=cls.TEST_LABELS.path),
+                ),
+            )
+
+Advantages of class-based definitions:
+
+1. **Explicit pipeline** --- dependencies between resources are visible
+2. **Transient intermediaries** --- intermediate files can be deleted after processing
+3. **Auto-naming** --- resource names are auto-detected from class attribute names
+4. **Two-path safety** --- incomplete downloads never appear at the final path
+
+Resource Pipelines
+------------------
+
+Resources can depend on other resources, forming a processing pipeline:
+
+.. code-block:: python
+
+    @dataset(url="http://example.com")
+    class ProcessedDataset(MyData):
+        # Raw download — deleted after processing completes
+        RAW = FileDownloader(
+            "raw.gz", "http://example.com/data.gz",
+            transient=True,
+        )
+        # Processed output — kept permanently
+        PROCESSED = MyProcessor.from_file(RAW)
+
+        @classmethod
+        def __create_dataset__(cls, dataset: AbstractDataset):
+            return cls.C(path=cls.PROCESSED.path)
+
+The ``transient=True`` flag tells the framework to delete intermediate data
+once all downstream resources are COMPLETE.
 
 Dataset ID Naming
 -----------------
@@ -61,7 +104,7 @@ Dataset ID Naming
 The dataset ID is derived from:
 
 1. **Module path**: ``datamaestro_image.config.com.lecun`` → ``com.lecun``
-2. **Function name**: ``MNIST`` → ``.mnist`` (lowercased)
+2. **Class/function name**: ``MNIST`` → ``.mnist`` (lowercased)
 3. **Final ID**: ``com.lecun.mnist``
 
 The convention follows reversed domain names (like Java packages):
@@ -70,8 +113,8 @@ The convention follows reversed domain names (like Java packages):
 - ``org.trec.robust04`` for https://trec.nist.gov/ ROBUST04 track
 - ``io.huggingface.squad`` for HuggingFace datasets
 
-The `@dataset` Annotation
-=========================
+The ``@dataset`` Annotation
+============================
 
 The ``@dataset`` decorator is the main annotation for defining datasets.
 
@@ -87,7 +130,7 @@ Parameters
    * - Parameter
      - Description
    * - ``base``
-     - The base data type class (e.g., ``ImageClassification``). Can be inferred from return type annotation.
+     - The base data type class (e.g., ``ImageClassification``). Can be inferred from the class hierarchy.
    * - ``id``
      - Override the automatic ID. Use ``"."`` prefix to replace only the last component.
    * - ``url``
@@ -108,99 +151,73 @@ ID Override Examples
 
     # Full ID override
     @dataset(MyType, id="org.example.custom")
-    def ignored_name():
+    class IgnoredName(MyType):
         ...
 
     # Replace last component only (in module com.example)
     @dataset(MyType, id=".v2")  # Results in com.example.v2
-    def original():
+    class Original(MyType):
         ...
 
     # Empty string uses module path only
-    @dataset(MyType, id="")  # Results in com.example (no function name)
-    def main():
+    @dataset(MyType, id="")  # Results in com.example (no class name)
+    class Main(MyType):
         ...
 
-Download Decorators
-===================
+Resources
+=========
 
-Download decorators specify how to fetch resources. They pass file paths as
-arguments to the dataset function. See the :doc:`api/download` for full reference.
+Resources are defined as class attributes on dataset classes. See the
+:doc:`api/download` for the full resource API reference and all available
+resource types.
 
 Single Files
 ------------
 
-Use :py:func:`~datamaestro.download.single.filedownloader` for single file downloads:
+Use :py:class:`~datamaestro.download.single.FileDownloader` for single file downloads:
 
 .. code-block:: python
 
-    from datamaestro.download.single import filedownloader
+    from datamaestro.download.single import FileDownloader
 
-    @filedownloader("data.csv", "http://example.com/data.csv")
-    @dataset(CSVData)
-    def my_dataset(data):
-        return CSVData(path=data)
-
-The :py:func:`~datamaestro.download.single.filedownloader` decorator:
-
-- Downloads the URL to the dataset's data directory
-- Automatically decompresses ``.gz``, ``.bz2`` files
-- Passes a :py:class:`pathlib.Path` to the function
+    @dataset(url="http://example.com")
+    class MyDataset(CSVData):
+        DATA = FileDownloader("data.csv", "http://example.com/data.csv")
 
 Archives
 --------
 
-Use :py:func:`~datamaestro.download.archive.zipdownloader` or
-:py:func:`~datamaestro.download.archive.tardownloader` for archives:
+Use :py:class:`~datamaestro.download.archive.ZipDownloader` or
+:py:class:`~datamaestro.download.archive.TarDownloader` for archives:
 
 .. code-block:: python
 
-    from datamaestro.download.archive import zipdownloader, tardownloader
+    from datamaestro.download.archive import ZipDownloader, TarDownloader
 
-    @zipdownloader("data", "http://example.com/archive.zip")
-    @dataset(MyData)
-    def zipped_dataset(data):
-        # data is a Path to the extracted directory
-        return MyData(path=data / "file.csv")
+    @dataset(url="http://example.com")
+    class ZippedDataset(MyData):
+        DATA = ZipDownloader("data", "http://example.com/archive.zip")
 
-    @tardownloader("data", "http://example.com/archive.tar.gz",
-                   subpath="archive/subdir")  # Extract only a subdirectory
-    @dataset(MyData)
-    def tar_dataset(data):
-        return MyData(path=data / "file.csv")
-
-Multiple Files
---------------
-
-.. code-block:: python
-
-    from datamaestro.download.multiple import MultipleFileDownloader
-
-    @MultipleFileDownloader(
-        "files",
-        "http://example.com/part1.csv",
-        "http://example.com/part2.csv",
-        "http://example.com/part3.csv",
-    )
-    @dataset(MyData)
-    def multi_file_dataset(files):
-        # files is a list of Paths
-        return MyData(paths=files)
+    @dataset(url="http://example.com")
+    class TarDataset(MyData):
+        DATA = TarDownloader(
+            "data", "http://example.com/archive.tar.gz",
+            subpath="archive/subdir",
+        )
 
 HuggingFace Integration
 -----------------------
 
 .. code-block:: python
 
-    from datamaestro.download.huggingface import HuggingFaceDownloader
+    from datamaestro.download.huggingface import HFDownloader
 
-    @HuggingFaceDownloader("dataset", "squad")
-    @dataset(QADataset)
-    def squad(dataset):
-        return QADataset(hf_dataset=dataset)
+    @dataset(url="https://huggingface.co/datasets/squad")
+    class Squad(QADataset):
+        HF_DATA = HFDownloader("squad_data", "squad")
 
 Links to Other Datasets
------------------------
+------------------------
 
 Use :py:func:`~datamaestro.download.links.links` to reference other datasets:
 
@@ -208,11 +225,9 @@ Use :py:func:`~datamaestro.download.links.links` to reference other datasets:
 
     from datamaestro.download.links import links
 
-    @links("base", "com.example.base_dataset")
-    @dataset(ExtendedData)
-    def extended_dataset(base):
-        # base is the prepared base dataset
-        return ExtendedData(base=base)
+    @dataset(url="http://example.com")
+    class ExtendedDataset(ExtendedData):
+        BASE = links("base", "com.example.base_dataset")
 
 Data Types
 ==========
@@ -267,10 +282,11 @@ Add semantic metadata with :py:func:`~datamaestro.definitions.datatags` and
 
     @datatags("benchmark", "classification", "vision")
     @datatasks("image-classification", "digit-recognition")
-    @dataset(ImageClassification, url="http://example.com")
-    def MNIST(train_images, train_labels, test_images, test_labels):
+    @dataset(url="http://example.com")
+    class MNIST(ImageClassification):
         """Dataset description"""
-        return {"train": ..., "test": ...}
+        TRAIN_IMAGES = FileDownloader(...)
+        ...
 
 Tags and tasks are searchable via the CLI:
 
@@ -296,34 +312,12 @@ across related datasets:
         pass
 
     @dataset(TRECBase, url="https://trec.nist.gov/...")
-    def robust04():
+    class Robust04(IRDataset):
         ...
 
     @dataset(TRECBase, url="https://trec.nist.gov/...")
-    def robust05():
+    class Robust05(IRDataset):
         ...
-
-Class-based Datasets
-====================
-
-For complex datasets, use class-based definitions:
-
-.. code-block:: python
-
-    from datamaestro.data import Base
-    from experimaestro import Param
-
-    @dataset(url="http://example.com")
-    class ComplexDataset(Base):
-        """A complex dataset with multiple configurations"""
-
-        version: Param[str] = "v1"
-        split: Param[str] = "train"
-
-        @classmethod
-        def __create_dataset__(cls, dataset_def):
-            # Custom preparation logic
-            return cls(version="v1", split="train")
 
 File Validation
 ===============
@@ -332,16 +326,14 @@ Use :py:class:`~datamaestro.utils.HashCheck` to validate downloaded files with c
 
 .. code-block:: python
 
+    from datamaestro.download.single import FileDownloader
     from datamaestro.utils import HashCheck
 
-    @filedownloader(
+    DATA = FileDownloader(
         "data.csv",
         "http://example.com/data.csv",
         checker=HashCheck("sha256", "abc123...")
     )
-    @dataset(CSVData)
-    def validated_dataset(data):
-        return CSVData(path=data)
 
 Testing Datasets
 ================
@@ -359,3 +351,51 @@ Test your dataset definitions:
 
 Use ``pytest`` with the ``--datamaestro-download`` flag to actually download
 during tests (otherwise downloads are skipped).
+
+
+.. _deprecated-decorator-datasets:
+
+Deprecated: Decorator-based Datasets
+=====================================
+
+.. deprecated::
+   The decorator-based API still works but emits deprecation warnings.
+   Migrate to the class-based approach described above.
+
+The legacy approach uses function decorators to define datasets:
+
+.. code-block:: python
+    :caption: DEPRECATED — use class-based approach instead
+
+    from datamaestro.download.single import filedownloader
+    from datamaestro.definitions import dataset
+
+    @filedownloader("train_images.idx", "http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz")
+    @filedownloader("train_labels.idx", "http://yann.lecun.com/exdb/mnist/train-labels-idx1-ubyte.gz")
+    @filedownloader("test_images.idx", "http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz")
+    @filedownloader("test_labels.idx", "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz")
+    @dataset(
+        ImageClassification,
+        url="http://yann.lecun.com/exdb/mnist/",
+    )
+    def MNIST(train_images, train_labels, test_images, test_labels):
+        """The MNIST database"""
+        return {
+            "train": LabelledImages(
+                images=IDX(path=train_images),
+                labels=IDX(path=train_labels)
+            ),
+            "test": LabelledImages(
+                images=IDX(path=test_images),
+                labels=IDX(path=test_labels)
+            ),
+        }
+
+In this legacy pattern:
+
+- Download decorators are stacked above ``@dataset``
+- File paths are passed as arguments to the dataset function
+- The function returns a dict or data object
+
+See :ref:`deprecated-download-decorators` for the full list of deprecated
+download decorator patterns.

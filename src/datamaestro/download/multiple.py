@@ -1,13 +1,31 @@
-import logging
-from pathlib import Path
-import os
+"""Multiple download resources (legacy).
 
-from datamaestro import AbstractDataset
+Note: This module uses a legacy API pattern and needs deeper refactoring.
+The List and Datasets classes use an older constructor signature that
+differs from the modern Resource interface.
+"""
+
+import logging
+import os
+import warnings
+from pathlib import Path
+
+from datamaestro.definitions import AbstractDataset
 from datamaestro.download import Download
+
+warnings.warn(
+    "datamaestro.download.multiple uses a legacy API. "
+    "Consider migrating to class-attribute resource definitions.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class List(Download):
-    """Download multiple files or directories given by a list"""
+    """Download multiple files or directories given by a list.
+
+    Legacy: uses old-style constructor API.
+    """
 
     def __init__(self, dataset: AbstractDataset, definition: object):
         super().__init__(dataset, definition)
@@ -32,7 +50,10 @@ class List(Download):
 
 
 class Datasets(Download):
-    """Use links to dataset files"""
+    """Use links to dataset files.
+
+    Legacy: uses old-style constructor API.
+    """
 
     def __init__(self, dataset: AbstractDataset, definition: object):
         super().__init__(dataset, definition)
@@ -48,7 +69,8 @@ class Datasets(Download):
                 if isinstance(files, Path):
                     if not files.is_dir():
                         raise AssertionError(
-                            "Dataset path is not a directory: %s", files
+                            "Dataset path is not a directory: %s",
+                            files,
                         )
                     path = destination / key
                     if not path.exists():
