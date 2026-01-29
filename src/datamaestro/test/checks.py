@@ -2,6 +2,30 @@ import logging
 import importlib
 import inspect
 from datamaestro.context import Context
+from experimaestro.tools.documentation import DocumentationAnalyzer
+
+
+class DatamaestroAnalyzer(DocumentationAnalyzer):
+    """Documentation analyzer that excludes @dataset-annotated classes.
+
+    Dataset definitions (classes decorated with ``@dataset``) are documented
+    via ``dm:datasets`` Sphinx directives, not ``autoxpmconfig``. This
+    subclass filters them from the undocumented list after analysis.
+    """
+
+    def analyze(self):
+        super().analyze()
+        filtered = []
+        for fqn in self.undocumented:
+            module_name, class_name = fqn.rsplit(".", 1)
+            try:
+                mod = importlib.import_module(module_name)
+                cls = getattr(mod, class_name)
+                if not hasattr(cls, "__dataset__"):
+                    filtered.append(fqn)
+            except (ImportError, AttributeError):
+                filtered.append(fqn)
+        self.undocumented = filtered
 
 
 class DatasetTests:
