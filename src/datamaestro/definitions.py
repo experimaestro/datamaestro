@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import inspect
+import re as _re
 import shutil
 from pathlib import Path
 from itertools import chain
@@ -33,7 +34,7 @@ from typing import Type as TypingType  # noqa: F401 (re-exports)
 from experimaestro.core.types import Type  # noqa: F401 (re-exports)
 
 if TYPE_CHECKING:
-    from .data import Base, Dataset
+    from .data import Base
     from .context import Repository, Context, DatafolderPath  # noqa: F401 (re-exports)
     from datamaestro.download import Download, Resource
 
@@ -130,6 +131,21 @@ def _move_path(src: Path, dst: Path) -> None:
         shutil.move(str(src), str(dst))
 
 
+_CAMEL_RE1 = _re.compile(r"([A-Z]+)([A-Z][a-z])")
+_CAMEL_RE2 = _re.compile(r"([a-z0-9])([A-Z])")
+
+
+def _camel_to_snake(name: str) -> str:
+    """Convert CamelCase to snake_case, then lowercase.
+
+    Examples: ProcessedMNIST -> processed_mnist, MyData -> my_data,
+    MNIST -> mnist, simple -> simple
+    """
+    s = _CAMEL_RE1.sub(r"\1_\2", name)
+    s = _CAMEL_RE2.sub(r"\1_\2", s)
+    return s.lower()
+
+
 # --- Objects holding information into classes/function
 
 
@@ -196,7 +212,12 @@ class DataDefinition(AbstractData):
             if components[0] == "datamaestro":
                 longest_ix = 0
 
-        return repository, [s.lower() for s in components[(longest_ix + 1) :]]
+        parts = components[(longest_ix + 1) :]
+        # Module components: just lowercase
+        # Last component (class/function name): CamelCase → snake_case
+        if parts:
+            parts = [s.lower() for s in parts[:-1]] + [_camel_to_snake(parts[-1])]
+        return repository, parts
 
     def ancestors(self):
         ancestors = []
@@ -594,6 +615,10 @@ class DatasetWrapper(AbstractDataset):
         if self.base is self.t:
             self.config = self.base.__create_dataset__(self)
 
+        elif hasattr(self.t, "__create_dataset__"):
+            # Class-based dataset with metadataset or different base
+            self.config = self.t.__create_dataset__(self)
+
         else:
             # Construct the object
             if self.as_prepare:
@@ -715,8 +740,8 @@ class DatasetAnnotation:
     def __call__(self, dataset: AbstractDataset):
         if isinstance(dataset, AbstractDataset):
             self.annotate(dataset)
-        elif issubclass(dataset, Dataset):
-            self.annotate(dataset.__datamaestro__)
+        elif hasattr(dataset, "__dataset__"):
+            self.annotate(dataset.__dataset__)
         else:
             raise RuntimeError(
                 f"Only datasets can be annotated with {self}, "

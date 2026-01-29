@@ -22,6 +22,8 @@ import pytest
 
 from datamaestro.definitions import (
     AbstractDataset,
+    DataDefinition,
+    DatasetWrapper,
     topological_sort,
     _compute_dependents,
     _bind_class_resources,
@@ -1109,6 +1111,134 @@ class TestReferenceResource:
             reference(varname="ref", reference=None)
 
 
+# ==== Reference with Class-Based Datasets ====
+
+
+class TestReferenceClassBased:
+    """Tests for `reference` used with class-based datasets.
+
+    When a class-based dataset is decorated with @dataset, the class
+    gets a __dataset__ attribute pointing to the DatasetWrapper.
+    The reference resource must resolve through that attribute.
+    """
+
+    def _make_base_dataset(self, context):
+        """Create a minimal class-based dataset to use as a reference target."""
+        from datamaestro.data import Base
+        from datamaestro.definitions import dataset as dataset_dec
+
+        class BaseData(Base):
+            """Base test dataset."""
+
+            DATA = DummyFileResource("base.txt")
+
+            @classmethod
+            def __create_dataset__(cls, dataset: AbstractDataset):
+                return cls.C(id="test.base")
+
+        BaseData.__module__ = "datamaestro.config.test"
+
+        # Apply the @dataset decorator (sets __dataset__ on the class)
+        dataset_dec(base=BaseData, url="http://test.com")(BaseData)
+        return BaseData
+
+    def test_resolve_via_dataset_attr(self, context):
+        """_resolve_reference follows __dataset__ for class-based targets."""
+        BaseData = self._make_base_dataset(context)
+
+        ref = reference(varname="base", reference=BaseData)
+        resolved = ref._resolve_reference()
+
+        assert resolved is BaseData.__dataset__
+
+    def test_prepare_delegates_to_class_dataset(self, context):
+        """prepare() calls _prepare() on the referenced DatasetWrapper."""
+        BaseData = self._make_base_dataset(context)
+
+        ref = reference(varname="base", reference=BaseData)
+
+        # Mock the DatasetWrapper._prepare to avoid full experimaestro
+        # Config construction (which rejects classes defined in functions)
+        sentinel = object()
+        BaseData.__dataset__._prepare = MagicMock(return_value=sentinel)
+
+        result = ref.prepare()
+        BaseData.__dataset__._prepare.assert_called_once()
+        assert result is sentinel
+
+    def test_download_delegates_to_class_dataset(self, context):
+        """download() calls download() on the referenced DatasetWrapper."""
+        BaseData = self._make_base_dataset(context)
+
+        ref = reference(varname="base", reference=BaseData)
+
+        # Mock the DatasetWrapper.download to verify delegation
+        BaseData.__dataset__.download = MagicMock()
+
+        ref.download(force=True)
+        BaseData.__dataset__.download.assert_called_once_with(True)
+
+    def test_download_no_force(self, context):
+        """download(force=False) passes force=False to the target."""
+        BaseData = self._make_base_dataset(context)
+
+        ref = reference(varname="base", reference=BaseData)
+        BaseData.__dataset__.download = MagicMock()
+
+        ref.download(force=False)
+        BaseData.__dataset__.download.assert_called_once_with(False)
+
+    def test_has_files_false(self, context):
+        """reference has_files() is always False."""
+        BaseData = self._make_base_dataset(context)
+
+        ref = reference(varname="base", reference=BaseData)
+        assert ref.has_files() is False
+
+    def test_bound_in_class_based_dataset(self, context):
+        """reference works as a class attribute bound via
+        _bind_class_resources."""
+        BaseData = self._make_base_dataset(context)
+
+        repository = MyRepository(context)
+        ds = SimpleDataset(repository, context.datapath / "derived_test")
+
+        ref = reference(varname="base", reference=BaseData)
+        ref.bind("BASE", ds)
+
+        assert "base" in ds.resources
+        assert ds.resources["base"] is ref
+        assert ref.has_files() is False
+
+    def test_full_class_attribute_integration(self, context):
+        """reference as a class attribute in a full class-based dataset."""
+        from datamaestro.data import Base
+
+        BaseData = self._make_base_dataset(context)
+
+        class DerivedData(Base):
+            """Derived dataset referencing the base."""
+
+            BASE = reference(varname="base", reference=BaseData)
+
+            @classmethod
+            def __create_dataset__(cls, dataset: AbstractDataset):
+                cls.BASE.prepare()
+                return cls.C(id="test.derived")
+
+        repository = MyRepository(context)
+        ds = SimpleDataset(repository, context.datapath / "derived_full")
+
+        _bind_class_resources(DerivedData, ds)
+
+        assert "base" in ds.resources
+        assert isinstance(ds.resources["base"], reference)
+
+        # The reference should resolve to the base dataset
+        resolved = ds.resources["base"]._resolve_reference()
+        assert resolved is BaseData.__dataset__
+
+
 # ==== Links Resource Tests ====
 
 
@@ -1386,3 +1516,142 @@ class TestMultiple:
             from datamaestro.download.multiple import Datasets
 
             assert issubclass(Datasets, Download)
+
+
+# ==== Dataset ID Inference Tests ====
+
+
+class TestDatasetIDInference:
+    """Integration tests for dataset ID inference stability.
+
+    Verifies that DataDefinition.repository_relpath correctly derives
+    path components from type modules and names, including the
+    CamelCase → snake_case conversion for the final component
+    (class/function name).
+    """
+
+    @staticmethod
+    def _make_type(module, name):
+        """Create a mock type with given __module__ and __name__."""
+        t = type(name, (), {})
+        t.__module__ = module
+        return t
+
+    def test_all_caps_class(self, context):
+        """All-caps class name (e.g. MNIST) becomes lowercase."""
+        t = self._make_type("datamaestro.config.lecun", "MNIST")
+        _, parts = DataDefinition.repository_relpath(t)
+        assert parts == ["config", "lecun", "mnist"]
+
+    def test_camel_case_class(self, context):
+        """CamelCase class name becomes snake_case."""
+        t = self._make_type("datamaestro.config.lecun", "ProcessedMNIST")
+        _, parts = DataDefinition.repository_relpath(t)
+        assert parts == ["config", "lecun", "processed_mnist"]
+
+    def test_multi_word_camel_case(self, context):
+        """Multi-word CamelCase is split with underscores."""
+        t = self._make_type("datamaestro.config.data", "ImageClassification")
+        _, parts = DataDefinition.repository_relpath(t)
+        assert parts == ["config", "data", "image_classification"]
+
+    def test_lowercase_function_name(self, context):
+        """Lowercase function names stay as-is."""
+        t = self._make_type("datamaestro.config.lecun", "mnist")
+        _, parts = DataDefinition.repository_relpath(t)
+        assert parts == ["config", "lecun", "mnist"]
+
+    def test_name_with_digits(self, context):
+        """Names with trailing digits are handled correctly."""
+        t = self._make_type("datamaestro.config.trec", "Robust2005")
+        _, parts = DataDefinition.repository_relpath(t)
+        assert parts == ["config", "trec", "robust2005"]
+
+    def test_acronym_then_word(self, context):
+        """Acronym followed by word splits correctly."""
+        t = self._make_type("datamaestro.config.web", "HTTPSConnection")
+        _, parts = DataDefinition.repository_relpath(t)
+        assert parts == ["config", "web", "https_connection"]
+
+    def test_digit_to_upper_boundary(self, context):
+        """Digit-to-uppercase boundary inserts underscore."""
+        t = self._make_type("datamaestro.config.data", "V2Data")
+        _, parts = DataDefinition.repository_relpath(t)
+        assert parts == ["config", "data", "v2_data"]
+
+    def test_snake_case_passthrough(self, context):
+        """Already snake_case names are unchanged."""
+        t = self._make_type("datamaestro.config.lecun", "my_data")
+        _, parts = DataDefinition.repository_relpath(t)
+        assert parts == ["config", "lecun", "my_data"]
+
+    def test_module_components_lowercased(self, context):
+        """Module path components are lowercased, not snake_cased."""
+        t = self._make_type("datamaestro.config.LeCun.SubDir", "MNIST")
+        _, parts = DataDefinition.repository_relpath(t)
+        assert parts == ["config", "lecun", "subdir", "mnist"]
+
+    def test_only_last_component_snake_cased(self, context):
+        """Only the last component gets CamelCase→snake_case;
+        module components are simply lowercased."""
+        t = self._make_type("datamaestro.config.MyModule.SubPkg", "ProcessedData")
+        _, parts = DataDefinition.repository_relpath(t)
+        # MyModule/SubPkg → lowercased; ProcessedData → snake_cased
+        assert parts == [
+            "config",
+            "mymodule",
+            "subpkg",
+            "processed_data",
+        ]
+
+    def test_full_id_class_based(self, context):
+        """Full dataset ID for a class-based dataset."""
+        from datamaestro.data import Base
+        from datamaestro.definitions import dataset as dataset_dec
+
+        class ProcessedMNIST(Base):
+            """Test dataset."""
+
+            pass
+
+        ProcessedMNIST.__module__ = "datamaestro.config.lecun"
+
+        ann = dataset_dec(base=ProcessedMNIST, url="http://test.com")
+        dw = DatasetWrapper(ann, ProcessedMNIST)
+        assert dw.id == "lecun.processed_mnist"
+
+    def test_full_id_function_based(self, context):
+        """Full dataset ID for a function-based (lowercase) dataset."""
+        from datamaestro.data import Base
+
+        class MyData(Base):
+            pass
+
+        from datamaestro.definitions import dataset as dataset_dec
+
+        def mnist() -> MyData:
+            pass
+
+        mnist.__module__ = "datamaestro.config.lecun"
+
+        ann = dataset_dec(url="http://test.com")
+        # Infer base from return annotation
+        ann.base = MyData
+        dw = DatasetWrapper(ann, mnist)
+        assert dw.id == "lecun.mnist"
+
+    def test_full_id_nested_module(self, context):
+        """Full dataset ID with nested module path."""
+        from datamaestro.data import Base
+        from datamaestro.definitions import dataset as dataset_dec
+
+        class Squad(Base):
+            """Test dataset."""
+
+            pass
+
+        Squad.__module__ = "datamaestro.config.stanford.qa"
+
+        ann = dataset_dec(base=Squad, url="http://test.com")
+        dw = DatasetWrapper(ann, Squad)
+        assert dw.id == "stanford.qa.squad"

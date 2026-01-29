@@ -55,9 +55,17 @@ class links(Resource):
     def download(self, force=False):
         self.path.mkdir(exist_ok=True, parents=True)
         for key, value in self.links.items():
-            value.download(force)
+            # Resolve class-based datasets
+            if hasattr(value, "__dataset__"):
+                wrapper = value.__dataset__
+                wrapper.download(force)
+                path = wrapper()
+            elif hasattr(value, "download"):
+                value.download(force)
+                path = value()
+            else:
+                path = value  # Already a path
 
-            path = value()
             dest = self.path / key
 
             if not dest.exists():

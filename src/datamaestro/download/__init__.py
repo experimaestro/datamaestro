@@ -638,14 +638,32 @@ class reference(Resource):
         assert reference is not None, "Reference cannot be null"
         self.reference = reference
 
+    def _resolve_reference(self):
+        """Resolve the reference to a DatasetWrapper.
+
+        For class-based datasets, the reference is the class itself with
+        a __dataset__ attribute pointing to the DatasetWrapper.
+        For function-based datasets, the reference is already a DatasetWrapper.
+        """
+        ref = self.reference
+        if hasattr(ref, "__dataset__"):
+            return ref.__dataset__
+        return ref
+
     def prepare(self):
-        v = self.reference.prepare()
-        if isinstance(v, AbstractDataset):
-            return v().prepare()
-        return v
+        resolved = self._resolve_reference()
+        if isinstance(resolved, AbstractDataset):
+            return resolved._prepare()
+        return resolved.prepare()
 
     def download(self, force=False):
-        self.reference.__datamaestro__.download(force)
+        resolved = self._resolve_reference()
+        if isinstance(resolved, AbstractDataset):
+            resolved.download(force)
+        elif hasattr(resolved, "__datamaestro__"):
+            resolved.__datamaestro__.download(force)
+        else:
+            resolved.download(force)
 
     def has_files(self):
         # We don't really have files
