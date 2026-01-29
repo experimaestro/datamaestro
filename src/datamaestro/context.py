@@ -445,6 +445,9 @@ def prepare_dataset(
 
     if isinstance(dataset_id, DatasetWrapper):
         ds = dataset_id
+    elif hasattr(dataset_id, "__dataset__"):
+        # Class-based dataset decorated with @dataset
+        ds = dataset_id.__dataset__
     elif isinstance(dataset_id, Config):
         ds = dataset_id.__datamaestro_dataset__
     else:
