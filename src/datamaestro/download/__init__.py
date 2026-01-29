@@ -646,7 +646,7 @@ class reference(Resource):
         For function-based datasets, the reference is already a DatasetWrapper.
         """
         ref = self.reference
-        if hasattr(ref, "__dataset__"):
+        if isinstance(ref, type) and hasattr(ref, "__dataset__"):
             return ref.__dataset__
         return ref
 
