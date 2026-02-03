@@ -546,10 +546,16 @@ class DatasetWrapper(AbstractDataset):
                 # There is nothing, use the full path
                 path = ".".join(components[1:])
             else:
-                # Replace
+                # Replace the class name with the provided suffix
                 path = ".".join(components[1:-1])
                 if annotation.id != "":
-                    path = f"{path}.{annotation.id}"
+                    # Strip leading dot if present (e.g., ".8.topics" -> "8.topics")
+                    suffix = (
+                        annotation.id[1:]
+                        if annotation.id.startswith(".")
+                        else annotation.id
+                    )
+                    path = f"{path}.{suffix}"
 
             self.id = path
         else:
@@ -823,9 +829,10 @@ class dataset:
 
     :param base: The base type (or None if inferred from type annotation).
     :param timestamp: If the dataset evolves, specify its timestamp.
-    :param id: Gives the full ID of the dataset if it contains a '.',
-        the last component if not containing a '.', or the last components
-        if starting with '.'
+    :param id: Dataset ID override. Behavior depends on format:
+        - Full ID (e.g., "com.example.data"): used as-is if it has 3+ components
+        - Suffix with dot prefix (e.g., ".8.topics"): appended to module path
+        - Single component (e.g., "mnist"): replaces the class name in the path
     :param url: The URL associated with the dataset.
     :param size: The size of the dataset (should be a parsable format).
     :param doi: The DOI of the corresponding paper.

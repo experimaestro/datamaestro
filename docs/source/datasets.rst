@@ -130,7 +130,7 @@ Parameters
    * - ``base``
      - The base data type class (e.g., ``ImageClassification``). Can be inferred from the class hierarchy.
    * - ``id``
-     - Override the automatic ID. Use ``"."`` prefix to replace only the last component.
+     - Override the automatic ID. Use a ``"."`` prefix to append to the module path (e.g., ``".8.topics"`` becomes ``module.path.8.topics``).
    * - ``url``
      - URL to the dataset's homepage.
    * - ``doi``
@@ -139,7 +139,7 @@ Parameters
      - Version timestamp for evolving datasets.
    * - ``size``
      - Dataset size (for documentation).
-   * - ``as_prepare``
+   * - ``as_prepare`` (deprecated)
      - If True, the function receives the dataset object for manual resource handling.
 
 ID Override Examples
@@ -152,7 +152,12 @@ ID Override Examples
     class IgnoredName(MyType):
         ...
 
-    # Replace last component only (in module com.example)
+    # Append suffix to module path (in module gov.nist.trec.adhoc)
+    @dataset(MyType, id=".8.topics")  # Results in gov.nist.trec.adhoc.8.topics
+    class Trec8Topics(MyType):
+        ...
+
+    # Single component suffix (in module com.example)
     @dataset(MyType, id=".v2")  # Results in com.example.v2
     class Original(MyType):
         ...
