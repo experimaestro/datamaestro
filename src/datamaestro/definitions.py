@@ -724,6 +724,9 @@ class DataAnnotation:
         else:
             if "__datamaestro__" in object.__dict__:
                 self.annotate(object.__datamaestro__)
+            elif "__dataset__" in object.__dict__:
+                # Dataset subclass decorated with @dataset
+                self.annotate(object.__dataset__)
             else:
                 # With configuration objects, add a __datamaestro__ member to the class
                 assert issubclass(object, Config), (
