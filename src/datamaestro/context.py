@@ -282,7 +282,7 @@ class Datasets(Iterable["AbstractDataset"]):
         self._description = "\n".join(description)
 
     def __iter__(self) -> Iterable["AbstractDataset"]:
-        from .definitions import DatasetWrapper
+        from .definitions import DatasetWrapper, Dataset
         from datamaestro.data import Base
 
         # Iterates over defined symbols
@@ -294,7 +294,7 @@ class Datasets(Iterable["AbstractDataset"]):
                     yield value
             elif (
                 inspect.isclass(value)
-                and issubclass(value, Base)
+                and (issubclass(value, Base) or issubclass(value, Dataset))
                 and hasattr(value, "__dataset__")
             ):
                 if self.module.__name__ == value.__module__:
