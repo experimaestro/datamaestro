@@ -611,8 +611,13 @@ class DatasetWrapper(AbstractDataset):
         if self.config is not None:
             return self.config
 
+        # Dataset subclass with config() method
+        if inspect.isclass(self.t) and issubclass(self.t, Dataset):
+            instance = self.t()
+            self.config = instance.config()
+
         # Direct creation of the dataset
-        if self.base is self.t:
+        elif self.base is self.t:
             self.config = self.base.__create_dataset__(self)
 
         elif hasattr(self.t, "__create_dataset__"):
@@ -857,6 +862,17 @@ class dataset:
             if self.base is None:
                 if inspect.isclass(t) and issubclass(t, Base):
                     self.base = t
+                elif inspect.isclass(t) and issubclass(t, Dataset):
+                    # Infer base from config() return annotation
+                    try:
+                        config_method = t.config
+                        return_type = config_method.__annotations__["return"]
+                        if isinstance(return_type, _GenericAlias):
+                            return_type = return_type.__origin__
+                        self.base = return_type
+                    except (KeyError, AttributeError):
+                        logging.warning("No return annotation on config() in %s", t)
+                        raise
                 else:
                     try:
                         # Get type from return annotation
@@ -875,10 +891,46 @@ class dataset:
         t.__dataset__ = dw
 
         # For class-based datasets, scan for Resource class attributes
-        if inspect.isclass(t) and issubclass(t, Base):
+        if inspect.isclass(t) and (issubclass(t, Base) or issubclass(t, Dataset)):
             _bind_class_resources(t, dw)
             return t
         return dw
+
+
+class Dataset(ABC):
+    """Base class for simplified dataset definitions.
+
+    Inherit from this class and use the ``@dataset`` decorator.
+    Resources are defined as class attributes and accessed via ``self``.
+
+    Example::
+
+        @dataset(url="http://yann.lecun.com/exdb/mnist/")
+        class MNIST(Dataset):
+            \"\"\"The MNIST database of handwritten digits.\"\"\"
+
+            TRAIN_IMAGES = FileDownloader("train.idx", "http://...")
+            TEST_IMAGES = FileDownloader("test.idx", "http://...")
+
+            def config(self) -> ImageClassification:
+                return ImageClassification.C(
+                    train=IDX(path=self.TRAIN_IMAGES.path),
+                    test=IDX(path=self.TEST_IMAGES.path),
+                )
+    """
+
+    @abstractmethod
+    def config(self) -> "Base":
+        """Create and return the dataset configuration.
+
+        Override this method to construct and return the data object.
+        Resources are accessible via ``self.RESOURCE_NAME.path`` or
+        ``self.RESOURCE_NAME.prepare()``.
+
+        Returns:
+            A Config instance (typically created via ``SomeType.C(...)``).
+        """
+        ...
 
 
 class metadataset(AbstractDataset):

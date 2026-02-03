@@ -7,6 +7,6 @@ from .context import (
     prepare_dataset,
 )
 
-from .definitions import dataset, metadata
+from .definitions import dataset, metadata, Dataset
 from .data import Base
 from .version import __version__

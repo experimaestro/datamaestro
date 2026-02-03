@@ -30,11 +30,10 @@ Basic Example
     from datamaestro_image.data import ImageClassification, LabelledImages
     from datamaestro.data.tensor import IDX
     from datamaestro.download.single import FileDownloader
-    from datamaestro.definitions import AbstractDataset, dataset
-
+    from datamaestro.definitions import Dataset, dataset
 
     @dataset(url="http://yann.lecun.com/exdb/mnist/")
-    class MNIST(ImageClassification):
+    class MNIST(Dataset):
         """The MNIST database of handwritten digits."""
 
         TRAIN_IMAGES = FileDownloader(
@@ -54,16 +53,15 @@ Basic Example
             "http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz",
         )
 
-        @classmethod
-        def __create_dataset__(cls, dataset: AbstractDataset):
-            return cls.C(
+        def config(self) -> ImageClassification:
+            return ImageClassification.C(
                 train=LabelledImages(
-                    images=IDX(path=cls.TRAIN_IMAGES.path),
-                    labels=IDX(path=cls.TRAIN_LABELS.path),
+                    images=IDX(path=self.TRAIN_IMAGES.path),
+                    labels=IDX(path=self.TRAIN_LABELS.path),
                 ),
                 test=LabelledImages(
-                    images=IDX(path=cls.TEST_IMAGES.path),
-                    labels=IDX(path=cls.TEST_LABELS.path),
+                    images=IDX(path=self.TEST_IMAGES.path),
+                    labels=IDX(path=self.TEST_LABELS.path),
                 ),
             )
 
