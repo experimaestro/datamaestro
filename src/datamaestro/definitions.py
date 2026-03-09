@@ -386,6 +386,16 @@ class AbstractDataset(AbstractData):
         success = True
 
         for resource in self.ordered_resources:
+            # Transient resources don't need rebuilding if all dependents
+            # are already complete
+            if (
+                not force
+                and resource.transient
+                and resource.dependents
+                and all(d.state == ResourceState.COMPLETE for d in resource.dependents)
+            ):
+                continue
+
             # Step 1: Check state
             current_state = resource.state
 
