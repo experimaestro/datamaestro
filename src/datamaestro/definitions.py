@@ -368,6 +368,19 @@ class AbstractDataset(AbstractData):
 
         return success
 
+    @staticmethod
+    def _cleanup_transient_deps(resource, ResourceState):
+        """Clean up transient dependencies whose dependents are all COMPLETE."""
+        for dep in resource.dependencies:
+            if dep.transient and all(
+                d.state == ResourceState.COMPLETE for d in dep.dependents
+            ):
+                logging.info(
+                    "Cleaning up transient resource %s (all dependents complete)",
+                    dep.name,
+                )
+                dep.cleanup()
+
     def _download_locked(self, force, ResourceState):
         """Inner download logic, called while holding .state.lock."""
         success = True
@@ -388,6 +401,7 @@ class AbstractDataset(AbstractData):
                     resource.state = ResourceState.NONE
                     current_state = ResourceState.NONE
                 else:
+                    self._cleanup_transient_deps(resource, ResourceState)
                     continue
 
             # Adopt pre-existing files (old downloads without state file)
@@ -403,6 +417,7 @@ class AbstractDataset(AbstractData):
                     resource.path,
                 )
                 resource.state = ResourceState.COMPLETE
+                self._cleanup_transient_deps(resource, ResourceState)
                 continue
 
             if current_state == ResourceState.PARTIAL:
@@ -444,11 +459,7 @@ class AbstractDataset(AbstractData):
                 break
 
             # Step 5: Eager transient cleanup
-            for dep in resource.dependencies:
-                if dep.transient and all(
-                    d.state == ResourceState.COMPLETE for d in dep.dependents
-                ):
-                    dep.cleanup()
+            self._cleanup_transient_deps(resource, ResourceState)
 
         # Step 6: Remove .downloads/ directory after success
         if success:
