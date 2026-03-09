@@ -588,6 +588,55 @@ class FolderResource(Resource):
         ...
 
 
+# --- FilesCopy ---
+
+
+class FilesCopy(FolderResource):
+    """Copies files from a source resource into a persistent folder.
+
+    Used to preserve specific files from a transient resource (e.g. an
+    archive) before it gets cleaned up.
+
+    Usage::
+
+        @dataset()
+        class MyDataset(Dataset):
+            ARCHIVE = ZipDownloader("data", url, transient=True)
+            files = FilesCopy(ARCHIVE, {
+                "queries.jsonl": "queries.jsonl",
+                "train.tsv": "qrels/train.tsv",
+                "test.tsv": "qrels/test.tsv",
+            })
+
+            def config(self):
+                return MyType.C(
+                    queries=self.files.path / "queries.jsonl",
+                    qrels=self.files.path / "train.tsv",
+                )
+    """
+
+    def __init__(self, source: Resource, files: dict[str, str]):
+        """
+        Args:
+            source: Source resource whose path contains the files.
+            files: Mapping of ``{dest_filename: relative_src_path}``.
+                Each entry copies ``source.path / relative_src_path``
+                to ``self.path / dest_filename``.
+        """
+        super().__init__()
+        self._source = source
+        self._files = files
+        self._dependencies.append(source)
+
+    def _download(self, destination: Path) -> None:
+        destination.mkdir(parents=True, exist_ok=True)
+        for dest_name, src_relpath in self._files.items():
+            src = self._source.path / src_relpath
+            dst = destination / dest_name
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+
+
 # --- ValueResource ---
 
 
