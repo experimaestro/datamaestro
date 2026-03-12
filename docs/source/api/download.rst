@@ -20,6 +20,7 @@ Resource Hierarchy
     Resource (ABC)
     ├── FileResource      — produces a single file
     ├── FolderResource    — produces a directory
+    │   └── FilesCopy     — copies files from another resource
     ├── ValueResource     — produces an in-memory value (no files)
     ├── reference         — references another dataset
     └── Download          — (deprecated alias for Resource)
@@ -266,6 +267,51 @@ References another dataset instead of downloading:
     @dataset(url="http://example.com")
     class DerivedDataset(MyData):
         BASE = reference("base", reference=other_dataset)
+
+
+FilesCopy
+---------
+
+Package: ``datamaestro.download``
+
+Copies specific files from a source resource (typically a transient archive)
+into a persistent folder. This is useful when you only need a few files from
+a large archive and want the archive to be cleaned up after extraction.
+
+.. autoclass:: datamaestro.download.FilesCopy
+
+.. code-block:: python
+
+    from datamaestro.download.archive import ZipDownloader
+    from datamaestro.download import FilesCopy
+    from datamaestro.definitions import Dataset, dataset
+
+    @dataset(url="http://example.com")
+    class MyDataset(Dataset):
+        # Archive is transient — deleted after FilesCopy completes
+        ARCHIVE = ZipDownloader("data", "http://example.com/data.zip", transient=True)
+
+        # Copy only the files we need
+        FILES = FilesCopy(ARCHIVE, {
+            "queries.jsonl": "queries.jsonl",
+            "train.tsv": "qrels/train.tsv",
+            "test.tsv": "qrels/test.tsv",
+        })
+
+        def config(self):
+            return MyType.C(
+                queries=self.FILES.path / "queries.jsonl",
+                train_qrels=self.FILES.path / "train.tsv",
+            )
+
+**Parameters:**
+
+- ``source``: The source resource whose ``path`` contains the files to copy.
+- ``files``: A mapping of ``{dest_filename: relative_src_path}``. Each entry
+  copies ``source.path / relative_src_path`` to ``self.path / dest_filename``.
+
+``FilesCopy`` automatically declares a dependency on ``source``, so the source
+is always downloaded and completed before the copy runs.
 
 
 Transient Resources & Pipelines
