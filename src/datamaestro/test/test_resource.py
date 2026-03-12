@@ -1526,8 +1526,8 @@ class TestDatasetIDInference:
 
     Verifies that DataDefinition.repository_relpath correctly derives
     path components from type modules and names, including the
-    CamelCase → snake_case conversion for the final component
-    (class/function name).
+    CamelCase → dot.separated.lowercase conversion for the final
+    component (class/function name).
     """
 
     @staticmethod
@@ -1544,16 +1544,16 @@ class TestDatasetIDInference:
         assert parts == ["config", "lecun", "mnist"]
 
     def test_camel_case_class(self, context):
-        """CamelCase class name becomes snake_case."""
+        """CamelCase class name becomes dot.separated."""
         t = self._make_type("datamaestro.config.lecun", "ProcessedMNIST")
         _, parts = DataDefinition.repository_relpath(t)
-        assert parts == ["config", "lecun", "processed_mnist"]
+        assert parts == ["config", "lecun", "processed.mnist"]
 
     def test_multi_word_camel_case(self, context):
-        """Multi-word CamelCase is split with underscores."""
+        """Multi-word CamelCase is split with dots."""
         t = self._make_type("datamaestro.config.data", "ImageClassification")
         _, parts = DataDefinition.repository_relpath(t)
-        assert parts == ["config", "data", "image_classification"]
+        assert parts == ["config", "data", "image.classification"]
 
     def test_lowercase_function_name(self, context):
         """Lowercase function names stay as-is."""
@@ -1571,13 +1571,13 @@ class TestDatasetIDInference:
         """Acronym followed by word splits correctly."""
         t = self._make_type("datamaestro.config.web", "HTTPSConnection")
         _, parts = DataDefinition.repository_relpath(t)
-        assert parts == ["config", "web", "https_connection"]
+        assert parts == ["config", "web", "https.connection"]
 
     def test_digit_to_upper_boundary(self, context):
         """Digit-to-uppercase boundary inserts underscore."""
         t = self._make_type("datamaestro.config.data", "V2Data")
         _, parts = DataDefinition.repository_relpath(t)
-        assert parts == ["config", "data", "v2_data"]
+        assert parts == ["config", "data", "v2.data"]
 
     def test_snake_case_passthrough(self, context):
         """Already snake_case names are unchanged."""
@@ -1586,22 +1586,22 @@ class TestDatasetIDInference:
         assert parts == ["config", "lecun", "my_data"]
 
     def test_module_components_lowercased(self, context):
-        """Module path components are lowercased, not snake_cased."""
+        """Module path components are lowercased, not dot-separated."""
         t = self._make_type("datamaestro.config.LeCun.SubDir", "MNIST")
         _, parts = DataDefinition.repository_relpath(t)
         assert parts == ["config", "lecun", "subdir", "mnist"]
 
-    def test_only_last_component_snake_cased(self, context):
-        """Only the last component gets CamelCase→snake_case;
+    def test_only_last_component_dot_separated(self, context):
+        """Only the last component gets CamelCase→dot.separated;
         module components are simply lowercased."""
         t = self._make_type("datamaestro.config.MyModule.SubPkg", "ProcessedData")
         _, parts = DataDefinition.repository_relpath(t)
-        # MyModule/SubPkg → lowercased; ProcessedData → snake_cased
+        # MyModule/SubPkg → lowercased; ProcessedData → dot.separated
         assert parts == [
             "config",
             "mymodule",
             "subpkg",
-            "processed_data",
+            "processed.data",
         ]
 
     def test_full_id_class_based(self, context):
@@ -1618,7 +1618,7 @@ class TestDatasetIDInference:
 
         ann = dataset_dec(base=ProcessedMNIST, url="http://test.com")
         dw = DatasetWrapper(ann, ProcessedMNIST)
-        assert dw.id == "lecun.processed_mnist"
+        assert dw.id == "lecun.processed.mnist"
 
     def test_full_id_function_based(self, context):
         """Full dataset ID for a function-based (lowercase) dataset."""

@@ -102,7 +102,9 @@ Dataset ID Naming
 The dataset ID is derived from:
 
 1. **Module path**: ``datamaestro_image.config.com.lecun`` → ``com.lecun``
-2. **Class/function name**: ``MNIST`` → ``.mnist`` (lowercased)
+2. **Class/function name**: CamelCase is converted to dot-separated lowercase
+   (e.g., ``MNIST`` → ``mnist``, ``ProcessedMNIST`` → ``processed.mnist``,
+   ``TrainTexttripleFull`` → ``train.texttriple.full``)
 3. **Final ID**: ``com.lecun.mnist``
 
 The convention follows reversed domain names (like Java packages):

@@ -136,13 +136,14 @@ _CAMEL_RE2 = _re.compile(r"([a-z0-9])([A-Z])")
 
 
 def _camel_to_snake(name: str) -> str:
-    """Convert CamelCase to snake_case, then lowercase.
+    """Convert CamelCase to dot.separated.lowercase.
 
-    Examples: ProcessedMNIST -> processed_mnist, MyData -> my_data,
-    MNIST -> mnist, simple -> simple
+    Examples: ProcessedMNIST -> processed.mnist, MyData -> my.data,
+    MNIST -> mnist, simple -> simple,
+    TrainTexttripleFull -> train.texttriple.full
     """
-    s = _CAMEL_RE1.sub(r"\1_\2", name)
-    s = _CAMEL_RE2.sub(r"\1_\2", s)
+    s = _CAMEL_RE1.sub(r"\1.\2", name)
+    s = _CAMEL_RE2.sub(r"\1.\2", s)
     return s.lower()
 
 
@@ -214,7 +215,7 @@ class DataDefinition(AbstractData):
 
         parts = components[(longest_ix + 1) :]
         # Module components: just lowercase
-        # Last component (class/function name): CamelCase → snake_case
+        # Last component (class/function name): CamelCase → dot.separated
         if parts:
             parts = [s.lower() for s in parts[:-1]] + [_camel_to_snake(parts[-1])]
         return repository, parts
