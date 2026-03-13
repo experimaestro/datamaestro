@@ -675,13 +675,32 @@ class Download(Resource):
 
 
 class reference(Resource):
-    """References another dataset instead of downloading."""
+    """References another dataset instead of downloading.
 
-    def __init__(self, varname=None, reference=None):
+    Usage::
+
+        # Positional form (preferred):
+        DOCS = reference(Documents)
+
+        # Keyword form:
+        DOCS = reference(reference=Documents)
+
+        # With explicit varname (rarely needed — auto-set from attribute name):
+        DOCS = reference(Documents, varname="docs")
+
+    In the ``config()`` method, call ``.config()`` (or ``.prepare()``)
+    to obtain the referenced dataset's prepared configuration::
+
+        def config(self) -> Adhoc:
+            return Adhoc.C(documents=self.DOCS.config())
+    """
+
+    def __init__(self, reference=None, *, varname=None):
         """
         Args:
-            varname: The name of the variable.
-            reference: Another dataset to reference.
+            reference: The dataset class (or wrapper) to reference.
+            varname: Explicit resource name (auto-set from class attribute
+                name if omitted).
         """
         super().__init__(varname=varname)
         assert reference is not None, "Reference cannot be null"
@@ -691,7 +710,7 @@ class reference(Resource):
         """Resolve the reference to a DatasetWrapper.
 
         For class-based datasets, the reference is the class itself with
-        a __dataset__ attribute pointing to the DatasetWrapper.
+        a ``__dataset__`` attribute pointing to the DatasetWrapper.
         For function-based datasets, the reference is already a DatasetWrapper.
         """
         ref = self.reference
@@ -700,10 +719,31 @@ class reference(Resource):
         return ref
 
     def prepare(self):
+        """Return the referenced dataset's prepared configuration.
+
+        Resolves the reference and calls the target dataset's
+        ``config()`` method (via ``_prepare()``).
+
+        Returns:
+            A Config instance — the result of the referenced dataset's
+            ``config()`` method.
+        """
         resolved = self._resolve_reference()
         if isinstance(resolved, AbstractDataset):
             return resolved._prepare()
         return resolved.prepare()
+
+    def config(self):
+        """Alias for :meth:`prepare` — returns the referenced dataset's config.
+
+        Preferred over ``prepare()`` for readability when used with
+        ``reference`` resources, since the return value is a configuration
+        object (not a file path)::
+
+            def config(self) -> Adhoc:
+                return Adhoc.C(documents=self.DOCS.config())
+        """
+        return self.prepare()
 
     def download(self, force=False):
         resolved = self._resolve_reference()

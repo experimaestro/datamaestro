@@ -72,6 +72,28 @@ Advantages of class-based definitions:
 3. **Auto-naming** --- resource names are auto-detected from class attribute names
 4. **Two-path safety** --- incomplete downloads never appear at the final path
 
+Dataset Utilities
+-----------------
+
+``Dataset.data_path``
+    A class property that returns the ``Path`` where this dataset's data is
+    stored on disk. This is a shortcut for ``MyDataset.__dataset__.datapath``:
+
+    .. code-block:: python
+
+        @dataset(url="http://example.com")
+        class Documents(Dataset):
+            ...
+
+        @dataset(url="http://example.com")
+        class MyTask(Dataset):
+            DOCS = reference(Documents)
+
+            def config(self) -> TaskData:
+                # Use Documents.data_path to locate sibling data
+                store_path = Documents.data_path / "docstore"
+                return TaskData.C(path=store_path)
+
 Resource Pipelines
 ------------------
 
@@ -221,10 +243,40 @@ HuggingFace Integration
     class Squad(QADataset):
         HF_DATA = HFDownloader("squad_data", "squad")
 
-Links to Other Datasets
-------------------------
+Referencing Other Datasets
+--------------------------
 
-Use :py:func:`~datamaestro.download.links.links` to reference other datasets:
+Use :py:class:`~datamaestro.download.reference` to declare a dependency on
+another dataset class. The referenced dataset is prepared automatically when
+needed:
+
+.. code-block:: python
+
+    from datamaestro.download import reference
+
+    @dataset(url="http://example.com")
+    class MyTask(TaskData):
+        DOCUMENTS = reference(DocumentsDataset)
+
+        def config(self) -> TaskData:
+            return TaskData.C(
+                documents=self.DOCUMENTS.config(),
+            )
+
+Call ``.config()`` on the reference resource to obtain the referenced dataset's
+configuration object (this is equivalent to ``.prepare()``).
+
+.. note::
+
+    ``reference()`` accepts the dataset class as its first positional argument.
+    The older keyword form ``reference(reference=DocumentsDataset)`` still works
+    but is no longer necessary.
+
+Links to Other Datasets (by ID)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use :py:func:`~datamaestro.download.links.links` to reference datasets by their
+string ID rather than by class:
 
 .. code-block:: python
 

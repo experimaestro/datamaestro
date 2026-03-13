@@ -949,6 +949,10 @@ class Dataset(ABC):
                     train=IDX(path=self.TRAIN_IMAGES.path),
                     test=IDX(path=self.TEST_IMAGES.path),
                 )
+
+    Class-level convenience properties:
+
+    - ``MyDataset.data_path`` — shortcut for ``MyDataset.__dataset__.datapath``
     """
 
     @abstractmethod
@@ -963,6 +967,32 @@ class Dataset(ABC):
             A Config instance (typically created via ``SomeType.C(...)``).
         """
         ...
+
+    class _DataPath:
+        """Descriptor that provides ``Dataset.data_path`` as a class property.
+
+        Returns the ``datapath`` of the dataset wrapper (``__dataset__``),
+        which is the directory where downloaded data is stored.
+        """
+
+        def __set_name__(self, owner, name):
+            self.name = name
+
+        def __get__(self, obj, objtype=None):
+            cls = objtype if objtype is not None else type(obj)
+            dw = getattr(cls, "__dataset__", None)
+            if dw is None:
+                raise AttributeError(
+                    f"{cls.__name__} has no __dataset__; "
+                    "is the @dataset decorator applied?"
+                )
+            return dw.datapath
+
+    data_path: Path = _DataPath()
+    """Path to the directory where this dataset's downloaded data is stored.
+
+    Shortcut for ``MyDataset.__dataset__.datapath``.
+    """
 
 
 class metadataset(AbstractDataset):
