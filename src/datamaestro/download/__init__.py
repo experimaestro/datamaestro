@@ -346,6 +346,16 @@ class Resource(DatasetAnnotation, ABC):
         """
         return True
 
+    def files_present(self) -> bool:
+        """Whether this resource's output files actually exist on disk.
+
+        Used by the download orchestrator to detect COMPLETE resources
+        whose files have been removed. Default checks ``path.exists()``.
+        Subclasses may override for more thorough checks (e.g., when
+        ``path`` coincides with ``dataset.datapath``).
+        """
+        return self.path.exists()
+
     # Backward compat alias
     def hasfiles(self) -> bool:
         """Deprecated: use has_files() instead."""
@@ -554,6 +564,8 @@ class FolderResource(Resource):
     the given destination (which is ``self.transient_path``).
     """
 
+    _METADATA_FILES = {".state.json", ".state.json.tmp", ".state.lock"}
+
     @property
     def path(self) -> Path:
         """Final path to the produced directory.
@@ -561,6 +573,27 @@ class FolderResource(Resource):
         ``dataset.datapath / self.name``
         """
         return self.dataset.datapath / self.name
+
+    def files_present(self) -> bool:
+        """Check that the directory exists and has content.
+
+        When ``path`` coincides with ``dataset.datapath`` (e.g.,
+        single-resource ArchiveDownloader), the directory always
+        exists because it holds metadata files (.state.json).
+        In that case, verify it contains at least one non-metadata entry.
+        """
+        p = self.path
+        if not p.exists():
+            return False
+
+        if p != self.dataset.datapath:
+            return True
+
+        # path == datapath: check for actual content beyond metadata
+        for child in p.iterdir():
+            if child.name not in self._METADATA_FILES:
+                return True
+        return False
 
     @property
     def transient_path(self) -> Path:

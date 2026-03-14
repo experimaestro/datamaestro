@@ -125,8 +125,24 @@ def _delete_path(path: Path) -> None:
 
 
 def _move_path(src: Path, dst: Path) -> None:
-    """Move a file or directory from src to dst."""
-    if src.exists():
+    """Move a file or directory from src to dst.
+
+    When dst is an existing directory, merges src contents into dst
+    (shutil.move would nest src inside dst, which is not what we want).
+    """
+    if not src.exists():
+        return
+
+    if dst.is_dir() and src.is_dir():
+        # Merge contents of src into dst
+        for child in src.iterdir():
+            child_dst = dst / child.name
+            if child_dst.exists():
+                _delete_path(child_dst)
+            shutil.move(str(child), str(child_dst))
+        # Remove now-empty src
+        shutil.rmtree(src, ignore_errors=True)
+    else:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(src), str(dst))
 
@@ -402,7 +418,7 @@ class AbstractDataset(AbstractData):
 
             if current_state == ResourceState.COMPLETE and not force:
                 # Verify files are actually present on disk
-                if resource.has_files() and not resource.path.exists():
+                if resource.has_files() and not resource.files_present():
                     logging.warning(
                         "Resource %s marked COMPLETE but files "
                         "missing at %s — re-downloading",
@@ -420,7 +436,7 @@ class AbstractDataset(AbstractData):
                 current_state == ResourceState.NONE
                 and not force
                 and resource.has_files()
-                and resource.path.exists()
+                and resource.files_present()
             ):
                 logging.info(
                     "Resource %s already exists at %s — marking COMPLETE",

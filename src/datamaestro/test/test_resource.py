@@ -1655,3 +1655,167 @@ class TestDatasetIDInference:
         ann = dataset_dec(base=Squad, url="http://test.com")
         dw = DatasetWrapper(ann, Squad)
         assert dw.id == "stanford.qa.squad"
+
+
+# ==== Redownload with folder-path == datapath ====
+
+
+class FolderAtDatapath(FolderResource):
+    """A FolderResource whose path collapses to dataset.datapath.
+
+    Simulates ArchiveDownloader with a single resource,
+    where ``path`` returns ``dataset.datapath`` instead of a subdirectory.
+    """
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self._download_called = False
+
+    @property
+    def path(self) -> Path:
+        return self.dataset.datapath
+
+    def _download(self, destination: Path):
+        destination.mkdir(parents=True, exist_ok=True)
+        (destination / "data.tsv").write_text("col1\tcol2\n")
+        self._download_called = True
+
+
+class TestRedownloadFolderAtDatapath:
+    """Regression: single-resource FolderResource whose path == datapath.
+
+    When resource.path is the same as dataset.datapath, the directory
+    always exists (it holds .state.json), so the "COMPLETE but files
+    missing" check must look deeper than just path.exists().
+    """
+
+    def test_redownload_when_content_missing(self, dataset):
+        """COMPLETE folder resource at datapath re-downloads when empty."""
+        r = FolderAtDatapath()
+        r.bind("DATA", dataset)
+
+        dataset.ordered_resources = [r]
+        _compute_dependents(dataset.resources)
+
+        # Simulate: state is COMPLETE but actual content is gone
+        # (datapath exists because .state.json is stored there)
+        dataset.datapath.mkdir(parents=True, exist_ok=True)
+        r.state = ResourceState.COMPLETE
+        assert r.path.exists()  # datapath exists (has .state.json)
+        assert not (r.path / "data.tsv").exists()  # but no data files
+
+        dataset.download()
+
+        assert r._download_called is True
+        assert r.state == ResourceState.COMPLETE
+        assert (r.path / "data.tsv").exists()
+
+    def test_no_redownload_when_content_present(self, dataset):
+        """COMPLETE folder resource at datapath is NOT re-downloaded."""
+        r = FolderAtDatapath()
+        r.bind("DATA", dataset)
+
+        dataset.ordered_resources = [r]
+        _compute_dependents(dataset.resources)
+
+        # Simulate: state is COMPLETE and actual content is present
+        dataset.datapath.mkdir(parents=True, exist_ok=True)
+        (dataset.datapath / "data.tsv").write_text("existing\n")
+        r.state = ResourceState.COMPLETE
+
+        dataset.download()
+
+        assert r._download_called is False
+        assert r.state == ResourceState.COMPLETE
+
+    def _make_transient_dag(self, dataset):
+        """Helper: transient source -> dependent file resource."""
+        source = DummyFolderResource(transient=True)
+        source.bind("SOURCE", dataset)
+
+        dependent = DummyFileResource("result.txt")
+        dependent._dependencies = [source]
+        dependent.bind("RESULT", dataset)
+
+        dataset.ordered_resources = [source, dependent]
+        _compute_dependents(dataset.resources)
+        return source, dependent
+
+    def test_transient_first_download(self, dataset):
+        """First prep: transient source is downloaded then cleaned up."""
+        source, dependent = self._make_transient_dag(dataset)
+
+        dataset.download()
+
+        # Both should have been downloaded
+        assert source._download_called is True
+        assert dependent._download_called is True
+        assert dependent.path.exists()
+        assert dependent.state == ResourceState.COMPLETE
+
+        # Transient source was cleaned up after dependent completed
+        assert source.state == ResourceState.NONE
+        assert not source.path.exists()
+
+    def test_transient_second_download_all_ok(self, dataset):
+        """Second prep: transient source is skipped (dependent is COMPLETE)."""
+        source, dependent = self._make_transient_dag(dataset)
+
+        # First download
+        dataset.download()
+        assert source._download_called is True
+        assert dependent._download_called is True
+
+        # Reset call flags
+        source._download_called = False
+        dependent._download_called = False
+
+        # Second download — everything is already done
+        dataset.download()
+
+        # Transient source skipped (all dependents COMPLETE)
+        assert source._download_called is False
+        # Dependent still COMPLETE, not re-downloaded
+        assert dependent._download_called is False
+        assert dependent.state == ResourceState.COMPLETE
+
+    def test_transient_second_download_after_first_failure(self, dataset):
+        """Second prep after first failed: transient re-downloads."""
+        source = DummyFolderResource(transient=True)
+        source.bind("SOURCE", dataset)
+
+        # Use a resource that will fail on first attempt
+        dependent = FailingResource("result.txt")
+        dependent._dependencies = [source]
+        dependent.bind("RESULT", dataset)
+
+        dataset.ordered_resources = [source, dependent]
+        _compute_dependents(dataset.resources)
+
+        # First download — source succeeds, dependent fails
+        result = dataset.download()
+        assert result is False
+        assert source._download_called is True
+        # Source is COMPLETE but NOT cleaned up (dependent not COMPLETE)
+        assert source.state == ResourceState.COMPLETE
+        assert dependent.state == ResourceState.NONE
+
+        # Now replace the failing resource with a working one for retry
+        source._download_called = False
+        good_dependent = DummyFileResource("result.txt")
+        good_dependent._dependencies = [source]
+        # Re-bind: remove old, add new
+        del dataset.resources["RESULT"]
+        good_dependent.bind("RESULT", dataset)
+        dataset.ordered_resources = [source, good_dependent]
+        _compute_dependents(dataset.resources)
+
+        dataset.download()
+
+        # Source is already COMPLETE, not re-downloaded
+        assert source._download_called is False
+        # Dependent should now succeed
+        assert good_dependent._download_called is True
+        assert good_dependent.state == ResourceState.COMPLETE
+        # Transient source cleaned up now that dependent is COMPLETE
+        assert source.state == ResourceState.NONE
