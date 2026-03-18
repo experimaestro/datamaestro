@@ -385,8 +385,8 @@ class Resource(DatasetAnnotation, ABC):
         Performs a lightweight check (e.g., HTTP HEAD request) to verify
         that the remote resource is still accessible, without downloading it.
 
-        Subclasses that have no remote source to check should override
-        this to return SKIPPED.
+        Subclasses that have no remote source to check should inherit
+        from ``LocalResourceMixin`` or override this method.
 
         Returns:
             ResourceCheckResult with status and details.
@@ -521,6 +521,28 @@ class Resource(DatasetAnnotation, ABC):
     @varname.setter
     def varname(self, value: str | None):
         self.name = value
+
+
+# --- LocalResourceMixin mixin ---
+
+
+class LocalResourceMixin:
+    """Mixin for resources that have no remote source to check.
+
+    Inherit from this (alongside Resource or a subclass) to mark
+    a resource as local-only, so that ``check()`` returns SKIPPED
+    instead of FAILED::
+
+        class MyLocalResourceMixin(LocalResourceMixin, Resource):
+            ...
+    """
+
+    def check(self) -> "ResourceCheckResult":
+        return ResourceCheckResult(
+            resource=self.name,
+            status=CheckStatus.SKIPPED,
+            message="Local resource",
+        )
 
 
 # --- FileResource ---
@@ -675,7 +697,7 @@ class FolderResource(Resource):
 # --- FilesCopy ---
 
 
-class FilesCopy(FolderResource):
+class FilesCopy(LocalResourceMixin, FolderResource):
     """Copies files from a source resource into a persistent folder.
 
     Used to preserve specific files from a transient resource (e.g. an
@@ -698,13 +720,6 @@ class FilesCopy(FolderResource):
                     qrels=self.files.path / "train.tsv",
                 )
     """
-
-    def check(self):
-        return ResourceCheckResult(
-            resource=self.name,
-            status=CheckStatus.SKIPPED,
-            message="Copies from local source",
-        )
 
     def __init__(self, source: Resource, files: dict[str, str]):
         """
@@ -772,7 +787,7 @@ class Download(Resource):
 # --- reference resource ---
 
 
-class reference(Resource):
+class reference(LocalResourceMixin, Resource):
     """References another dataset instead of downloading.
 
     Usage::
@@ -855,13 +870,6 @@ class reference(Resource):
     def has_files(self):
         # We don't really have files
         return False
-
-    def check(self):
-        return ResourceCheckResult(
-            resource=self.name,
-            status=CheckStatus.SKIPPED,
-            message="References another dataset",
-        )
 
 
 Reference = deprecated("Use @reference instead of @Reference", reference)

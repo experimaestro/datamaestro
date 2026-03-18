@@ -13,13 +13,13 @@ from typing import List
 
 from datamaestro.context import ResolvablePath
 from datamaestro.definitions import AbstractDataset
-from datamaestro.download import CheckStatus, Resource, ResourceCheckResult
+from datamaestro.download import LocalResourceMixin, Resource
 from datamaestro.utils import deprecated
 
 logger = logging.getLogger(__name__)
 
 
-class links(Resource):
+class links(LocalResourceMixin, Resource):
     """Link with another dataset path.
 
     Usage as class attribute (preferred)::
@@ -44,13 +44,6 @@ class links(Resource):
     ):
         super().__init__(varname=varname, transient=transient)
         self.links = link_targets
-
-    def check(self):
-        return ResourceCheckResult(
-            resource=self.name,
-            status=CheckStatus.SKIPPED,
-            message="Local symlink resource",
-        )
 
     @property
     def path(self):
@@ -89,7 +82,7 @@ class links(Resource):
 Links = deprecated("Use @links instead of @Links", links)
 
 
-class linkpath(Resource):
+class linkpath(LocalResourceMixin, Resource):
     """Link to a path selected from proposals.
 
     Usage as class attribute (preferred)::
@@ -147,13 +140,6 @@ class linkpath(Resource):
 
     def _check_path(self, path):
         raise NotImplementedError()
-
-    def check(self):
-        return ResourceCheckResult(
-            resource=self.name,
-            status=CheckStatus.SKIPPED,
-            message="Local path link resource",
-        )
 
 
 class linkfolder(linkpath):

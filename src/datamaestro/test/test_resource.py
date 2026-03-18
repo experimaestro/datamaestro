@@ -1292,9 +1292,9 @@ class TestLinkFolder:
         r.bind("data", dataset)
 
         # A directory should pass
-        assert r.check(tmp_path) is True
+        assert r._check_path(tmp_path) is True
         # A non-existent path should fail
-        assert r.check(tmp_path / "nonexistent") is False
+        assert r._check_path(tmp_path / "nonexistent") is False
 
     def test_path(self, dataset):
         from datamaestro.download.links import linkfolder
@@ -1330,11 +1330,11 @@ class TestLinkFile:
         test_file = tmp_path / "test.txt"
         test_file.write_text("hello")
 
-        assert r.check(test_file) is True
+        assert r._check_path(test_file) is True
         # A directory should fail
-        assert r.check(tmp_path) is False
+        assert r._check_path(tmp_path) is False
         # A non-existent path should fail
-        assert r.check(tmp_path / "nonexistent") is False
+        assert r._check_path(tmp_path / "nonexistent") is False
 
     def test_path(self, dataset):
         from datamaestro.download.links import linkfile
