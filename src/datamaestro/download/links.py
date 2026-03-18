@@ -13,7 +13,7 @@ from typing import List
 
 from datamaestro.context import ResolvablePath
 from datamaestro.definitions import AbstractDataset
-from datamaestro.download import Resource
+from datamaestro.download import CheckStatus, Resource, ResourceCheckResult
 from datamaestro.utils import deprecated
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,13 @@ class links(Resource):
     ):
         super().__init__(varname=varname, transient=transient)
         self.links = link_targets
+
+    def check(self):
+        return ResourceCheckResult(
+            resource=self.name,
+            status=CheckStatus.SKIPPED,
+            message="Local symlink resource",
+        )
 
     @property
     def path(self):
@@ -110,7 +117,7 @@ class linkpath(Resource):
         return self.dataset.datapath / self.name
 
     def download(self, force=False):
-        if self.check(self.path):
+        if self._check_path(self.path):
             return
 
         if self.path.is_symlink():
@@ -123,14 +130,14 @@ class linkpath(Resource):
             logger.info("Trying path %s", searchpath)
             try:
                 path = ResolvablePath.resolve(self.context, searchpath)
-                if self.check(path):
+                if self._check_path(path):
                     break
                 logger.info("Path %s not found", path)
             except KeyError:
                 logger.info("Could not expand path %s", searchpath)
 
         # Ask the user
-        while path is None or not self.check(path):
+        while path is None or not self._check_path(path):
             path = Path(input("Path to %s: " % self.name))
         assert path.name
 
@@ -138,8 +145,15 @@ class linkpath(Resource):
         self.path.parent.mkdir(exist_ok=True, parents=True)
         os.symlink(path, self.path)
 
-    def check(self, path):
+    def _check_path(self, path):
         raise NotImplementedError()
+
+    def check(self):
+        return ResourceCheckResult(
+            resource=self.name,
+            status=CheckStatus.SKIPPED,
+            message="Local path link resource",
+        )
 
 
 class linkfolder(linkpath):
@@ -161,7 +175,7 @@ class linkfolder(linkpath):
     ):
         super().__init__(varname, proposals, transient=transient)
 
-    def check(self, path):
+    def _check_path(self, path):
         return path.is_dir()
 
 
@@ -184,6 +198,6 @@ class linkfile(linkpath):
     ):
         super().__init__(varname, proposals, transient=transient)
 
-    def check(self, path):
+    def _check_path(self, path):
         logger.debug("Checking %s (exists: %s)", path, path.is_file())
         return path.is_file()

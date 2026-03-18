@@ -16,7 +16,7 @@ from typing import Set
 
 import urllib3
 
-from datamaestro.download import FolderResource
+from datamaestro.download import FolderResource, check_url
 from datamaestro.utils import CachedFile, FileChecker
 
 logger = logging.getLogger(__name__)
@@ -141,6 +141,11 @@ class ArchiveDownloader(FolderResource):
             shutil.move(str(single_dir), str(tmp))
             shutil.rmtree(destination)
             shutil.move(str(tmp), str(destination))
+
+    def check(self):
+        result = check_url(self.url)
+        result.resource = self.name
+        return result
 
     def unarchive(self, file, destination: Path):
         raise NotImplementedError()

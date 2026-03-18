@@ -103,6 +103,39 @@ class ResourceState(str, Enum):
     """Fully available."""
 
 
+class CheckStatus(str, Enum):
+    """Result of a remote availability check."""
+
+    OK = "ok"
+    """Remote resource is available."""
+
+    FAILED = "failed"
+    """Remote resource is not available or returned an error."""
+
+    SKIPPED = "skipped"
+    """No remote URL to check (e.g., local-only resource)."""
+
+    ERROR = "error"
+    """An exception occurred during the check."""
+
+
+@define
+class ResourceCheckResult:
+    """Result of checking a single resource's remote availability."""
+
+    resource: str
+    """Resource name."""
+
+    status: CheckStatus
+    """Check outcome."""
+
+    message: str = ""
+    """Human-readable details (URL, HTTP status, error message)."""
+
+    url: str | None = None
+    """The URL that was checked, if applicable."""
+
+
 # --- Lazy initialization decorator (backward compat) ---
 
 
@@ -345,6 +378,24 @@ class Resource(DatasetAnnotation, ABC):
         Default: True.
         """
         return True
+
+    def check(self) -> "ResourceCheckResult":
+        """Check whether remote sources for this resource are available.
+
+        Performs a lightweight check (e.g., HTTP HEAD request) to verify
+        that the remote resource is still accessible, without downloading it.
+
+        Subclasses that have no remote source to check should override
+        this to return SKIPPED.
+
+        Returns:
+            ResourceCheckResult with status and details.
+        """
+        return ResourceCheckResult(
+            resource=self.name,
+            status=CheckStatus.FAILED,
+            message="check() not implemented",
+        )
 
     def files_present(self) -> bool:
         """Whether this resource's output files actually exist on disk.
@@ -648,6 +699,13 @@ class FilesCopy(FolderResource):
                 )
     """
 
+    def check(self):
+        return ResourceCheckResult(
+            resource=self.name,
+            status=CheckStatus.SKIPPED,
+            message="Copies from local source",
+        )
+
     def __init__(self, source: Resource, files: dict[str, str]):
         """
         Args:
@@ -683,6 +741,13 @@ class ValueResource(Resource):
 
     def has_files(self) -> bool:
         return False
+
+    def check(self):
+        return ResourceCheckResult(
+            resource=self.name,
+            status=CheckStatus.SKIPPED,
+            message="In-memory value resource",
+        )
 
     @abstractmethod
     def prepare(self):
@@ -791,5 +856,58 @@ class reference(Resource):
         # We don't really have files
         return False
 
+    def check(self):
+        return ResourceCheckResult(
+            resource=self.name,
+            status=CheckStatus.SKIPPED,
+            message="References another dataset",
+        )
+
 
 Reference = deprecated("Use @reference instead of @Reference", reference)
+
+
+# --- URL check helper ---
+
+
+def check_url(url: str) -> ResourceCheckResult:
+    """Perform an HTTP HEAD request to check if a URL is accessible.
+
+    Falls back to a range GET request if HEAD is not allowed.
+    """
+    import requests
+
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=30)
+        if response.status_code == 405:
+            # HEAD not allowed, try GET with range header
+            response = requests.get(
+                url,
+                headers={"Range": "bytes=0-0"},
+                allow_redirects=True,
+                timeout=30,
+                stream=True,
+            )
+            response.close()
+
+        if response.status_code < 400:
+            return ResourceCheckResult(
+                resource="",
+                status=CheckStatus.OK,
+                message=f"HTTP {response.status_code}",
+                url=url,
+            )
+        else:
+            return ResourceCheckResult(
+                resource="",
+                status=CheckStatus.FAILED,
+                message=f"HTTP {response.status_code}",
+                url=url,
+            )
+    except Exception as e:
+        return ResourceCheckResult(
+            resource="",
+            status=CheckStatus.ERROR,
+            message=str(e),
+            url=url,
+        )

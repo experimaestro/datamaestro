@@ -17,7 +17,7 @@ from pathlib import Path
 
 import urllib3
 
-from datamaestro.download import FileResource
+from datamaestro.download import FileResource, check_url
 from datamaestro.stream import Transform
 from datamaestro.utils import copyfileobjs
 
@@ -115,6 +115,11 @@ class FileDownloader(FileResource):
 
         logger.info("Created file %s", destination)
 
+    def check(self):
+        result = check_url(self.url)
+        result.resource = self.name
+        return result
+
 
 # Factory alias for backward compat and convenient usage
 filedownloader = FileDownloader.apply
@@ -171,6 +176,11 @@ class ConcatDownloader(FileResource):
                         logger.debug("Processing file %s", tarinfo.name)
                         with transforms(archive.fileobject(archive, tarinfo)) as fp:
                             shutil.copyfileobj(fp, out)
+
+    def check(self):
+        result = check_url(self.url)
+        result.resource = self.name
+        return result
 
 
 # Factory alias for backward compat

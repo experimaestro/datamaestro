@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Protocol
 
 from datamaestro import Context
-from datamaestro.download import Resource
+from datamaestro.download import CheckStatus, Resource, ResourceCheckResult
 
 
 class Downloader(Protocol):
@@ -48,6 +48,13 @@ class custom_download(Resource):
 
     def prepare(self):
         return self.dataset.datapath
+
+    def check(self):
+        return ResourceCheckResult(
+            resource=self.name,
+            status=CheckStatus.SKIPPED,
+            message="Custom download function",
+        )
 
     def download(self, force=False):
         self.downloader(self.context, self.dataset.datapath, force=force)

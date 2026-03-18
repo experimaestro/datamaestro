@@ -256,6 +256,66 @@ def create_dataset(config: Config, repository_id: str, dataset_id: str):
 # --- prepare and download
 
 
+@click.argument("repository", type=click.Choice(REPOSITORIES.keys()))
+@click.option(
+    "-o",
+    "--output",
+    type=click.Path(),
+    default=None,
+    help="Output JSON file (default: stdout)",
+)
+@cli.command()
+@pass_cfg
+def check(config: Config, repository, output):
+    """Check if remote download sources are still available.
+
+    Performs HEAD requests (or equivalent) to verify that URLs
+    referenced by dataset resources are reachable.
+
+    Iterates over all datasets in REPOSITORY and outputs results as JSON.
+    """
+    import json
+
+    from datamaestro.download import CheckStatus
+
+    from tqdm.auto import tqdm
+
+    repo = config.context.repository(repository)
+    datasets = list(repo)
+    results = []
+
+    for ds in tqdm(datasets, desc="Checking datasets"):
+        try:
+            ds.prepare()
+        except Exception as e:
+            logging.warning("Could not prepare %s: %s", ds.id, e)
+            continue
+
+        for resource in ds.resources.values():
+            result = resource.check()
+            if result.status == CheckStatus.SKIPPED:
+                continue
+
+            cls = type(resource)
+            results.append(
+                {
+                    "dataset": ds.id,
+                    "resource": result.resource,
+                    "resource_type": f"{cls.__module__}.{cls.__qualname__}",
+                    "status": result.status.value,
+                    "url": result.url,
+                    "message": result.message,
+                }
+            )
+
+    json_output = json.dumps(results, indent=2)
+    if output:
+        Path(output).write_text(json_output)
+        logging.info("Wrote %d results to %s", len(results), output)
+    else:
+        print(json_output)
+
+
 @click.argument("dataset")
 @cli.command()
 @pass_cfg

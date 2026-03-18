@@ -8,7 +8,11 @@ from __future__ import annotations
 
 import logging
 
-from datamaestro.download import ValueResource
+from datamaestro.download import (
+    CheckStatus,
+    ResourceCheckResult,
+    ValueResource,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +75,34 @@ class HFDownloader(ValueResource):
             "data_files": self.data_files,
             "split": self.split,
         }
+
+    def check(self):
+        import requests
+
+        url = f"https://huggingface.co/api/datasets/{self.repo_id}"
+        try:
+            response = requests.head(url, allow_redirects=True, timeout=30)
+            if response.status_code < 400:
+                return ResourceCheckResult(
+                    resource=self.name,
+                    status=CheckStatus.OK,
+                    message=f"HTTP {response.status_code}",
+                    url=url,
+                )
+            else:
+                return ResourceCheckResult(
+                    resource=self.name,
+                    status=CheckStatus.FAILED,
+                    message=f"HTTP {response.status_code}",
+                    url=url,
+                )
+        except Exception as e:
+            return ResourceCheckResult(
+                resource=self.name,
+                status=CheckStatus.ERROR,
+                message=str(e),
+                url=url,
+            )
 
 
 # Factory alias for backward compat
