@@ -72,4 +72,5 @@ class DatasetTests:
         """
         for dataset in self.repository:
             with self.subTest(dataset_id=dataset.id):
-                dataset.prepare(download=False)
+                config = dataset.prepare(download=False)
+                config.__xpm__.validate()
