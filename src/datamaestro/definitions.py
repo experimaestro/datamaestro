@@ -350,6 +350,10 @@ class AbstractDataset(AbstractData):
         for key, value in data.__xpm__.values.items():
             if isinstance(value, Config):
                 self.setDataIDs(value, f"{id}.{key}")
+            elif isinstance(value, list):
+                for ix, item in enumerate(value):
+                    if isinstance(item, Config):
+                        self.setDataIDs(item, f"{id}.{key}.{ix}")
 
     def download(self, force=False):
         """Download all the necessary resources.
