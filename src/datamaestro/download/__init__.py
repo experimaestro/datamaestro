@@ -861,11 +861,14 @@ class reference(LocalResourceMixin, Resource):
     def download(self, force=False):
         resolved = self._resolve_reference()
         if isinstance(resolved, AbstractDataset):
-            resolved.download(force)
+            success = resolved.download(force)
         elif hasattr(resolved, "__datamaestro__"):
-            resolved.__datamaestro__.download(force)
+            success = resolved.__datamaestro__.download(force)
         else:
-            resolved.download(force)
+            success = resolved.download(force)
+
+        if success is False:
+            raise RuntimeError(f"Referenced dataset {resolved} failed to download")
 
     def has_files(self):
         # We don't really have files
