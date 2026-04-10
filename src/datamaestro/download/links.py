@@ -6,6 +6,7 @@ user-specified paths.
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import logging
 import os
@@ -35,6 +36,14 @@ class GlobChecker:
         self.glob = glob
         self.md5 = md5
 
+    @staticmethod
+    def _file_md5(path: Path) -> str:
+        """Compute MD5 of a file, decompressing .gz files first."""
+        data = path.read_bytes()
+        if path.suffix == ".gz":
+            data = gzip.decompress(data)
+        return hashlib.md5(data).hexdigest()
+
     def compute(self, path: Path) -> Optional[str]:
         """Compute the combined MD5 for files matching the glob under *path*."""
         files = sorted(path.glob(self.glob))
@@ -43,7 +52,7 @@ class GlobChecker:
         combined = hashlib.md5()
         for f in files:
             if f.is_file():
-                combined.update(hashlib.md5(f.read_bytes()).hexdigest().encode())
+                combined.update(self._file_md5(f).encode())
         return combined.hexdigest()
 
     def check(self, path: Path) -> bool:
