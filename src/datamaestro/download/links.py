@@ -6,10 +6,11 @@ user-specified paths.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from datamaestro.context import ResolvablePath
 from datamaestro.definitions import AbstractDataset
@@ -17,6 +18,54 @@ from datamaestro.download import LocalResourceMixin, Resource
 from datamaestro.utils import deprecated
 
 logger = logging.getLogger(__name__)
+
+
+class GlobChecker:
+    """Verifies folder contents by computing a combined MD5 over matching files.
+
+    Files matching the glob pattern are sorted by name, each file's MD5 is
+    computed, and then the MD5 of the concatenated hex digests gives the
+    overall checksum.
+
+    If ``md5`` is ``None``, the computed checksum is logged so the user
+    can record it for future verification.
+    """
+
+    def __init__(self, glob: str, md5: Optional[str] = None):
+        self.glob = glob
+        self.md5 = md5
+
+    def compute(self, path: Path) -> Optional[str]:
+        """Compute the combined MD5 for files matching the glob under *path*."""
+        files = sorted(path.glob(self.glob))
+        if not files:
+            return None
+        combined = hashlib.md5()
+        for f in files:
+            if f.is_file():
+                combined.update(hashlib.md5(f.read_bytes()).hexdigest().encode())
+        return combined.hexdigest()
+
+    def check(self, path: Path) -> bool:
+        digest = self.compute(path)
+        if digest is None:
+            logger.warning("No files matching %s in %s", self.glob, path)
+            return False
+        if self.md5 is None:
+            logger.info(
+                "GlobChecker(%s): computed md5 = %s for %s", self.glob, digest, path
+            )
+            return True
+        if digest != self.md5:
+            logger.error(
+                "GlobChecker(%s): md5 mismatch for %s: expected %s, got %s",
+                self.glob,
+                path,
+                self.md5,
+                digest,
+            )
+            return False
+        return True
 
 
 class links(LocalResourceMixin, Resource):
@@ -150,6 +199,12 @@ class linkfolder(linkpath):
         @dataset(url="...")
         class MyDataset(Base):
             DATA = linkfolder("data", proposals=[...])
+
+    An optional ``checker`` (e.g. :class:`GlobChecker`) can be provided to
+    verify the folder contents after linking::
+
+        DATA = linkfolder("data", proposals=[...],
+                          checker=GlobChecker("FB*", "a1b2c3..."))
     """
 
     def __init__(
@@ -158,11 +213,17 @@ class linkfolder(linkpath):
         proposals,
         *,
         transient: bool = False,
+        checker: Optional[GlobChecker] = None,
     ):
         super().__init__(varname, proposals, transient=transient)
+        self.checker = checker
 
     def _check_path(self, path):
-        return path.is_dir()
+        if not path.is_dir():
+            return False
+        if self.checker is not None:
+            return self.checker.check(path)
+        return True
 
 
 class linkfile(linkpath):
