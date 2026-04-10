@@ -59,7 +59,7 @@ class links(LocalResourceMixin, Resource):
             if hasattr(value, "__dataset__"):
                 wrapper = value.__dataset__
                 wrapper.download(force)
-                path = wrapper()
+                path = wrapper.datapath
             elif hasattr(value, "download"):
                 value.download(force)
                 path = value()
