@@ -58,8 +58,7 @@ class GlobChecker:
     def check(self, path: Path) -> bool:
         digest = self.compute(path)
         if digest is None:
-            logger.warning("No files matching %s in %s", self.glob, path)
-            return False
+            raise FileNotFoundError(f"No files matching '{self.glob}' in {path}")
         if self.md5 is None:
             logger.info(
                 "GlobChecker(%s): computed md5 = %s for %s", self.glob, digest, path
@@ -187,10 +186,8 @@ class linkpath(LocalResourceMixin, Resource):
             except KeyError:
                 logger.info("Could not expand path %s", searchpath)
 
-        # Ask the user
-        while path is None or not self._check_path(path):
-            path = Path(input("Path to %s: " % self.name))
-        assert path.name
+        if path is None or not self._check_path(path):
+            raise FileNotFoundError("No valid path found for '%s'" % self.name)
 
         logger.debug("Linking %s to %s", path, self.path)
         self.path.parent.mkdir(exist_ok=True, parents=True)

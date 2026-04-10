@@ -233,8 +233,56 @@ class DatafolderPath(ResolvablePath):
     def __str__(self):
         return "datafolder-path({folderid}):{path}".format(**self.__dict__)
 
+    def _ask_user(self, context: Context) -> Path:
+        """Interactively ask the user for the datafolder or full path."""
+        from rich.console import Console
+        from rich.prompt import Prompt
+
+        console = Console()
+        console.print(
+            f"[bold]Datafolder [cyan]'{self.folderid}'[/cyan]"
+            f" is not configured.[/bold]\n"
+            f"The full path would be:"
+            f" [dim]<datafolder>/{self.path}[/dim]"
+        )
+
+        choice = Prompt.ask(
+            "Do you want to set [bold](f)[/bold]ull path or [bold](d)[/bold]ata folder",
+            choices=["f", "d"],
+        )
+
+        if choice == "d":
+            folder = Path(
+                Prompt.ask(f"Enter base path for datafolder '{self.folderid}'")
+            )
+            if not folder.exists():
+                raise FileNotFoundError(f"The path {folder} does not exist")
+            console.print(
+                f"To store this setting, run:\n"
+                f"  [bold]datamaestro datafolders set"
+                f" {self.folderid} {folder}[/bold]"
+            )
+            context.settings.datafolders[self.folderid] = folder
+            return Path(folder) / self.path
+        else:
+            full_path = Path(Prompt.ask("Enter full path"))
+            if not full_path.exists():
+                raise FileNotFoundError(f"The path {full_path} does not exist")
+            return full_path
+
     def __call__(self, context: Context) -> Path:
-        return Path(context.settings.datafolders[self.folderid]) / self.path
+        folder = context.settings.datafolders.get(self.folderid)
+        if folder is not None:
+            return Path(folder) / self.path
+
+        if not os.isatty(0):
+            raise KeyError(
+                f"Datafolder '{self.folderid}' is not configured."
+                f" Set it with: datamaestro datafolders set"
+                f" {self.folderid} PATH"
+            )
+
+        return self._ask_user(context)
 
 
 class Datasets(Iterable["AbstractDataset"]):
