@@ -118,11 +118,79 @@ def info(config: Config, dataset):
     if dataset.tasks:
         print("Tasks:", ", ".join(dataset.tasks))
 
+    variants = getattr(dataset, "variants", None)
+    if variants is not None:
+        _print_variants(dataset, variants)
+
     print()
     if dataset.description:
         print(dataset.description)
     else:
         print("(no description provided)")
+
+
+def _print_variants(dataset, variants):
+    """Render a human-readable summary of a variants space."""
+    from datamaestro.variants import AxesVariants
+
+    print()
+    print("Variants:")
+    example_kwargs = {}
+    if isinstance(variants, AxesVariants):
+        axes = variants.axes
+        # Required axes first, then the ones with defaults.
+        order = sorted(axes, key=lambda k: (axes[k].has_default, k))
+        for name in order:
+            axis = axes[name]
+            parts = []
+            if axis.domain is not None:
+                if len(axis.domain) <= 8:
+                    parts.append(
+                        "one of {" + ", ".join(repr(v) for v in axis.domain) + "}"
+                    )
+                else:
+                    preview = ", ".join(repr(v) for v in axis.domain[:4])
+                    parts.append(f"one of {{{preview}, … ({len(axis.domain)} values)}}")
+            elif axis.type is not None:
+                parts.append(f"any {_axis_type_label(axis.type)}")
+            else:
+                parts.append("any string")
+            if axis.has_default:
+                parts.append(f"default={axis.default!r}")
+            else:
+                parts.append("required")
+            if axis.description:
+                parts.append(axis.description)
+            print(f"  - {name}: {'; '.join(parts)}")
+            if not axis.has_default and axis.domain:
+                example_kwargs.setdefault(name, axis.domain[0])
+    else:
+        # Non-AxesVariants subclass — just list the enumerable keys.
+        for combo in variants.enumerate():
+            print("  - ", ", ".join(f"{k}={v!r}" for k, v in combo.items()))
+            break  # preview only
+
+    # Build and print a concrete example selector the user can copy.
+    try:
+        example = variants.format_selector(example_kwargs)
+    except Exception:
+        example = None
+    if example:
+        print()
+        print(f"Example: datamaestro prepare {dataset.id}{example}")
+
+
+def _axis_type_label(t):
+    """Pretty-print an Axis type. Handles ``Optional[T]`` nicely."""
+    import typing
+
+    origin = typing.get_origin(t)
+    args = typing.get_args(t)
+    if origin is typing.Union and type(None) in args:
+        inner = next((a for a in args if a is not type(None)), None)
+        if inner is not None:
+            return f"{_axis_type_label(inner)} (or null)"
+    return getattr(t, "__name__", str(t))
 
 
 # --- General information
@@ -386,11 +454,20 @@ def search(config: Config, searchterms):
         try:
             if condition.match(dataset):
                 cfg = dataset.configtype
+                variants = getattr(dataset, "variants", None)
+                suffix = ""
+                if variants is not None:
+                    axes = getattr(variants, "axes", None)
+                    if axes:
+                        suffix = "[" + ",".join(sorted(axes)) + "]"
+                    else:
+                        suffix = "[...]"
                 print(
-                    "[%s] %s (%s)"
+                    "[%s] %s%s (%s)"
                     % (
                         dataset.repository.id,
                         dataset.id,
+                        suffix,
                         cfg.__name__ if cfg is not None else "?",
                     )
                 )

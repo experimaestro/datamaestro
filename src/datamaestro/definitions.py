@@ -632,20 +632,37 @@ class DatasetWrapper(AbstractDataset):
         if self._description is None:
             if self.t.__doc__:
                 lines = self.t.__doc__.split("\n")
-                self._name = lines[0]
-                if len(lines) > 1:
-                    assert lines[1].strip() == "", "Second line should be blank"
-                if len(lines) > 2:
-                    # Remove the common indent
-                    lines = [line.rstrip() for line in lines[2:]]
-                    minindent = max(
-                        next(idx for idx, chr in enumerate(s) if not chr.isspace())
-                        for s in lines
-                        if len(s) > 0
-                    )
-                    self._description = "\n".join(
-                        s[minindent:] if len(s) > 0 else "" for s in lines
-                    )
+                # Find the blank-line separator between the short summary
+                # and the long description, following PEP 257. If none is
+                # found (e.g. the docstring is a single paragraph that
+                # wraps onto several lines), treat the whole thing as the
+                # summary so a non-conforming docstring doesn't break CLI
+                # tools that read ``.name`` / ``.description``.
+                blank_ix = next(
+                    (i for i, line in enumerate(lines) if line.strip() == ""),
+                    None,
+                )
+                if blank_ix is None:
+                    # No blank line — whole docstring is the "name".
+                    self._name = " ".join(line.strip() for line in lines).strip()
+                    self._description = ""
+                    return
+                self._name = " ".join(line.strip() for line in lines[:blank_ix]).strip()
+                tail = [line.rstrip() for line in lines[blank_ix + 1 :]]
+                if tail:
+                    non_empty = [s for s in tail if s]
+                    if non_empty:
+                        minindent = min(
+                            next(idx for idx, chr in enumerate(s) if not chr.isspace())
+                            for s in non_empty
+                        )
+                        self._description = "\n".join(
+                            s[minindent:] if s else "" for s in tail
+                        )
+                    else:
+                        self._description = ""
+                else:
+                    self._description = ""
             else:
                 self._name = ""
                 self._description = ""
