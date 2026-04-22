@@ -15,26 +15,26 @@ from pathlib import Path
 from typing import Optional
 from . import Base
 import logging
-from experimaestro import Param, Meta
+from experimaestro import Param, Meta, field
 
 
 class HuggingFaceDataset(Base):
     repo_id: Param[str]
     """The HuggingFace repository id (e.g. ``user/dataset``)."""
 
-    name: Param[Optional[str]] = None
+    name: Param[Optional[str]] = field(default=None, ignore_default=True)
     """HuggingFace dataset ``name`` (a.k.a. config)."""
 
-    data_files: Param[Optional[str]] = None
+    data_files: Param[Optional[str]] = field(default=None, ignore_default=True)
     """Specific data files to load."""
 
-    split: Param[Optional[str]] = None
+    split: Param[Optional[str]] = field(default=None, ignore_default=True)
     """Dataset split to load."""
 
-    streaming: Meta[bool] = False
+    streaming: Meta[bool] = field(default=False, ignore_default=True)
     """When True, load the dataset in streaming mode — no local cache."""
 
-    local_path: Meta[Optional[Path]] = None
+    local_path: Meta[Optional[Path]] = field(default=None, ignore_default=True)
     """If set, load from this local mirror instead of the HuggingFace Hub.
     ``Meta`` because the logical dataset is the same regardless of where
     the bytes come from."""

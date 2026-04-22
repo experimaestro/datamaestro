@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from .data import Base
     from .context import Repository, Context, DatafolderPath  # noqa: F401 (re-exports)
     from datamaestro.download import Download, Resource
+    from .variants import Variants
 
 # --- DAG utilities ---
 
@@ -303,8 +304,11 @@ class AbstractDataset(AbstractData):
             return Context.instance()
         return self.repository.context
 
-    def prepare(self, download=False) -> "Base":
-        ds = self._prepare()
+    def prepare(self, download=False, variant_kwargs: Optional[Dict] = None) -> "Base":
+        if variant_kwargs is not None:
+            ds = self._prepare(variant_kwargs=variant_kwargs)
+        else:
+            ds = self._prepare()
         ds.__datamaestro_dataset__ = self
 
         if download:
@@ -315,7 +319,7 @@ class AbstractDataset(AbstractData):
         self.hooks[hookname].append(hook)
 
     @abstractmethod
-    def _prepare(self) -> "Base": ...
+    def _prepare(self, variant_kwargs: Optional[Dict] = None) -> "Base": ...
 
     def format(self, encoder: str) -> str:
         s = self.prepare()
@@ -567,6 +571,10 @@ class DatasetWrapper(AbstractDataset):
         self.doi = annotation.doi
         self.as_prepare = annotation.as_prepare
 
+        # Variants support — None for classic flat datasets.
+        self.variants = annotation.variants
+        self._variant_configs: Dict[Tuple, "Base"] = {}
+
         # Builds the ID:
         # Removes module_name.config prefix
         if (
@@ -655,22 +663,60 @@ class DatasetWrapper(AbstractDataset):
             self._prepare()
         return super().download(force=force)
 
-    def _prepare(self) -> "Base":
+    def _prepare(self, variant_kwargs: Optional[Dict] = None) -> "Base":
+        """Build (or return the cached) config for this dataset.
+
+        ``variant_kwargs`` is non-``None`` only when this is a variant
+        family. The wrapper resolves the kwargs via its :class:`Variants`
+        instance (filling defaults), then caches the built config keyed
+        by the resolved kwargs so repeated calls with the same selector
+        reuse the same object.
+        """
+        if self.variants is not None:
+            # Variant family: resolve (fills defaults) and cache per variant.
+            resolved = self.variants.resolve(**(variant_kwargs or {}))
+            cache_key = tuple(sorted(resolved.items()))
+            if cache_key in self._variant_configs:
+                return self._variant_configs[cache_key]
+            variant_id = self.id + self.variants.format_selector(resolved)
+            config = self._build_config(variant_kwargs=resolved, base_id=variant_id)
+            self._variant_configs[cache_key] = config
+            return config
+
+        # Flat (non-variant) dataset — cache on self.config.
         if self.config is not None:
             return self.config
+        self.config = self._build_config()
+        return self.config
+
+    def _build_config(
+        self,
+        variant_kwargs: Optional[Dict] = None,
+        base_id: Optional[str] = None,
+    ) -> "Base":
+        """Construct a fresh config for this dataset.
+
+        When called from the variant path, ``variant_kwargs`` are forwarded
+        to ``Dataset.config(**kwargs)`` and ``base_id`` is used to seed
+        ``setDataIDs`` so each variant gets a distinct ``Base.id``.
+        """
+        config: "Base"
 
         # Dataset subclass with config() method
         if inspect.isclass(self.t) and issubclass(self.t, Dataset):
             instance = self.t()
-            self.config = instance.config()
+            if variant_kwargs:
+                config = instance.config(**variant_kwargs)
+            else:
+                config = instance.config()
 
         # Direct creation of the dataset
         elif self.base is self.t:
-            self.config = self.base.__create_dataset__(self)
+            config = self.base.__create_dataset__(self)
 
         elif hasattr(self.t, "__create_dataset__"):
             # Class-based dataset with metadataset or different base
-            self.config = self.t.__create_dataset__(self)
+            config = self.t.__create_dataset__(self)
 
         else:
             # Construct the object
@@ -701,9 +747,9 @@ class DatasetWrapper(AbstractDataset):
                 )
 
             if isinstance(result, dict):
-                self.config = self.base.C(**result)
+                config = self.base.C(**result)
             elif isinstance(result, self.base):
-                self.config = result
+                config = result
             else:
                 name = self.t.__name__
                 filename = inspect.getfile(self.t)
@@ -713,12 +759,12 @@ class DatasetWrapper(AbstractDataset):
                 )
 
         # Setup ourself
-        self.config.__datamaestro_dataset__ = self
+        config.__datamaestro_dataset__ = self
 
-        # Set the ids
-        self.setDataIDs(self.config, self.id)
+        # Set the ids (use variant-specific id when applicable).
+        self.setDataIDs(config, base_id if base_id is not None else self.id)
 
-        return self.config
+        return config
 
     __call__ = _prepare
 
@@ -879,6 +925,11 @@ class dataset:
     :param size: The size of the dataset (should be a parsable format).
     :param doi: The DOI of the corresponding paper.
     :param as_prepare: Resources are setup within the method itself
+    :param variants: Optional :class:`~datamaestro.variants.Variants`
+        instance (or subclass) that declares the variant space. When
+        provided, callers select a specific variant via a query-style
+        suffix on the id (e.g. ``"pkg.id[name=x,streaming=true]"``);
+        see :mod:`datamaestro.variants`.
     """
 
     def __init__(
@@ -891,6 +942,7 @@ class dataset:
         size: None | int | str = None,
         doi: None | str = None,
         as_prepare: bool = False,
+        variants: "Variants | type | None" = None,
     ):
         if hasattr(base, "__datamaestro__") and isinstance(
             base.__datamaestro__, metadataset
@@ -906,6 +958,22 @@ class dataset:
         self.size = size
         self.doi = doi
         self.as_prepare = as_prepare
+        self.variants = self._normalise_variants(variants)
+
+    @staticmethod
+    def _normalise_variants(variants):
+        from .variants import Variants as _Variants
+
+        if variants is None:
+            return None
+        if isinstance(variants, _Variants):
+            return variants
+        if inspect.isclass(variants) and issubclass(variants, _Variants):
+            return variants()
+        raise TypeError(
+            "dataset(variants=...) must be a Variants instance or "
+            f"subclass (got {variants!r})"
+        )
 
     def __call__(self, t):
         from datamaestro.data import Base

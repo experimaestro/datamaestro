@@ -346,10 +346,25 @@ class AxesVariants(Variants):
 VariantFactory = Callable[..., Any]
 
 
+def split_id_selector(query: str) -> tuple[str, str]:
+    """Split a query like ``"id[selector]"`` into ``("id", "selector")``.
+
+    Returns ``(query, "")`` when no bracket suffix is present. Trailing/
+    leading whitespace is stripped from the base id but selectors are
+    returned as-is (callers pass them to ``Variants.parse_selector``).
+    """
+    q = query.strip()
+    if "[" in q and q.endswith("]"):
+        base, rest = q.split("[", 1)
+        return base.strip(), rest[:-1]
+    return q, ""
+
+
 __all__ = [
     "MISSING",
     "Axis",
     "Variants",
     "AxesVariants",
     "VariantFactory",
+    "split_id_selector",
 ]

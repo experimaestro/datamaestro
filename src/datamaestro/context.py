@@ -151,7 +151,14 @@ class Context:
                 yield dataset
 
     def dataset(self, datasetid) -> "AbstractDataset":
-        """Get a dataset by ID"""
+        """Get a dataset by ID.
+
+        ``datasetid`` may be a variant-selector form
+        (``"pkg.id[k=v,...]"``); the selector is ignored here
+        (``Context.dataset`` returns the family wrapper). Use
+        :func:`prepare_dataset` to route variant kwargs through to
+        ``prepare()``.
+        """
         for repository in self.repositories():
             dataset = repository.search(datasetid)
             if dataset is not None:
@@ -362,9 +369,19 @@ class BaseRepository(ABC):
     def __iter__(self) -> Iterator["AbstractDataset"]: ...
 
     def search(self, name: str):
-        """Search for a dataset in the definitions"""
+        """Search for a dataset in the definitions.
+
+        Accepts either a bare id (``"pkg.id"``) or a variant-selector
+        form (``"pkg.id[k=v,...]"``). The selector suffix is stripped
+        when matching against aliases; callers that need the parsed
+        variant kwargs should use :func:`find_dataset` /
+        :func:`prepare_dataset` (which return the resolved config).
+        """
+        from .variants import split_id_selector
+
+        base_id, _ = split_id_selector(name)
         for dataset in self:
-            if name in dataset.aliases:
+            if base_id in dataset.aliases:
                 return dataset
 
     @classmethod
@@ -473,40 +490,67 @@ class Repository(BaseRepository):
                 yield dataset
 
 
-def find_dataset(dataset_id: str):
-    """Find a dataset given its id"""
-    from .definitions import AbstractDataset
+def _resolve_dataset_id(dataset_id, context=None):
+    """Split a possibly-variant dataset id into (wrapper, variant_kwargs).
 
-    return AbstractDataset.find(dataset_id)
+    ``variant_kwargs`` is ``None`` for flat datasets or when the input
+    isn't a string (e.g. a ``DatasetWrapper`` or ``Config`` reference).
+    """
+    from .definitions import AbstractDataset, DatasetWrapper
+    from .variants import split_id_selector
+
+    if isinstance(dataset_id, DatasetWrapper):
+        return dataset_id, None
+    if hasattr(dataset_id, "__dataset__"):
+        return dataset_id.__dataset__, None
+    if isinstance(dataset_id, Config):
+        return dataset_id.__datamaestro_dataset__, None
+
+    base_id, selector = split_id_selector(dataset_id)
+    ds = AbstractDataset.find(base_id, context=context)
+    variant_kwargs = None
+    if selector or getattr(ds, "variants", None) is not None:
+        if ds.variants is None and selector:
+            raise ValueError(
+                f"dataset {base_id!r} does not declare variants but "
+                f"selector {selector!r} was supplied"
+            )
+        if ds.variants is not None:
+            parsed = ds.variants.parse_selector(selector) if selector else {}
+            variant_kwargs = ds.variants.resolve(**parsed)
+    return ds, variant_kwargs
+
+
+def find_dataset(dataset_id: str):
+    """Find a dataset given its id.
+
+    Accepts a plain id or a variant-selector form
+    (``"pkg.id[k=v,...]"``). The selector only affects downstream
+    ``prepare()``; ``find_dataset`` returns the family wrapper.
+    """
+    ds, _ = _resolve_dataset_id(dataset_id)
+    return ds
 
 
 def prepare_dataset(
     dataset_id: Union[str, "DatasetWrapper", Config],
     context: Optional[Union[Context, Path]] = None,
 ):
-    """Find a dataset given its id and download the resources"""
-    from .definitions import AbstractDataset, DatasetWrapper
+    """Find a dataset given its id and download the resources.
 
+    When ``dataset_id`` carries a ``[k=v,...]`` variant selector, the
+    kwargs are parsed and routed through to the wrapper's
+    :meth:`prepare` call.
+    """
     match context:
         case Path() | str():
             context = Context(Path(context))
 
-    if isinstance(dataset_id, DatasetWrapper):
-        ds = dataset_id
-    elif hasattr(dataset_id, "__dataset__"):
-        # Class-based dataset decorated with @dataset
-        ds = dataset_id.__dataset__
-    elif isinstance(dataset_id, Config):
-        ds = dataset_id.__datamaestro_dataset__
-    else:
-        ds = AbstractDataset.find(dataset_id, context=context)
-
-    return ds.prepare(download=True)
+    ds, variant_kwargs = _resolve_dataset_id(dataset_id, context=context)
+    return ds.prepare(download=True, variant_kwargs=variant_kwargs)
 
 
 def get_dataset(dataset_id: str):
-    """Find a dataset given its id"""
-    from .definitions import AbstractDataset
-
-    ds = AbstractDataset.find(dataset_id)
-    return ds.prepare(download=False)
+    """Find a dataset given its id (without downloading)."""
+    ds, variant_kwargs = _resolve_dataset_id(dataset_id)
+    return ds.prepare(download=False, variant_kwargs=variant_kwargs)
