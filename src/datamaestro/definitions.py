@@ -375,7 +375,14 @@ class AbstractDataset(AbstractData):
 
         from datamaestro.download import ResourceState
 
-        self.prepare()
+        # ``prepare()`` materializes the config so downstream hooks /
+        # legacy function-based datasets see their resource paths. For
+        # variant families resources are bound at class-decoration time
+        # (see ``_bind_class_resources``) and the wrapper has no single
+        # "default" variant to prepare, so skip this call and rely on
+        # ``self.ordered_resources`` directly.
+        if getattr(self, "variants", None) is None:
+            self.prepare()
         logging.info(
             "Materializing %d resources",
             len(self.ordered_resources),
