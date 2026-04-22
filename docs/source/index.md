@@ -27,6 +27,7 @@ caption: API Reference
 api/index
 api/data
 api/download
+api/variants
 api/records
 ```
 

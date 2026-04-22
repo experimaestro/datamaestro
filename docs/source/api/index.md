@@ -4,6 +4,7 @@ This section documents the datamaestro Python API. See also:
 
 - [Data Types](data.md) - Dataset content structures
 - [Download Decorators](download.rst) - Resource fetching
+- [Dataset Variants](variants.md) - Variant axes and query-style selectors
 - [Records](records.rst) - Heterogeneous containers (deprecated)
 
 ## Core Functions
