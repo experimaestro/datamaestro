@@ -977,30 +977,36 @@ class dataset:
 
     def __call__(self, t):
         from datamaestro.data import Base
+        import typing
 
         try:
             if self.base is None:
                 if inspect.isclass(t) and issubclass(t, Base):
                     self.base = t
                 elif inspect.isclass(t) and issubclass(t, Dataset):
-                    # Infer base from config() return annotation
+                    # Infer base from config() return annotation. Use
+                    # ``get_type_hints`` so ``from __future__ import
+                    # annotations`` and forward-reference strings resolve
+                    # to the actual class (raw ``__annotations__`` would
+                    # yield the string).
                     try:
-                        config_method = t.config
-                        return_type = config_method.__annotations__["return"]
+                        hints = typing.get_type_hints(t.config)
+                        return_type = hints["return"]
                         if isinstance(return_type, _GenericAlias):
                             return_type = return_type.__origin__
                         self.base = return_type
-                    except (KeyError, AttributeError):
+                    except (KeyError, AttributeError, NameError):
                         logging.warning("No return annotation on config() in %s", t)
                         raise
                 else:
                     try:
-                        # Get type from return annotation
-                        return_type = t.__annotations__["return"]
+                        # Get type from return annotation (forward-ref safe).
+                        hints = typing.get_type_hints(t)
+                        return_type = hints["return"]
                         if isinstance(return_type, _GenericAlias):
                             return_type = return_type.__origin__
                         self.base = return_type
-                    except KeyError:
+                    except (KeyError, NameError):
                         logging.warning("No return annotation in %s", t)
                         raise
             object.__getattribute__(t, "__datamaestro__")
