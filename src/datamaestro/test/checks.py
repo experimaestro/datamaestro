@@ -65,12 +65,23 @@ class DatasetTests:
         assert flag
 
     def test_datasets(self):
-        """Check datasets integrity by preparing them (without downloading)
+        """Check datasets integrity by preparing them (without downloading).
+
+        For variant families, prepares the first enumerable variant —
+        validating every combination would be prohibitive and not
+        representative of the family's correctness.
 
         Arguments:
             repository {Repository} -- The repository to check
         """
         for dataset in self.repository:
             with self.subTest(dataset_id=dataset.id):
-                config = dataset.prepare(download=False)
+                variants = getattr(dataset, "variants", None)
+                if variants is not None:
+                    variant_kwargs = next(iter(variants.enumerate()), None)
+                    config = dataset.prepare(
+                        download=False, variant_kwargs=variant_kwargs
+                    )
+                else:
+                    config = dataset.prepare(download=False)
                 config.__xpm__.validate()
