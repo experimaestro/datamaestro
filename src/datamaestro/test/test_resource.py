@@ -1059,8 +1059,11 @@ class TestHFDownloader:
         result = r.prepare()
         assert result == {
             "repo_id": "user/dataset",
+            "name": None,
             "data_files": "train.csv",
             "split": "train",
+            "streaming": False,
+            "local_path": None,
         }
 
 
