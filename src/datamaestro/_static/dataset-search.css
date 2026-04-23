@@ -1,0 +1,366 @@
+/* Datamaestro dataset search widget */
+
+.dm-search {
+    margin: 1em 0;
+    font-size: 0.95rem;
+}
+
+.dm-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.6em 0.8em;
+    font-size: 1rem;
+    border: 1px solid #c4c4c4;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.dm-search-input:focus {
+    outline: none;
+    border-color: #2980b9;
+    box-shadow: 0 0 0 2px rgba(41, 128, 185, 0.2);
+}
+
+.dm-search-input-wrap {
+    position: relative;
+}
+
+.dm-search-autocomplete {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #c4c4c4;
+    border-radius: 4px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    max-height: 18em;
+    overflow-y: auto;
+}
+
+.dm-search-autocomplete[hidden] {
+    display: none;
+}
+
+.dm-search-autocomplete-header {
+    padding: 0.3em 0.7em;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #888;
+    background: #f7f9fb;
+    border-bottom: 1px solid #eee;
+}
+
+.dm-search-autocomplete > li.dm-search-ac-item {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0.35em 0.7em !important;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #2c3e50;
+}
+
+.rst-content .dm-search-autocomplete,
+.rst-content .dm-search-autocomplete > li.dm-search-ac-item {
+    list-style: none !important;
+    margin: 0 !important;
+}
+
+.rst-content .dm-search-autocomplete > li.dm-search-ac-item {
+    padding: 0.35em 0.7em !important;
+}
+
+.dm-search-autocomplete > li.dm-search-ac-item.is-active,
+.dm-search-autocomplete > li.dm-search-ac-item:hover {
+    background: #eef5fb;
+}
+
+.dm-search-autocomplete .dm-search-ac-match {
+    font-weight: 700;
+    color: #2980b9;
+}
+
+.dm-search-autocomplete-empty {
+    padding: 0.5em 0.7em;
+    color: #888;
+    font-style: italic;
+    font-size: 0.85rem;
+}
+
+.dm-search-facets {
+    margin: 0.4em 0 0.6em 0;
+}
+
+.dm-search-facets[hidden] {
+    display: none;
+}
+
+.dm-search-facet-group {
+    margin-bottom: 0.35em;
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.3em;
+}
+
+.dm-search-facet-label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #888;
+    margin-right: 0.3em;
+}
+
+.dm-search-facet-btn {
+    cursor: pointer;
+    padding: 0.15em 0.55em;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: #2c3e50;
+    background: #e8eef3;
+    font-family: inherit;
+}
+
+.dm-search-facet-btn--task {
+    background: #fdecea;
+    color: #7a2718;
+}
+
+.dm-search-facet-btn:hover,
+.dm-search-facet-btn:focus {
+    border-color: #2980b9;
+    outline: none;
+}
+
+.dm-search-facet-btn .dm-search-facet-count {
+    margin-left: 0.3em;
+    color: #777;
+    font-weight: normal;
+}
+
+.dm-search-stats {
+    margin: 0.5em 0;
+    color: #666;
+    font-size: 0.85rem;
+    min-height: 1.2em;
+}
+
+/* Single-pane layout: either the result list or the details panel
+   shows at once, controlled by ``data-view`` on the container. */
+.dm-search-layout {
+    display: block;
+}
+
+.dm-search[data-view="results"] .dm-search-details,
+.dm-search[data-view="details"] .dm-search-results {
+    display: none;
+}
+
+/* The Read-the-Docs theme (and others) heavily style ``ul``/``li`` inside
+   the content area; bump specificity so the search results render as a
+   plain card list without bullets or extra indentation. */
+.dm-search ul.dm-search-results,
+.rst-content .dm-search ul.dm-search-results {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-height: 32em;
+    overflow-y: auto;
+    border: 1px solid #e1e4e5;
+    border-radius: 4px;
+    background: #fff;
+}
+
+.dm-search ul.dm-search-results > li.dm-search-result,
+.rst-content .dm-search ul.dm-search-results > li.dm-search-result {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0.55em 0.75em !important;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    user-select: none;
+}
+
+.dm-search-result:last-child {
+    border-bottom: none;
+}
+
+.dm-search-result:hover,
+.dm-search-result.is-active {
+    background: #eef5fb;
+}
+
+.dm-search-result-id {
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.85rem;
+    color: #2980b9;
+    overflow-wrap: anywhere;
+}
+
+.dm-search-result-name {
+    overflow-wrap: anywhere;
+}
+
+.dm-search-result code,
+.dm-search-details code {
+    font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 3px;
+    padding: 0 0.25em;
+    font-size: 0.85em;
+    color: #2c3e50;
+    overflow-wrap: anywhere;
+}
+
+.dm-search-result-name {
+    font-weight: 600;
+    margin-top: 0.15em;
+    color: #222;
+}
+
+.dm-search-result-meta {
+    margin-top: 0.25em;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.dm-search-result-meta .dm-tag,
+.dm-search-result-meta .dm-task {
+    display: inline-block;
+    padding: 0 0.45em;
+    margin: 0 0.25em 0.15em 0;
+    border-radius: 3px;
+    background: #e8eef3;
+    color: #2c3e50;
+    font-size: 0.75rem;
+    line-height: 1.5;
+}
+
+.dm-search-result-meta .dm-task {
+    background: #fdecea;
+    color: #7a2718;
+}
+
+.dm-search-details {
+    border: 1px solid #e1e4e5;
+    border-radius: 4px;
+    padding: 1em;
+    background: #fafbfc;
+    min-height: 8em;
+}
+
+.dm-search-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    margin: 0 0 0.8em 0;
+    padding: 0.25em 0.55em;
+    border: 1px solid #d3d7da;
+    border-radius: 4px;
+    background: #fff;
+    color: #2980b9;
+    font-size: 0.9rem;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.dm-search-back:hover,
+.dm-search-back:focus {
+    background: #eef5fb;
+    outline: none;
+}
+
+.dm-search-back-icon {
+    font-size: 1.1em;
+    line-height: 1;
+}
+
+.dm-search-placeholder {
+    color: #888;
+    font-style: italic;
+    margin: 0;
+}
+
+.dm-search-details h3 {
+    margin: 0 0 0.4em 0;
+    font-size: 1.05rem;
+    word-break: break-all;
+}
+
+.dm-search-details .dm-search-details-name {
+    margin: 0 0 0.6em 0;
+    color: #444;
+    font-weight: 600;
+}
+
+.dm-search-details .dm-search-details-section {
+    margin: 0.7em 0 0 0;
+}
+
+.dm-search-details .dm-search-details-label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #888;
+    margin-bottom: 0.2em;
+}
+
+.dm-search-details .dm-search-details-description {
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+    color: #333;
+    max-height: 14em;
+    overflow-y: auto;
+    background: #fff;
+    border: 1px solid #eaeaea;
+    padding: 0.5em 0.6em;
+    border-radius: 3px;
+}
+
+.dm-search-details table.dm-search-axes {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.85rem;
+    table-layout: fixed;  /* lets the columns honor max-width and wrap */
+}
+
+.dm-search-details table.dm-search-axes th,
+.dm-search-details table.dm-search-axes td {
+    border: 1px solid #e0e0e0;
+    padding: 0.3em 0.5em;
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.dm-search-details table.dm-search-axes th {
+    background: #eef2f5;
+    font-weight: 600;
+}
+
+.dm-search-details table.dm-search-axes code {
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* Long enumerated domains can be many KB of JSON; cap the cell height
+   and let it scroll instead of pushing the whole table off-screen. */
+.dm-search-details table.dm-search-axes .dm-search-axes-domain {
+    max-height: 8em;
+    overflow: auto;
+    display: block;
+}
+
+.dm-search-details .dm-search-details-link {
+    margin-top: 0.7em;
+}

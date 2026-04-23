@@ -568,6 +568,16 @@ class DatasetWrapper(AbstractDataset):
         repository, components = DataDefinition.repository_relpath(t)
         super().__init__(repository)
 
+        # Inherit tags/tasks declared on the configtype's MRO (e.g. an
+        # ``Adhoc`` configtype carrying ``@datatasks("adhoc retrieval")``
+        # propagates to every dataset whose ``config()`` returns it).
+        # Per-dataset ``@datatasks``/``@datatags`` decorators add to this
+        # set rather than replacing it.
+        for c in self.base.__mro__:
+            if hasattr(c, "__datamaestro__"):
+                self.tags |= c.__datamaestro__.tags
+                self.tasks |= c.__datamaestro__.tasks
+
         self.module_name = None
         if repository is None:
             # Try to find the module name
