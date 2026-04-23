@@ -1,9 +1,10 @@
 # Sphinx extension for datamaestro datasets
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 from sphinx.ext.autodoc.mock import mock
 
 from docutils import nodes
+from docutils.statemachine import StringList
 
 from sphinx.application import Sphinx
 from sphinx.domains import Domain, ObjType
@@ -15,21 +16,25 @@ from sphinx.util.nodes import make_refnode
 import datamaestro
 from datamaestro.data import AbstractDataset
 import logging
-from myst_parser.config.main import MdParserConfig
-from myst_parser.mdit_to_docutils.base import DocutilsRenderer
-from myst_parser.parsers.mdit import create_md_parser
 
 
 class DatasetNode(nodes.paragraph):
     pass
 
 
-def to_docutils(source: str):
-    parser = create_md_parser(MdParserConfig(), DocutilsRenderer)
-    return parser.render(source)
-
-
 class DatasetsDirective(SphinxDirective):
+    def _parse_rst(self, source: str) -> List[nodes.Node]:
+        """Parse ``source`` as reStructuredText using the directive's
+        state machine so Sphinx roles (``:class:``, ``:func:``, ...) resolve
+        against the ``py`` domain."""
+        container = nodes.Element()
+        self.state.nested_parse(
+            StringList(source.splitlines(), source="<datamaestro>"),
+            0,
+            container,
+        )
+        return list(container.children)
+
     def dataset_desc(self, ds: AbstractDataset):
         dm = self.env.get_domain("dm")
 
@@ -110,13 +115,13 @@ class DatasetsDirective(SphinxDirective):
             content.append(p)
 
         if ds.description:
-            content.extend(to_docutils(ds.description))
+            content.extend(self._parse_rst(ds.description))
 
         variants = getattr(ds, "variants", None)
         if variants is not None:
             variant_doc = variants.document()
             if variant_doc:
-                content.extend(to_docutils(variant_doc).children)
+                content.extend(self._parse_rst(variant_doc))
 
         return desc
 
@@ -144,7 +149,7 @@ class RepositoryDirective(DatasetsDirective):
                 section += nodes.title("", nodes.Text(module.title))
                 section += nodes.paragraph()
                 if module.description:
-                    section += to_docutils(module.description).children
+                    section += self._parse_rst(module.description)
 
                 for ds in iter(module):
                     section += self.dataset_desc(ds)
@@ -185,7 +190,7 @@ class DatasetDirective(DatasetsDirective):
         title_text = datasets.title or module_name
         section += nodes.title("", nodes.Text(title_text))
         if datasets.description:
-            section += to_docutils(datasets.description).children
+            section += self._parse_rst(datasets.description)
 
         for ds in datasets:
             section += self.dataset_desc(ds)

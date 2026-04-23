@@ -434,7 +434,7 @@ class AxesVariants(Variants):
             yield item
 
     def document(self) -> str:
-        """Markdown description of the variant space.
+        """reStructuredText description of the variant space.
 
         Emits the subclass's own docstring followed by a bullet list of
         axes. Each axis line shows its name, type (when known), default,
@@ -442,6 +442,10 @@ class AxesVariants(Variants):
         markers. Per-axis descriptions come from — in priority order —
         PEP 224-style attribute docstrings on the ``AxesVariants``
         subclass, then ``Axis.description``.
+
+        Output is reST so cross-reference roles (``:class:``, ``:func:``,
+        ...) and other reST markup in the source docstrings resolve
+        correctly against the Sphinx ``py`` domain.
 
         Override on a further subclass to add extra context, then call
         ``super().document()`` to keep the generated axis listing.
@@ -460,17 +464,20 @@ class AxesVariants(Variants):
 
         lines: List[str] = ["**Variants**:", ""]
         for key, axis in self._axes.items():
-            header = f"- `{key}`"
+            header = f"- ``{key}``"
             type_str = _pretty_type(axis.type)
             if type_str:
-                header += f" : `{type_str}`"
+                header += f" : ``{type_str}``"
             extras = _axis_extras(axis)
             if extras:
-                header += f"  *({'; '.join(extras)})*"
+                header += f" *({'; '.join(extras)})*"
             lines.append(header)
 
             doc_text = attr_docs.get(key) or axis.description
             if doc_text:
+                # Blank line separates the bullet from its continuation
+                # paragraph; each continuation line must be indented.
+                lines.append("")
                 for line in inspect.cleandoc(doc_text).splitlines():
                     lines.append(f"  {line}" if line else "")
         parts.append("\n".join(lines))
