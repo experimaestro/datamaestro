@@ -22,9 +22,9 @@ The main repository only deals with very generic processing (downloading, basic 
 
 ## List of repositories
 
-- [Information Retrieval](https://github.com/bpiwowar/experimaestro-ir) [![PyPI version](https://badge.fury.io/py/experimaestro-ir.svg)](https://badge.fury.io/py/experimaestro-ir)
+- [Information Retrieval](https://github.com/xpmir/datamaestro_ir) [![PyPI version](https://badge.fury.io/py/datamaestro-ir.svg)](https://badge.fury.io/py/experimaestro-ir)
 
-- [NLP and information access related dataset](https://github.com/experimaestro/datamaestro_text) [![PyPI version](https://badge.fury.io/py/datamaestro-text.svg)](https://badge.fury.io/py/datamaestro-text) \
+- [NLP datasets](https://github.com/experimaestro/datamaestro_text) [![PyPI version](https://badge.fury.io/py/datamaestro-text.svg)](https://badge.fury.io/py/datamaestro-text) \
   Natural Language Processing (e.g. Sentiment101) and Information access (e.g. TREC) datasets
 - [image-related dataset](https://github.com/experimaestro/datamaestro_image) [![PyPI version](https://badge.fury.io/py/datamaestro-image.svg)](https://badge.fury.io/py/datamaestro-image)
   Image related datasets (e.g. MNIST)
