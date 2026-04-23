@@ -112,6 +112,12 @@ class DatasetsDirective(SphinxDirective):
         if ds.description:
             content.extend(to_docutils(ds.description))
 
+        variants = getattr(ds, "variants", None)
+        if variants is not None:
+            variant_doc = variants.document()
+            if variant_doc:
+                content.extend(to_docutils(variant_doc).children)
+
         return desc
 
 
@@ -171,14 +177,19 @@ class DatasetDirective(DatasetsDirective):
 
         # --- Start documenting
 
-        docnodes = []
-        # node.document = self.state.document
+        # Wrap the module in its own section so the module docstring
+        # (title + description) has a proper heading above it instead of
+        # appearing abruptly before the first dataset entry.
+        section_id = f"dm-datasets-{repository_name or 'repo'}-{module_name}"
+        section = nodes.section(ids=[section_id])
+        title_text = datasets.title or module_name
+        section += nodes.title("", nodes.Text(title_text))
         if datasets.description:
-            docnodes.extend(to_docutils(datasets.description))
+            section += to_docutils(datasets.description).children
 
         for ds in datasets:
-            docnodes.append(self.dataset_desc(ds))
-        return docnodes
+            section += self.dataset_desc(ds)
+        return [section]
 
 
 class DatamaestroDomain(Domain):

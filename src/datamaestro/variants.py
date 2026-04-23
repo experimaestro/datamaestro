@@ -49,7 +49,10 @@ are responsible for their own canonicalization and elision policy.
 
 from __future__ import annotations
 
+import ast
+import inspect
 import itertools
+import textwrap
 import typing
 from abc import ABC, abstractmethod
 from typing import Any, Callable, ClassVar, Dict, Iterator, List, Mapping, Optional
@@ -263,6 +266,22 @@ class Variants(ABC):
                     return True
         return False
 
+    def document(self) -> str:
+        """Return a Markdown description of this variant space.
+
+        Base behaviour is to emit the subclass's own docstring (if any).
+        Specialized ``Variants`` subclasses should override this and may
+        call ``super().document()`` to chain onto the docstring.
+
+        The returned string is rendered by documentation consumers
+        (e.g. the Sphinx ``dm:datasets`` directive) through a Markdown
+        parser; keep the output framework-agnostic.
+        """
+        own_doc = type(self).__doc__
+        if own_doc is None:
+            return ""
+        return inspect.cleandoc(own_doc)
+
 
 class AxesVariants(Variants):
     """Cartesian product of independent axes.
@@ -413,6 +432,128 @@ class AxesVariants(Variants):
             for k, v in zip(enumerable_keys, combo):
                 item[k] = v
             yield item
+
+    def document(self) -> str:
+        """Markdown description of the variant space.
+
+        Emits the subclass's own docstring followed by a bullet list of
+        axes. Each axis line shows its name, type (when known), default,
+        domain (when enumerable and small), and ``in_id`` / ``elide_default``
+        markers. Per-axis descriptions come from — in priority order —
+        PEP 224-style attribute docstrings on the ``AxesVariants``
+        subclass, then ``Axis.description``.
+
+        Override on a further subclass to add extra context, then call
+        ``super().document()`` to keep the generated axis listing.
+        """
+        parts: List[str] = []
+        own_doc = type(self).__doc__
+        if own_doc is not None:
+            cleaned = inspect.cleandoc(own_doc).strip()
+            if cleaned:
+                parts.append(cleaned)
+
+        if not self._axes:
+            return "\n\n".join(parts)
+
+        attr_docs = _axis_attr_docs(type(self))
+
+        lines: List[str] = ["**Variants**:", ""]
+        for key, axis in self._axes.items():
+            header = f"- `{key}`"
+            type_str = _pretty_type(axis.type)
+            if type_str:
+                header += f" : `{type_str}`"
+            extras = _axis_extras(axis)
+            if extras:
+                header += f"  *({'; '.join(extras)})*"
+            lines.append(header)
+
+            doc_text = attr_docs.get(key) or axis.description
+            if doc_text:
+                for line in inspect.cleandoc(doc_text).splitlines():
+                    lines.append(f"  {line}" if line else "")
+        parts.append("\n".join(lines))
+        return "\n\n".join(parts)
+
+
+def _axis_attr_docs(variants_cls: type) -> Dict[str, str]:
+    """Extract PEP 224-style attribute docstrings for Axis fields on
+    ``variants_cls`` and its bases.
+
+    Python doesn't preserve string literals that follow an attribute
+    assignment, so we re-parse the class source with ``ast`` to recover
+    them. Walks the MRO so inherited axis docstrings propagate, with
+    subclass declarations overriding.
+    """
+    docs: Dict[str, str] = {}
+    for cls in reversed(variants_cls.__mro__):
+        if cls is object:
+            continue
+        try:
+            src = inspect.getsource(cls)
+        except (OSError, TypeError):
+            continue
+        try:
+            tree = ast.parse(textwrap.dedent(src))
+        except SyntaxError:
+            continue
+        if not tree.body or not isinstance(tree.body[0], ast.ClassDef):
+            continue
+        body = tree.body[0].body
+        for idx, node in enumerate(body):
+            name: Optional[str] = None
+            if (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+            ):
+                name = node.targets[0].id
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                name = node.target.id
+            if name is None or idx + 1 >= len(body):
+                continue
+            nxt = body[idx + 1]
+            if (
+                isinstance(nxt, ast.Expr)
+                and isinstance(nxt.value, ast.Constant)
+                and isinstance(nxt.value.value, str)
+            ):
+                docs[name] = inspect.cleandoc(nxt.value.value)
+    return docs
+
+
+def _pretty_type(t: Any) -> str:
+    if t is None:
+        return ""
+    origin = typing.get_origin(t)
+    if origin is typing.Union:
+        args = typing.get_args(t)
+        if type(None) in args:
+            inner = next((a for a in args if a is not type(None)), None)
+            return f"Optional[{_pretty_type(inner)}]" if inner else "Optional"
+        return " | ".join(_pretty_type(a) for a in args)
+    if origin is not None:
+        args = typing.get_args(t)
+        base = getattr(origin, "__name__", repr(origin))
+        return f"{base}[{', '.join(_pretty_type(a) for a in args)}]"
+    return getattr(t, "__name__", repr(t))
+
+
+def _axis_extras(axis: Axis) -> List[str]:
+    parts: List[str] = []
+    if axis.has_default:
+        parts.append(f"default={axis.default!r}")
+    if axis.domain is not None:
+        if len(axis.domain) <= 6:
+            parts.append(f"domain={axis.domain!r}")
+        else:
+            parts.append(f"domain: {len(axis.domain)} values")
+    if not axis.in_id:
+        parts.append("excluded from id")
+    elif axis.elide_default:
+        parts.append("elides default")
+    return parts
 
 
 # Callable matching the factory signature expected by the registration
