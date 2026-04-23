@@ -695,6 +695,15 @@ class DatasetWrapper(AbstractDataset):
         instance (filling defaults), then caches the built config keyed
         by the resolved kwargs so repeated calls with the same selector
         reuse the same object.
+
+        ID computation (variant families): the resulting config's
+        ``Base.id`` is ``wrapper.id + variants.format_selector(resolved)``.
+        ``format_selector`` is deterministic (alphabetical key order)
+        and honours the per-axis ``elide_default`` flag, so axes left at
+        a default marked elidable are dropped from the suffix — a
+        fully-defaulted variant collapses to the bare ``wrapper.id``.
+        This keeps older ids stable when a family grows new axes, as
+        long as those axes ship with ``elide_default=True``.
         """
         if self.variants is not None:
             # Variant family: resolve (fills defaults) and cache per variant.

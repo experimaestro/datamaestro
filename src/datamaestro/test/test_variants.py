@@ -107,6 +107,26 @@ class TestAxis:
         a.validate(3.14)
         a.validate("anything")  # open axes don't validate content
 
+    def test_elide_default_requires_default(self):
+        with pytest.raises(ValueError, match="elide_default"):
+            Axis(["a", "b"], elide_default=True)
+
+    def test_elide_default_stored(self):
+        a = Axis(["a", "b"], default="a", elide_default=True)
+        assert a.elide_default is True
+
+    def test_elide_default_off_by_default(self):
+        a = Axis(["a", "b"], default="a")
+        assert a.elide_default is False
+
+    def test_in_id_on_by_default(self):
+        a = Axis(["a", "b"], default="a")
+        assert a.in_id is True
+
+    def test_in_id_stored(self):
+        a = Axis(["fast", "slow"], default="fast", in_id=False)
+        assert a.in_id is False
+
 
 # ---- AxesVariants declarative + imperative --------------------------------
 
@@ -295,6 +315,241 @@ class TestFormatSelector:
         # Full form (defaults explicit)
         b = v.format_selector({"name": "agnews", "streaming": True, "threshold": None})
         assert a == b
+
+
+# ---- format_selector: elision + ID-computation guarantees -----------------
+
+
+class TestFormatSelectorElision:
+    """``elide_default=True`` drops the axis from the formatted suffix
+    whenever the resolved value equals the declared default. When every
+    axis elides, the whole ``[...]`` part disappears — which is how a
+    family can grow new axes without disturbing existing ids.
+    """
+
+    def test_default_axis_without_elide_still_emitted(self):
+        class V(AxesVariants):
+            name = Axis(["a"], default="a")
+
+        v = V()
+        assert v.format_selector({}) == "[name=a]"
+
+    def test_elide_default_omits_axis_at_default(self):
+        class V(AxesVariants):
+            name = Axis(["a"], default="a", elide_default=True)
+
+        v = V()
+        assert v.format_selector({}) == ""
+        assert v.format_selector({"name": "a"}) == ""
+
+    def test_elide_default_keeps_axis_when_non_default(self):
+        class V(AxesVariants):
+            name = Axis(["a", "b"], default="a", elide_default=True)
+
+        v = V()
+        assert v.format_selector({"name": "b"}) == "[name=b]"
+
+    def test_mixed_elision_strips_only_defaulted_ones(self):
+        class V(AxesVariants):
+            name = Axis(["a", "b"])  # required, no default → always shown
+            streaming = Axis([False, True], default=True, type=bool, elide_default=True)
+            threshold = Axis(type=float, default=None, elide_default=True)
+
+        v = V()
+        # Everything elidable at its default: only `name` survives.
+        assert v.format_selector({"name": "a"}) == "[name=a]"
+        # One elidable axis at a non-default value reappears.
+        assert (
+            v.format_selector({"name": "a", "streaming": False})
+            == "[name=a,streaming=false]"
+        )
+        # threshold=0.5 (non-default) also reappears.
+        assert (
+            v.format_selector({"name": "a", "threshold": 0.5})
+            == "[name=a,threshold=0.5]"
+        )
+
+    def test_none_default_is_elidable(self):
+        """Covers the common ``default=None`` open-axis case."""
+
+        class V(AxesVariants):
+            threshold = Axis(type=float, default=None, elide_default=True)
+
+        v = V()
+        assert v.format_selector({}) == ""
+        assert v.format_selector({"threshold": 0.0}) == "[threshold=0.0]"
+
+
+class TestFormatSelectorInId:
+    """``in_id=False`` strips the axis from the selector *regardless* of
+    value — so it never appears in the dataset id, even when the user
+    picked a non-default."""
+
+    def test_in_id_false_omits_axis_even_when_non_default(self):
+        class V(AxesVariants):
+            name = Axis(["a", "b"])
+            download_mode = Axis(["fast", "slow"], default="fast", in_id=False)
+
+        v = V()
+        # At default: axis is gone.
+        assert v.format_selector({"name": "a"}) == "[name=a]"
+        # At non-default: axis is *still* gone.
+        assert v.format_selector({"name": "a", "download_mode": "slow"}) == "[name=a]"
+
+    def test_in_id_false_works_without_default(self):
+        """Unlike ``elide_default``, ``in_id=False`` has no
+        default requirement — it unconditionally hides the axis."""
+
+        class V(AxesVariants):
+            name = Axis(["a", "b"])
+            download_mode = Axis(["fast", "slow"], in_id=False)
+
+        v = V()
+        # Required + in_id=False: must provide, but never appears in id.
+        assert v.format_selector({"name": "a", "download_mode": "slow"}) == "[name=a]"
+
+    def test_in_id_false_subsumes_elide_default(self):
+        """When both flags are set, ``in_id=False`` wins and the axis
+        never appears."""
+
+        class V(AxesVariants):
+            name = Axis(["a", "b"])
+            flag = Axis(
+                [False, True],
+                default=False,
+                type=bool,
+                elide_default=True,
+                in_id=False,
+            )
+
+        v = V()
+        assert v.format_selector({"name": "a", "flag": True}) == "[name=a]"
+
+    def test_in_id_false_still_reaches_resolve(self):
+        """``resolve`` is unaffected — the value still flows through
+        (so it can reach ``config(**kwargs)``, download hooks, etc.)."""
+
+        class V(AxesVariants):
+            download_mode = Axis(["fast", "slow"], default="fast", in_id=False)
+
+        v = V()
+        assert v.resolve() == {"download_mode": "fast"}
+        assert v.resolve(download_mode="slow") == {"download_mode": "slow"}
+
+    def test_all_axes_in_id_false_collapses_suffix(self):
+        class V(AxesVariants):
+            download_mode = Axis(["fast", "slow"], default="fast", in_id=False)
+            retries = Axis(type=int, default=3, in_id=False)
+
+        v = V()
+        # No matter the values, the suffix is always empty.
+        assert v.format_selector({}) == ""
+        assert v.format_selector({"download_mode": "slow", "retries": 10}) == ""
+
+    def test_mixed_elide_and_in_id_collapses_to_empty(self):
+        """When some axes are elided-at-default and others are
+        unconditionally hidden, and everything lines up, the whole
+        suffix must collapse — no stray ``[]`` left behind."""
+
+        class V(AxesVariants):
+            streaming = Axis([False, True], default=True, type=bool, elide_default=True)
+            download_mode = Axis(["fast", "slow"], default="fast", in_id=False)
+
+        v = V()
+        # Everything absent → no brackets.
+        out = v.format_selector({})
+        assert out == ""
+        assert "[" not in out and "]" not in out
+        # Still empty when the in_id=False axis takes a non-default
+        # and the elidable axis stays at default.
+        out = v.format_selector({"download_mode": "slow"})
+        assert out == ""
+        assert "[" not in out and "]" not in out
+
+    def test_never_emits_empty_brackets(self):
+        """Guard against a regression where ``format_selector`` might
+        return the literal string ``"[]"``: brackets only appear when
+        there's at least one key=value fragment inside."""
+
+        class V(AxesVariants):
+            a = Axis(["x"], default="x", elide_default=True)
+            b = Axis(["y"], default="y", in_id=False)
+
+        out = V().format_selector({})
+        assert out != "[]"
+        assert out == ""
+
+
+class TestFormatSelectorDeterminism:
+    """``format_selector`` must be invariant under input key order and
+    always emit keys alphabetically — the dataset id depends on it."""
+
+    def test_alphabetical_order_regardless_of_dict_insertion(self):
+        class V(AxesVariants):
+            zulu = Axis([1, 2], type=int)
+            alpha = Axis(["x", "y"])
+            mike = Axis([False, True], type=bool)
+
+        v = V()
+        a = v.format_selector({"zulu": 1, "alpha": "x", "mike": True})
+        b = v.format_selector({"mike": True, "alpha": "x", "zulu": 1})
+        assert a == b == "[alpha=x,mike=true,zulu=1]"
+
+    def test_permuted_kwargs_give_identical_id(self):
+        """Parse-of-format round-trip, with kwargs given in arbitrary
+        orders — all must resolve to the same canonical string."""
+
+        class V(AxesVariants):
+            name = Axis(["a", "b"])
+            streaming = Axis([False, True], default=True, type=bool)
+            threshold = Axis(type=float, default=None)
+
+        v = V()
+        forms = [
+            {"name": "a"},
+            {"name": "a", "streaming": True},
+            {"streaming": True, "name": "a"},
+            {"name": "a", "streaming": True, "threshold": None},
+            {"threshold": None, "streaming": True, "name": "a"},
+        ]
+        ids = {v.format_selector(f) for f in forms}
+        assert len(ids) == 1
+
+
+class TestIDBackwardCompat:
+    """Regression guard for the ID-stability promise: adding an axis
+    with ``elide_default=True`` + default MUST keep existing selectors
+    formatting to their old id."""
+
+    def test_new_elided_axis_preserves_existing_id(self):
+        class VOld(AxesVariants):
+            name = Axis(["a", "b"])
+
+        class VNew(AxesVariants):
+            name = Axis(["a", "b"])
+            cache_mode = Axis(["mem", "disk"], default="mem", elide_default=True)
+
+        old, new = VOld(), VNew()
+        # Existing selector — same id on both.
+        assert old.format_selector({"name": "a"}) == new.format_selector({"name": "a"})
+        # New axis at non-default — appears only on the new family.
+        assert (
+            new.format_selector({"name": "a", "cache_mode": "disk"})
+            == "[cache_mode=disk,name=a]"
+        )
+
+    def test_new_non_elided_axis_changes_id(self):
+        """Adding an axis *without* ``elide_default`` *does* change the
+        id — the escape hatch is opt-in."""
+
+        class VOld(AxesVariants):
+            name = Axis(["a"], default="a")
+
+        class VNew(AxesVariants):
+            name = Axis(["a"], default="a")
+            extra = Axis(["x"], default="x")  # elide_default=False
+
+        assert VOld().format_selector({}) != VNew().format_selector({})
 
 
 # ---- enumerate ------------------------------------------------------------

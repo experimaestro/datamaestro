@@ -6,13 +6,45 @@ combination is addressed with a query-style suffix on the id:
 
     ai.lighton.embeddings_pre_training[name=agnews,streaming=true]
 
-Unspecified axes fall back to declared defaults. Every resolved axis —
-defaults included — participates in the downstream experimaestro identity
-hash, so caches stay disjoint per variant.
+Unspecified axes fall back to declared defaults. The full resolved dict
+(defaults included) is what downstream code — e.g. the experimaestro
+config constructor — consumes, so caches stay disjoint per variant.
+
+Dataset ID computation
+----------------------
+
+For a variant family, the dataset's ``Base.id`` is built as:
+
+    variant_id = wrapper.id + variants.format_selector(resolved_kwargs)
+
+``AxesVariants.format_selector`` produces a canonical, deterministic
+suffix:
+
+1. Keys are emitted in alphabetical order (so two selectors that resolve
+   to the same kwargs format identically).
+2. Every axis appears by default, *including* axes left at their default
+   value, which keeps the id unambiguous about what was asked for.
+3. An axis marked ``elide_default=True`` is *omitted* from the suffix
+   when its resolved value equals the declared default. If every axis
+   elides, the whole ``[...]`` suffix is dropped — the family id becomes
+   identical to a flat (non-variant) id of the same name.
+4. An axis marked ``in_id=False`` is *always* omitted from the suffix,
+   regardless of its value. Use this for flags that don't change the
+   dataset output (e.g. a download-time behavior flag). Caveat: two
+   prepared configs that differ only on such an axis share an id but
+   may be distinct Python objects — don't use ``in_id=False`` for
+   axes that feed into :meth:`Dataset.config` in a way that affects
+   the built object.
+
+Rules (3) and (4) are how a family can gain new axes without breaking
+existing ids: declare the new axis with ``elide_default=True`` (or
+``in_id=False`` if the axis should never participate) and a default,
+and pre-existing selectors continue to format to the same string.
 
 ``Variants`` is the abstract contract. ``AxesVariants`` implements the
 cartesian-product case (one independent axis per dimension). Other
-schemes (e.g. named presets) can implement ``Variants`` directly.
+schemes (e.g. named presets) can implement ``Variants`` directly; they
+are responsible for their own canonicalization and elision policy.
 """
 
 from __future__ import annotations
@@ -48,9 +80,29 @@ class Axis:
         default: Value returned when the axis is not set in a selector.
             Omit to mark the axis as required.
         description: Optional human-readable label (used by search UI).
+        elide_default: When True, omit this axis from the formatted
+            selector (and therefore from the dataset id suffix) whenever
+            its resolved value equals ``default``. Lets a family grow
+            new axes without changing the id of already-prepared
+            variants. Requires ``default`` to be set.
+        in_id: When False, this axis is *always* excluded from the
+            formatted selector (and thus from the dataset id). The axis
+            still participates in :meth:`AxesVariants.resolve` and in
+            the cache key, so its value still reaches
+            :meth:`Dataset.config`. Use for download-time flags (or
+            similar) whose value doesn't change the output config.
+            Subsumes ``elide_default`` — when ``in_id=False`` the axis
+            is omitted regardless of the value.
     """
 
-    __slots__ = ("domain", "type", "default", "description")
+    __slots__ = (
+        "domain",
+        "type",
+        "default",
+        "description",
+        "elide_default",
+        "in_id",
+    )
 
     def __init__(
         self,
@@ -59,15 +111,21 @@ class Axis:
         type: Optional[Any] = None,
         default: Any = MISSING,
         description: str = "",
+        elide_default: bool = False,
+        in_id: bool = True,
     ) -> None:
         if domain is not None and not isinstance(domain, list):
             raise TypeError(
                 f"Axis domain must be a list of values or None (got {domain!r})"
             )
+        if elide_default and default is MISSING:
+            raise ValueError("Axis(elide_default=True) requires a default value")
         self.domain = list(domain) if domain is not None else None
         self.type = type if type is not None else self._infer_type(self.domain)
         self.default = default
         self.description = description
+        self.elide_default = elide_default
+        self.in_id = in_id
 
     @staticmethod
     def _infer_type(domain: Optional[List[Any]]) -> Optional[Any]:
@@ -299,10 +357,26 @@ class AxesVariants(Variants):
         return [p.strip() for p in body.split(",") if p.strip()]
 
     def format_selector(self, kwargs: Dict[str, Any]) -> str:
+        """Canonical string form of ``kwargs``.
+
+        Keys are emitted alphabetically (deterministic). Axes declared
+        with ``in_id=False`` are always omitted. Axes declared with
+        ``elide_default=True`` are omitted when their resolved value
+        equals the default. If every axis ends up omitted, returns
+        ``""`` so the dataset id suffix disappears entirely.
+        """
         resolved = self.resolve(**kwargs)
-        parts = [
-            f"{key}={self._format_value(resolved[key])}" for key in sorted(resolved)
-        ]
+        parts: List[str] = []
+        for key in sorted(resolved):
+            axis = self._axes[key]
+            if not axis.in_id:
+                continue
+            value = resolved[key]
+            if axis.elide_default and axis.has_default and value == axis.default:
+                continue
+            parts.append(f"{key}={self._format_value(value)}")
+        if not parts:
+            return ""
         return "[" + ",".join(parts) + "]"
 
     @staticmethod

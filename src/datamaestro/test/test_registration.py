@@ -13,7 +13,7 @@ from typing import Optional
 import pytest
 from experimaestro import Param, Meta, field
 
-from datamaestro.context import Repository
+from datamaestro.context import Repository, _resolve_dataset_id
 from datamaestro.data import Base
 from datamaestro.definitions import Dataset, dataset as dataset_dec
 from datamaestro.variants import AxesVariants, Axis, split_id_selector
@@ -242,6 +242,274 @@ class TestPrepareWithVariants:
 
         with pytest.raises(ValueError, match="not in axis domain"):
             wrapper.prepare(variant_kwargs={"name": "not-in-domain"})
+
+
+# ---- Dataset ID computation through variants ----------------------------
+
+
+def _register_with_variants(context, variants_cls, module):
+    """Register a one-shot family with a provided variants class."""
+
+    class Family(Dataset):
+        def config(self, **kw) -> _Family:
+            return _Family.C(**kw)
+
+    Family.__module__ = module
+    Family.__qualname__ = "Family"
+    wrapped = dataset_dec(url="http://test", variants=variants_cls)(Family)
+    _register_in_repo(wrapped, context)
+    return wrapped
+
+
+class TestBaseIDFromVariants:
+    """End-to-end: the ``Base.id`` on a prepared config is
+    ``wrapper.id + format_selector(resolved)``, with the elision +
+    determinism rules applied."""
+
+    @staticmethod
+    def _bare_id(config, wrapper):
+        """Strip the ``@<repo>`` suffix that ``setDataIDs`` appends so
+        tests can assert against the variant-id portion directly."""
+        return config.id.rsplit("@", 1)[0]
+
+    def test_id_includes_full_selector_without_elide(self, context):
+        wrapped = _register_family(context)  # declared-axes family
+        wrapper = wrapped.__dataset__
+        config = wrapper.prepare(variant_kwargs={"name": "a"})
+        bare = self._bare_id(config, wrapper)
+        # Every axis is non-elidable → suffix includes defaults too.
+        assert bare.startswith(f"{wrapper.id}[")
+        assert bare.endswith("]")
+        body = bare[len(wrapper.id) + 1 : -1]
+        keys = [fragment.split("=", 1)[0] for fragment in body.split(",")]
+        # Keys are sorted alphabetically.
+        assert keys == sorted(keys)
+        # All three axes are represented.
+        assert set(keys) == {"name", "streaming", "min_score"}
+
+    def test_fully_defaulted_elidable_family_drops_brackets(self, context):
+        class AllElidable(AxesVariants):
+            name = Axis(["fixed"], default="fixed", elide_default=True)
+            streaming = Axis([False, True], default=True, type=bool, elide_default=True)
+            min_score = Axis(type=float, default=None, elide_default=True)
+
+        wrapped = _register_with_variants(
+            context, AllElidable, "datamaestro.config.test_reg.all_elide"
+        )
+        wrapper = wrapped.__dataset__
+        config = wrapper.prepare(variant_kwargs={})
+        # No axis takes a non-default → the suffix collapses away.
+        assert self._bare_id(config, wrapper) == wrapper.id
+
+    def test_elidable_axis_appears_when_non_default(self, context):
+        class MixedElidable(AxesVariants):
+            name = Axis(["a", "b"])  # required, always shown
+            streaming = Axis([False, True], default=True, type=bool, elide_default=True)
+
+        wrapped = _register_with_variants(
+            context, MixedElidable, "datamaestro.config.test_reg.mixed_elide"
+        )
+        wrapper = wrapped.__dataset__
+
+        default = wrapper.prepare(variant_kwargs={"name": "a"})
+        assert self._bare_id(default, wrapper) == f"{wrapper.id}[name=a]"
+
+        toggled = wrapper.prepare(variant_kwargs={"name": "a", "streaming": False})
+        assert (
+            self._bare_id(toggled, wrapper) == f"{wrapper.id}[name=a,streaming=false]"
+        )
+
+    def test_id_stable_when_new_elided_axis_added(self, context):
+        """The core back-compat guarantee: id(old_variants_declaration,
+        old_kwargs) == id(new_variants_declaration_with_extra_elided_axis,
+        old_kwargs)."""
+
+        class VOld(AxesVariants):
+            name = Axis(["a", "b"])
+
+        class VNew(AxesVariants):
+            name = Axis(["a", "b"])
+            cache_mode = Axis(["mem", "disk"], default="mem", elide_default=True)
+
+        wrapped_old = _register_with_variants(
+            context, VOld, "datamaestro.config.test_reg.v_old"
+        )
+        wrapped_new = _register_with_variants(
+            context, VNew, "datamaestro.config.test_reg.v_new"
+        )
+        # Both families share the same relative id path (different
+        # modules → different wrapper.id, so compare the variant suffix
+        # directly).
+        suffix_old = wrapped_old.__dataset__.variants.format_selector({"name": "a"})
+        suffix_new = wrapped_new.__dataset__.variants.format_selector({"name": "a"})
+        assert suffix_old == suffix_new == "[name=a]"
+
+    def test_mixed_elide_and_in_id_drops_brackets(self, context):
+        """Mixed ``elide_default`` + ``in_id=False``: when every axis
+        is stripped, the ``Base.id`` ends at the wrapper id — no
+        ``[]`` suffix, no half-formed bracket pair."""
+
+        class Collapsible(AxesVariants):
+            name = Axis(["fixed"], default="fixed", elide_default=True)
+            download_mode = Axis(["fast", "slow"], default="fast", in_id=False)
+
+        class Family(Dataset):
+            def config(self, **kw) -> _Family:
+                kw.pop("download_mode", None)
+                return _Family.C(**kw)
+
+        Family.__module__ = "datamaestro.config.test_reg.collapsible"
+        Family.__qualname__ = "Family"
+        wrapped = dataset_dec(url="http://test", variants=Collapsible)(Family)
+        _register_in_repo(wrapped, context)
+        wrapper = wrapped.__dataset__
+
+        # All defaults, in_id=False axis absent → bare id.
+        bare = self._bare_id(wrapper.prepare(variant_kwargs={}), wrapper)
+        assert bare == wrapper.id
+        assert "[" not in bare and "]" not in bare
+
+        # in_id=False axis on non-default → still no brackets.
+        bare = self._bare_id(
+            wrapper.prepare(variant_kwargs={"download_mode": "slow"}),
+            wrapper,
+        )
+        assert bare == wrapper.id
+        assert "[" not in bare and "]" not in bare
+
+    def test_in_id_false_axis_never_affects_id(self, context):
+        """End-to-end: an axis marked ``in_id=False`` is absent from
+        ``Base.id`` regardless of the chosen value. The family's
+        ``config()`` is responsible for consuming (or dropping) the
+        kwarg — ``in_id=False`` only controls the *id*."""
+
+        class DownloadFlag(AxesVariants):
+            name = Axis(["a"], default="a")
+            download_mode = Axis(["fast", "slow"], default="fast", in_id=False)
+
+        class Family(Dataset):
+            def config(self, **kw) -> _Family:
+                # `download_mode` is an `in_id=False` download-time flag
+                # — it doesn't feed into the built config.
+                kw.pop("download_mode", None)
+                return _Family.C(**kw)
+
+        Family.__module__ = "datamaestro.config.test_reg.dl_flag"
+        Family.__qualname__ = "Family"
+        wrapped = dataset_dec(url="http://test", variants=DownloadFlag)(Family)
+        _register_in_repo(wrapped, context)
+        wrapper = wrapped.__dataset__
+
+        fast_id = self._bare_id(
+            wrapper.prepare(variant_kwargs={"download_mode": "fast"}),
+            wrapper,
+        )
+        slow_id = self._bare_id(
+            wrapper.prepare(variant_kwargs={"download_mode": "slow"}),
+            wrapper,
+        )
+        # Same id despite different download_mode — and the axis name
+        # does not appear in the suffix at all.
+        assert fast_id == slow_id
+        assert "download_mode" not in fast_id
+
+    def test_id_invariant_under_kwargs_order(self, context):
+        """Deterministic ordering promise: permuting kwargs doesn't
+        change the resulting id."""
+
+        wrapped = _register_family(context)
+        wrapper = wrapped.__dataset__
+
+        c1 = wrapper.prepare(
+            variant_kwargs={"name": "a", "streaming": True, "min_score": None}
+        )
+        c2 = wrapper.prepare(
+            variant_kwargs={"min_score": None, "streaming": True, "name": "a"}
+        )
+        # Same resolved kwargs → cached to the same config + same id.
+        assert c1 is c2
+        assert c1.id == c2.id
+
+
+# ---- prepare_dataset / get_dataset variant= kwarg ----------------------
+
+
+class TestVariantKwargRouting:
+    """`_resolve_dataset_id` accepts either a selector in the id or a
+    ``variant={}`` kwarg. Exercising it directly lets us skip the
+    entry-point repository lookup while still covering the public API's
+    resolution logic (both `prepare_dataset` and `get_dataset` share it).
+    """
+
+    def test_variant_kwarg_resolves_like_selector(self, context):
+        wrapped = _register_family(context)
+        wrapper = wrapped.__dataset__
+
+        _, via_kwarg = _resolve_dataset_id(wrapper, variant={"name": "a"})
+        # For comparison, resolve what the selector form would produce.
+        expected = wrapper.variants.resolve(name="a")
+        assert via_kwarg == expected
+
+    def test_variant_kwarg_fills_defaults(self, context):
+        wrapped = _register_family(context)
+        wrapper = wrapped.__dataset__
+
+        _, kwargs = _resolve_dataset_id(wrapper, variant={"name": "b"})
+        # streaming and min_score defaults come from the axes.
+        assert kwargs == {"name": "b", "streaming": True, "min_score": None}
+
+    def test_prepare_dataset_with_variant_kwarg_builds(self, context):
+        from datamaestro.context import prepare_dataset
+
+        wrapped = _register_family(context)
+        wrapper = wrapped.__dataset__
+
+        config = prepare_dataset(wrapper, variant={"name": "a"})
+        assert config.name == "a"
+        assert config.streaming is True
+
+    def test_prepare_dataset_kwarg_matches_selector_form(self, context):
+        """Both forms route to the same cached config."""
+        from datamaestro.context import prepare_dataset
+
+        wrapped = _register_family(context)
+        wrapper = wrapped.__dataset__
+
+        via_kwarg = prepare_dataset(wrapper, variant={"name": "a"})
+        via_direct = wrapper.prepare(variant_kwargs={"name": "a"})
+        assert via_kwarg is via_direct
+
+    def test_both_selector_and_variant_kwarg_rejected(self, context, monkeypatch):
+        wrapped = _register_family(context)
+        wrapper = wrapped.__dataset__
+
+        # The `_FixedRepo` isn't entry-point-registered, so stub the
+        # find path to return our wrapper and exercise the selector+
+        # variant conflict check.
+        from datamaestro.definitions import AbstractDataset
+
+        monkeypatch.setattr(
+            AbstractDataset,
+            "find",
+            staticmethod(lambda name, context=None: wrapper),
+        )
+
+        with pytest.raises(ValueError, match="both a selector"):
+            _resolve_dataset_id(f"{wrapper.id}[name=a]", variant={"name": "b"})
+
+    def test_variant_kwarg_on_flat_dataset_rejected(self, context):
+        wrapped = _register_flat(context)
+        wrapper = wrapped.__dataset__
+
+        with pytest.raises(ValueError, match="does not declare variants"):
+            _resolve_dataset_id(wrapper, variant={"something": "x"})
+
+    def test_variant_kwarg_unknown_axis_rejected(self, context):
+        wrapped = _register_family(context)
+        wrapper = wrapped.__dataset__
+
+        with pytest.raises(ValueError, match="unknown variant axes"):
+            _resolve_dataset_id(wrapper, variant={"bogus": "x"})
 
 
 # ---- Repository.search with query-syntax ids ----------------------------

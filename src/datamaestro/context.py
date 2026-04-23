@@ -490,34 +490,62 @@ class Repository(BaseRepository):
                 yield dataset
 
 
-def _resolve_dataset_id(dataset_id, context=None):
+def _resolve_dataset_id(dataset_id, context=None, variant=None):
     """Split a possibly-variant dataset id into (wrapper, variant_kwargs).
 
     ``variant_kwargs`` is ``None`` for flat datasets or when the input
     isn't a string (e.g. a ``DatasetWrapper`` or ``Config`` reference).
+
+    ``variant`` (optional dict) is an alternative to the ``[k=v,...]``
+    selector syntax: callers may pass the kwargs directly. Passing both
+    a selector in the id and ``variant`` is rejected.
     """
     from .definitions import AbstractDataset, DatasetWrapper
     from .variants import split_id_selector
 
     if isinstance(dataset_id, DatasetWrapper):
-        return dataset_id, None
-    if hasattr(dataset_id, "__dataset__"):
-        return dataset_id.__dataset__, None
-    if isinstance(dataset_id, Config):
-        return dataset_id.__datamaestro_dataset__, None
+        ds = dataset_id
+        selector = ""
+        base_id = None
+    elif hasattr(dataset_id, "__dataset__"):
+        ds = dataset_id.__dataset__
+        selector = ""
+        base_id = None
+    elif isinstance(dataset_id, Config):
+        ds = dataset_id.__datamaestro_dataset__
+        selector = ""
+        base_id = None
+    else:
+        base_id, selector = split_id_selector(dataset_id)
+        ds = AbstractDataset.find(base_id, context=context)
 
-    base_id, selector = split_id_selector(dataset_id)
-    ds = AbstractDataset.find(base_id, context=context)
+    if selector and variant is not None:
+        raise ValueError(
+            f"dataset {base_id!r} received both a selector "
+            f"{selector!r} and a `variant` kwarg; pass only one"
+        )
+
     variant_kwargs = None
-    if selector or getattr(ds, "variants", None) is not None:
-        if ds.variants is None and selector:
+    declared = getattr(ds, "variants", None)
+    if declared is None:
+        if selector:
             raise ValueError(
                 f"dataset {base_id!r} does not declare variants but "
                 f"selector {selector!r} was supplied"
             )
-        if ds.variants is not None:
-            parsed = ds.variants.parse_selector(selector) if selector else {}
-            variant_kwargs = ds.variants.resolve(**parsed)
+        if variant is not None:
+            raise ValueError(
+                f"dataset does not declare variants but `variant` kwarg "
+                f"{variant!r} was supplied"
+            )
+    else:
+        if variant is not None:
+            parsed = dict(variant)
+        elif selector:
+            parsed = declared.parse_selector(selector)
+        else:
+            parsed = {}
+        variant_kwargs = declared.resolve(**parsed)
     return ds, variant_kwargs
 
 
@@ -535,22 +563,35 @@ def find_dataset(dataset_id: str):
 def prepare_dataset(
     dataset_id: Union[str, "DatasetWrapper", Config],
     context: Optional[Union[Context, Path]] = None,
+    *,
+    variant: Optional[Dict] = None,
 ):
     """Find a dataset given its id and download the resources.
 
-    When ``dataset_id`` carries a ``[k=v,...]`` variant selector, the
-    kwargs are parsed and routed through to the wrapper's
-    :meth:`prepare` call.
+    Variants can be selected two ways:
+
+    - Inline in the id: ``prepare_dataset("pkg.id[k=v,...]")``.
+    - As a dict kwarg: ``prepare_dataset("pkg.id", variant={"k": v, ...})``.
+
+    Both forms route the kwargs through to the wrapper's :meth:`prepare`
+    call (defaults are filled in by the dataset's :class:`Variants`).
+    Passing both a selector and ``variant`` raises ``ValueError``.
     """
     match context:
         case Path() | str():
             context = Context(Path(context))
 
-    ds, variant_kwargs = _resolve_dataset_id(dataset_id, context=context)
+    ds, variant_kwargs = _resolve_dataset_id(
+        dataset_id, context=context, variant=variant
+    )
     return ds.prepare(download=True, variant_kwargs=variant_kwargs)
 
 
-def get_dataset(dataset_id: str):
-    """Find a dataset given its id (without downloading)."""
-    ds, variant_kwargs = _resolve_dataset_id(dataset_id)
+def get_dataset(dataset_id: str, *, variant: Optional[Dict] = None):
+    """Find a dataset given its id (without downloading).
+
+    Like :func:`prepare_dataset`, accepts either ``"pkg.id[k=v,...]"`` or
+    a ``variant={"k": v, ...}`` dict kwarg.
+    """
+    ds, variant_kwargs = _resolve_dataset_id(dataset_id, variant=variant)
     return ds.prepare(download=False, variant_kwargs=variant_kwargs)
