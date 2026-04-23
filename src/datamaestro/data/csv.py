@@ -1,6 +1,6 @@
 from typing import Optional, Tuple, List, Any
 from csv import reader as csv_reader
-from experimaestro import Param, Meta
+from experimaestro import field, Param, Meta
 from experimaestro import documentation
 from . import File
 
@@ -8,9 +8,9 @@ from . import File
 class Generic(File):
     """A generic CSV file"""
 
-    delimiter: Meta[str] = ","
-    ignore: Meta[int] = 0
-    names_row: Meta[int] = -1
+    delimiter: Meta[str] = field(default=",", ignore_default=True)
+    ignore: Meta[int] = field(default=0, ignore_default=True)
+    names_row: Meta[int] = field(default=-1, ignore_default=True)
 
     @documentation
     def columns(self):
@@ -30,9 +30,9 @@ class Generic(File):
 class Matrix(Generic):
     """A numerical dataset"""
 
-    names_row: Param[int] = -1
-    size_row: Param[int] = -1
-    target: Param[Optional[str]] = None
+    names_row: Param[int] = field(default=-1, ignore_default=True)
+    size_row: Param[int] = field(default=-1, ignore_default=True)
+    target: Param[Optional[str]] = field(default=None, ignore_default=True)
 
     @documentation
     def data(self) -> Tuple[List[str], Any]:

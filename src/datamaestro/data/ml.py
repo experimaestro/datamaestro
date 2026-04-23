@@ -2,7 +2,7 @@
 
 from pathlib import Path
 from typing import Generic, TypeVar, Optional
-from experimaestro import Param, Meta
+from experimaestro import field, Param, Meta
 from . import Base
 
 Train = TypeVar("Train", bound=Base)
@@ -14,10 +14,10 @@ class Supervised(Base, Generic[Train, Validation, Test]):
     train: Param[Base]
     """The training dataset"""
 
-    validation: Param[Optional[Base]] = None
+    validation: Param[Optional[Base]] = field(default=None, ignore_default=True)
     """The validation dataset (optional)"""
 
-    test: Param[Optional[Base]] = None
+    test: Param[Optional[Base]] = field(default=None, ignore_default=True)
     """The training optional"""
 
 
