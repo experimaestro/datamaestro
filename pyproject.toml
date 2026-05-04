@@ -13,6 +13,7 @@ dependencies = [
     "click>=8.2.1",
     "docstring-parser>=0.16",
     "experimaestro>=2.3.5",
+    "filelock>=3.13.0",
     "marshmallow>=3.26.1",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.6.15",

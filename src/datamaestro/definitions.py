@@ -371,7 +371,7 @@ class AbstractDataset(AbstractData):
         6. .downloads/ directory removed after all resources complete
         7. Release lock
         """
-        import fcntl
+        from filelock import FileLock
 
         from datamaestro.download import ResourceState
 
@@ -390,13 +390,8 @@ class AbstractDataset(AbstractData):
 
         self.datapath.mkdir(parents=True, exist_ok=True)
         lock_path = self.datapath / ".state.lock"
-        lock_file = lock_path.open("w")
-        try:
-            fcntl.flock(lock_file, fcntl.LOCK_EX)
+        with FileLock(str(lock_path)):
             success = self._download_locked(force, ResourceState)
-        finally:
-            fcntl.flock(lock_file, fcntl.LOCK_UN)
-            lock_file.close()
 
         return success
 

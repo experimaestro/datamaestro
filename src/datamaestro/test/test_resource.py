@@ -673,19 +673,32 @@ class TestTwoPathFlow:
 
     def test_lock_prevents_concurrent_download(self, dataset):
         """A second download blocks while the first holds the lock."""
-        import fcntl
         import threading
+
+        from filelock import FileLock
 
         r = DummyFileResource("data.txt")
         r.bind("DATA", dataset)
         dataset.ordered_resources = [r]
         _compute_dependents(dataset.resources)
 
-        # Acquire the lock externally to simulate a concurrent download
+        # Acquire the lock externally to simulate a concurrent download.
+        # filelock locks are per-process, so we drive it from a worker
+        # thread to make the main thread's acquisition actually block.
         dataset.datapath.mkdir(parents=True, exist_ok=True)
         lock_path = dataset.datapath / ".state.lock"
-        lock_file = lock_path.open("w")
-        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        external_lock = FileLock(str(lock_path))
+        held = threading.Event()
+        release = threading.Event()
+
+        def hold_lock():
+            with external_lock:
+                held.set()
+                release.wait(timeout=5)
+
+        holder = threading.Thread(target=hold_lock)
+        holder.start()
+        assert held.wait(timeout=2)
 
         result_holder = {}
 
@@ -700,8 +713,8 @@ class TestTwoPathFlow:
         assert t.is_alive()
 
         # Release the lock
-        fcntl.flock(lock_file, fcntl.LOCK_UN)
-        lock_file.close()
+        release.set()
+        holder.join(timeout=5)
 
         t.join(timeout=5)
         assert not t.is_alive()

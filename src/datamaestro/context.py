@@ -203,8 +203,8 @@ class Context:
 
             downloadURL(url, tmppath, tmppath.is_file(), size=size)
 
-            # Now, rename to original
-            tmppath.rename(dlpath)
+            # replace (not rename): rename fails on Windows if dest exists
+            tmppath.replace(dlpath)
 
         return CachedFile(dlpath, keep=self.keep_downloads, others=[urlpath])
 

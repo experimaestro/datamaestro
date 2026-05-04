@@ -84,7 +84,7 @@ class ResourceStateFile:
         tmp = self._path.with_suffix(".tmp")
         with tmp.open("w") as f:
             json.dump(data, f, indent=2)
-        tmp.rename(self._path)
+        tmp.replace(self._path)
 
 
 # --- ResourceState enum ---
