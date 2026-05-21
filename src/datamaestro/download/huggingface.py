@@ -90,6 +90,32 @@ class HFDownloader(ValueResource):
         if self.local_path is not None:
             return True
 
+        # Consult ``hf_resolver`` helpers (e.g. a cluster mirror plugin)
+        # before reaching the network. The first hit wins; if none match,
+        # we fall through to the normal ``load_dataset`` path below.
+        from datamaestro.helpers import get_helpers
+
+        for resolver in get_helpers("hf_resolver"):
+            try:
+                p = resolver.find_dataset(
+                    self.repo_id, self.config_name, self.data_files
+                )
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "hf_resolver %s.find_dataset raised; skipping",
+                    type(resolver).__name__,
+                )
+                continue
+            if p is not None:
+                self.local_path = Path(p)
+                logger.info(
+                    "[HFDownloader] %s served from local mirror by %s (no network): %s",
+                    self.repo_id,
+                    type(resolver).__name__,
+                    self.local_path,
+                )
+                return True
+
         try:
             from datasets import load_dataset
         except ModuleNotFoundError:
@@ -200,7 +226,44 @@ class HFSnapshotDownloader(FolderResource):
         self.ignore_patterns = ignore_patterns
         self.revision = revision
 
+    @property
+    def path(self) -> Path:
+        # When a registered ``hf_resolver`` plugin can serve this repo
+        # from a local mirror (e.g. ``$DSDIR/HuggingFace_Models/<org>/<name>``
+        # on an HPC cluster), expose that directory as the resource path.
+        # The framework's "files present?" check then passes without us
+        # ever downloading or symlinking.
+        if (p := self._resolved_path()) is not None:
+            return p
+        return super().path
+
+    def _resolved_path(self) -> Path | None:
+        from datamaestro.helpers import get_helpers
+
+        for resolver in get_helpers("hf_resolver"):
+            try:
+                p = resolver.find_model(self.repo_id, self.revision)
+            except Exception:  # noqa: BLE001
+                logger.exception(
+                    "hf_resolver %s.find_model raised; skipping",
+                    type(resolver).__name__,
+                )
+                continue
+            if p is not None:
+                return Path(p)
+        return None
+
     def _download(self, destination: Path) -> None:
+        # If a resolver served the repo, nothing to do — ``path`` already
+        # points at the mirror.
+        if (p := self._resolved_path()) is not None:
+            logger.info(
+                "[HFSnapshotDownloader] %s served from local mirror (no network): %s",
+                self.repo_id,
+                p,
+            )
+            return
+
         try:
             from huggingface_hub import snapshot_download
         except ModuleNotFoundError:
