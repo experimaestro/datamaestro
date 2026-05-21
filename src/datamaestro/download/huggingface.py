@@ -1,7 +1,13 @@
 """HuggingFace Hub download resources.
 
-Provides a ValueResource subclass for loading datasets from the
-HuggingFace Hub.
+Provides two kinds of resources:
+
+* :class:`HFDownloader` — a :class:`ValueResource` wrapping
+  ``datasets.load_dataset`` for repos in HF "Datasets"-format.
+* :class:`HFSnapshotDownloader` — a :class:`FolderResource` wrapping
+  ``huggingface_hub.snapshot_download`` for repos where we want to
+  materialise a selected subset of raw files on disk (e.g. pre-tokenised
+  shards, model checkpoints, anything ``load_dataset`` cannot parse).
 
 Convention: parameters that change *which* dataset is loaded (``repo_id``,
 ``name``, ``data_files``, ``split``) contribute to the dataset identity;
@@ -16,6 +22,7 @@ from pathlib import Path
 
 from datamaestro.download import (
     CheckStatus,
+    FolderResource,
     ResourceCheckResult,
     ValueResource,
 )
@@ -153,3 +160,87 @@ class HFDownloader(ValueResource):
 
 # Factory alias for backward compat
 hf_download = HFDownloader.apply
+
+
+class HFSnapshotDownloader(FolderResource):
+    """Download a selected pattern of files from an HF Hub repo on disk.
+
+    Unlike :class:`HFDownloader` (which goes through ``load_dataset``), this
+    resource wraps :func:`huggingface_hub.snapshot_download` and materialises
+    the matching files into a local directory. Use it for repos containing
+    raw shards or other files that the ``datasets`` library cannot parse.
+
+    Usage as class attribute (preferred)::
+
+        @dataset(MyType, url="...")
+        class MyDataset(Base):
+            SHARDS = HFSnapshotDownloader.apply(
+                "shards",
+                repo_id="org/repo",
+                repo_type="dataset",
+                allow_patterns=["folder/*.jsonl.tar.gz"],
+            )
+    """
+
+    def __init__(
+        self,
+        varname: str,
+        repo_id: str,
+        *,
+        repo_type: str = "dataset",
+        allow_patterns: list[str] | None = None,
+        ignore_patterns: list[str] | None = None,
+        revision: str | None = None,
+        transient: bool = False,
+    ):
+        super().__init__(varname=varname, transient=transient)
+        self.repo_id = repo_id
+        self.repo_type = repo_type
+        self.allow_patterns = allow_patterns
+        self.ignore_patterns = ignore_patterns
+        self.revision = revision
+
+    def _download(self, destination: Path) -> None:
+        try:
+            from huggingface_hub import snapshot_download
+        except ModuleNotFoundError:
+            logger.error("the huggingface_hub library is not installed")
+            raise
+
+        destination.mkdir(parents=True, exist_ok=True)
+        logger.info(
+            "Snapshot-downloading %s (type=%s, patterns=%s) into %s",
+            self.repo_id,
+            self.repo_type,
+            self.allow_patterns,
+            destination,
+        )
+        snapshot_download(
+            repo_id=self.repo_id,
+            repo_type=self.repo_type,
+            allow_patterns=self.allow_patterns,
+            ignore_patterns=self.ignore_patterns,
+            revision=self.revision,
+            local_dir=str(destination),
+        )
+
+    def check(self) -> ResourceCheckResult:
+        import requests
+
+        url = f"https://huggingface.co/api/{self.repo_type}s/{self.repo_id}"
+        try:
+            response = requests.head(url, allow_redirects=True, timeout=30)
+            ok = response.status_code < 400
+            return ResourceCheckResult(
+                resource=self.name,
+                status=CheckStatus.OK if ok else CheckStatus.FAILED,
+                message=f"HTTP {response.status_code}",
+                url=url,
+            )
+        except Exception as e:
+            return ResourceCheckResult(
+                resource=self.name,
+                status=CheckStatus.ERROR,
+                message=str(e),
+                url=url,
+            )
