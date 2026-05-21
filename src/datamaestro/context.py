@@ -576,6 +576,13 @@ def prepare_dataset(
     Both forms route the kwargs through to the wrapper's :meth:`prepare`
     call (defaults are filled in by the dataset's :class:`Variants`).
     Passing both a selector and ``variant`` raises ``ValueError``.
+
+    When called inside an active experimaestro experiment context, the
+    download is deferred: the returned config is an ``experimaestro.Prepare``
+    instance, and the framework calls ``.prepare()`` lazily as an in-memory
+    dependency before any task that references the dataset runs. Outside an
+    experiment context (e.g. notebook, standalone script), the download is
+    performed eagerly to preserve the previous behavior.
     """
     match context:
         case Path() | str():
@@ -584,7 +591,16 @@ def prepare_dataset(
     ds, variant_kwargs = _resolve_dataset_id(
         dataset_id, context=context, variant=variant
     )
-    return ds.prepare(download=True, variant_kwargs=variant_kwargs)
+
+    in_experiment = False
+    try:
+        from experimaestro.scheduler.experiment import experiment as _xp
+
+        in_experiment = _xp.CURRENT is not None
+    except ImportError:
+        pass
+
+    return ds.prepare(download=not in_experiment, variant_kwargs=variant_kwargs)
 
 
 def get_dataset(dataset_id: str, *, variant: Optional[Dict] = None):

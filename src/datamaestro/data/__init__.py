@@ -1,12 +1,19 @@
 import logging
 from pathlib import Path
 from typing import Any, Dict
-from experimaestro import Config, Param, Meta
+from experimaestro import Prepare, Param, Meta
 from datamaestro.definitions import AbstractDataset
 
 
-class Base(Config):
-    """Base object for all data types"""
+class Base(Prepare):
+    """Base object for all data types.
+
+    Inherits from :class:`experimaestro.Prepare`: any Task that references
+    a dataset config in its params will trigger ``self.prepare()`` (i.e.
+    a download) before the task runs. Downloads are idempotent on a warm
+    cache, so it is safe to keep declaring ``prepare_dataset(...)`` in
+    experiment scripts that may run multiple times.
+    """
 
     id: Param[str]
     """The unique (sub-)dataset ID"""
@@ -26,8 +33,12 @@ class Base(Config):
         self.__datamaestro_dataset__.download()
 
     def prepare(self, *args, **kwargs):
-        """Prepare the dataset"""
-        self.__datamaestro_dataset__.prepare()
+        """Download the dataset (idempotent on a warm cache).
+
+        Called by experimaestro as an in-memory dependency before any task
+        that references this dataset runs. Also safe to call directly.
+        """
+        self.__datamaestro_dataset__.download()
         return self
 
 
