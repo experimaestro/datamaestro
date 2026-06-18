@@ -1835,3 +1835,230 @@ class TestRedownloadFolderAtDatapath:
         assert good_dependent.state == ResourceState.COMPLETE
         # Transient source cleaned up now that dependent is COMPLETE
         assert source.state == ResourceState.NONE
+
+
+# ==== FilesCopy Tests ====
+
+
+class TestFilesCopy:
+    def test_depends_on_source(self, dataset):
+        from datamaestro.download import FilesCopy
+
+        source = DummyFolderResource(varname="archive")
+        source.bind("ARCHIVE", dataset)
+
+        r = FilesCopy(source, {"out.txt": "in.txt"})
+        assert source in r.dependencies
+
+    def test_has_files_true(self, dataset):
+        from datamaestro.download import FilesCopy
+
+        source = DummyFolderResource(varname="archive")
+        source.bind("ARCHIVE", dataset)
+        r = FilesCopy(source, {})
+        r.bind("FILES", dataset)
+        # FolderResource produces files on disk
+        assert r.has_files() is True
+
+    def test_check_skipped(self, dataset):
+        """FilesCopy is local-only: check() returns SKIPPED."""
+        from datamaestro.download import FilesCopy
+        from datamaestro.download import CheckStatus
+
+        source = DummyFolderResource(varname="archive")
+        source.bind("ARCHIVE", dataset)
+        r = FilesCopy(source, {})
+        r.bind("FILES", dataset)
+
+        assert r.check().status == CheckStatus.SKIPPED
+
+    def test_download_copies_files(self, dataset):
+        """Files are copied from source.path into the transient path."""
+        from datamaestro.download import FilesCopy
+
+        source = DummyFolderResource(varname="archive")
+        source.bind("ARCHIVE", dataset)
+
+        # Populate the source's final path with content
+        source.path.mkdir(parents=True, exist_ok=True)
+        (source.path / "a.txt").write_text("AAA")
+        sub = source.path / "sub"
+        sub.mkdir()
+        (sub / "b.txt").write_text("BBB")
+
+        r = FilesCopy(
+            source,
+            {"x.txt": "a.txt", "nested/y.txt": "sub/b.txt"},
+        )
+        r.bind("FILES", dataset)
+        r.download()
+
+        # FolderResource.download writes to transient_path
+        assert (r.transient_path / "x.txt").read_text() == "AAA"
+        assert (r.transient_path / "nested" / "y.txt").read_text() == "BBB"
+
+    def test_prepare_returns_path(self, dataset):
+        from datamaestro.download import FilesCopy
+
+        source = DummyFolderResource(varname="archive")
+        source.bind("ARCHIVE", dataset)
+        r = FilesCopy(source, {})
+        r.bind("FILES", dataset)
+        assert r.prepare() == r.path
+
+
+# ==== GlobChecker Tests ====
+
+
+class TestGlobChecker:
+    def test_compute_none_when_no_match(self, tmp_path):
+        from datamaestro.download.links import GlobChecker
+
+        assert GlobChecker("*.txt").compute(tmp_path) is None
+
+    def test_check_raises_when_no_files(self, tmp_path):
+        from datamaestro.download.links import GlobChecker
+
+        with pytest.raises(FileNotFoundError, match="No files matching"):
+            GlobChecker("*.txt").check(tmp_path)
+
+    def test_check_passes_when_md5_none(self, tmp_path):
+        """With no expected md5, the checker just records (returns True)."""
+        from datamaestro.download.links import GlobChecker
+
+        (tmp_path / "a.txt").write_text("hello")
+        assert GlobChecker("*.txt").check(tmp_path) is True
+
+    def test_check_passes_on_match(self, tmp_path):
+        from datamaestro.download.links import GlobChecker
+
+        (tmp_path / "a.txt").write_text("hello")
+        digest = GlobChecker("*.txt").compute(tmp_path)
+        assert GlobChecker("*.txt", digest).check(tmp_path) is True
+
+    def test_check_fails_on_mismatch(self, tmp_path):
+        from datamaestro.download.links import GlobChecker
+
+        (tmp_path / "a.txt").write_text("hello")
+        assert GlobChecker("*.txt", "deadbeef").check(tmp_path) is False
+
+    def test_gz_decompressed_before_hashing(self, tmp_path):
+        """`.gz` files are hashed on their decompressed content."""
+        import gzip
+        import hashlib
+        from datamaestro.download.links import GlobChecker
+
+        raw = b"content"
+        (tmp_path / "a.gz").write_bytes(gzip.compress(raw))
+
+        expected_file_md5 = hashlib.md5(raw).hexdigest()
+        expected_combined = hashlib.md5(expected_file_md5.encode()).hexdigest()
+
+        assert GlobChecker("*.gz").compute(tmp_path) == expected_combined
+
+
+# ==== linkfolder checker option ====
+
+
+class TestLinkFolderChecker:
+    def test_checker_passes(self, dataset, tmp_path):
+        from datamaestro.download.links import linkfolder, GlobChecker
+
+        (tmp_path / "a.txt").write_text("x")
+        # md5=None -> checker always passes for a non-empty match
+        r = linkfolder("data", proposals=[], checker=GlobChecker("*.txt"))
+        r.bind("data", dataset)
+
+        assert r._check_path(tmp_path) is True
+
+    def test_checker_fails(self, dataset, tmp_path):
+        from datamaestro.download.links import linkfolder, GlobChecker
+
+        (tmp_path / "a.txt").write_text("x")
+        r = linkfolder("data", proposals=[], checker=GlobChecker("*.txt", "wrongmd5"))
+        r.bind("data", dataset)
+
+        assert r._check_path(tmp_path) is False
+
+    def test_non_dir_short_circuits_checker(self, dataset, tmp_path):
+        """A non-directory path fails before the checker runs."""
+        from datamaestro.download.links import linkfolder, GlobChecker
+
+        f = tmp_path / "file.txt"
+        f.write_text("x")
+        r = linkfolder("data", proposals=[], checker=GlobChecker("*.txt"))
+        r.bind("data", dataset)
+
+        # f is a file, not a dir -> False, checker never raises
+        assert r._check_path(f) is False
+
+
+# ==== HFSnapshotDownloader Tests ====
+
+
+class TestHFSnapshotDownloader:
+    def test_construction(self):
+        from datamaestro.download.huggingface import HFSnapshotDownloader
+
+        r = HFSnapshotDownloader(
+            "shards",
+            repo_id="org/repo",
+            repo_type="model",
+            allow_patterns=["*.jsonl"],
+            ignore_patterns=["*.bin"],
+            revision="main",
+        )
+        assert r.name == "shards"
+        assert r.repo_id == "org/repo"
+        assert r.repo_type == "model"
+        assert r.allow_patterns == ["*.jsonl"]
+        assert r.ignore_patterns == ["*.bin"]
+        assert r.revision == "main"
+
+    def test_defaults(self):
+        from datamaestro.download.huggingface import HFSnapshotDownloader
+
+        r = HFSnapshotDownloader("shards", repo_id="org/repo")
+        assert r.repo_type == "dataset"
+        assert r.allow_patterns is None
+        assert r.ignore_patterns is None
+        assert r.revision is None
+
+    def test_prepare_returns_path(self, dataset):
+        from datamaestro.download.huggingface import HFSnapshotDownloader
+
+        r = HFSnapshotDownloader("shards", repo_id="org/repo")
+        r.bind("shards", dataset)
+        assert r.prepare() == r.path
+
+    def test_download_invokes_snapshot(self, dataset, monkeypatch):
+        import sys
+        import types
+        from datamaestro.download.huggingface import HFSnapshotDownloader
+
+        calls = {}
+        fake = types.ModuleType("huggingface_hub")
+
+        def snapshot_download(**kwargs):
+            calls.update(kwargs)
+            Path(kwargs["local_dir"]).mkdir(parents=True, exist_ok=True)
+
+        fake.snapshot_download = snapshot_download
+        monkeypatch.setitem(sys.modules, "huggingface_hub", fake)
+
+        r = HFSnapshotDownloader(
+            "shards",
+            repo_id="org/repo",
+            allow_patterns=["*.jsonl"],
+            revision="abc",
+        )
+        r.bind("shards", dataset)
+        r.download()
+
+        assert calls["repo_id"] == "org/repo"
+        assert calls["repo_type"] == "dataset"
+        assert calls["allow_patterns"] == ["*.jsonl"]
+        assert calls["ignore_patterns"] is None
+        assert calls["revision"] == "abc"
+        assert calls["local_dir"] == str(r.transient_path)
+        assert r.transient_path.exists()
