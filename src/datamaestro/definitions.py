@@ -347,6 +347,11 @@ class AbstractDataset(AbstractData):
             except KeyError:
                 pass
 
+            # Link every nested data config to the owning dataset so that
+            # prepare()/download() works when experimaestro prepares a nested
+            # config as an in-memory dependency (Base inherits Prepare).
+            data.__datamaestro_dataset__ = self
+
             if self.repository is None:
                 data.id = id
             else:
