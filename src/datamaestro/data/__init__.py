@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from experimaestro import Prepare, Param, Meta
 from datamaestro.definitions import AbstractDataset
 
@@ -18,27 +18,74 @@ class Base(Prepare):
     id: Param[str]
     """The unique (sub-)dataset ID"""
 
-    __datamaestro_dataset__: "AbstractDataset"
+    @property
+    def __datamaestro_dataset__(self) -> Optional["AbstractDataset"]:
+        """The owning dataset wrapper, used to run downloads.
+
+        ``AbstractDataset.prepare`` links the live wrapper here as a plain
+        attribute. In the experiment driver the config is used as-is, so
+        that live object is returned directly (fast path).
+
+        The link is *not* a registered ``Param``/``Meta``, so it does not
+        survive being serialized to a worker (or an explicit ``copy()`` /
+        ``clone()`` — see issue #25). When it is missing we rebuild the
+        wrapper from the ``id`` param, which *does* survive. A dynamically
+        generated config (custom subset / unregistered collection) has no
+        registered ``id`` and therefore no wrapper: we return ``None``.
+        """
+        try:
+            return self.__dict__["__datamaestro_dataset__"]
+        except KeyError:
+            pass
+
+        # ``id`` is a Param: experimaestro raises KeyError when it is unset
+        # (dynamically generated config), AttributeError on a bare instance.
+        try:
+            base_id = self.id
+        except (KeyError, AttributeError):
+            base_id = None
+        if not base_id:
+            return None
+
+        try:
+            from datamaestro.context import Context
+
+            # Strip any repository / variant suffix (e.g. "id@repo").
+            dataset = Context.instance().dataset(base_id.split("@")[0])
+        except Exception:
+            return None
+
+        self.__dict__["__datamaestro_dataset__"] = dataset
+        return dataset
+
+    @__datamaestro_dataset__.setter
+    def __datamaestro_dataset__(self, value):
+        self.__dict__["__datamaestro_dataset__"] = value
 
     def dataset_information(self) -> Dict[str, Any]:
         """Returns document meta-informations"""
+        ds = self.__datamaestro_dataset__
         return {
             "id": self.id,
-            "name": self.__datamaestro_dataset__.name,
-            "description": self.__datamaestro_dataset__.description,
+            "name": ds.name if ds is not None else "",
+            "description": ds.description if ds is not None else "",
         }
 
     def download(self):
-        """Download the dataset"""
-        self.__datamaestro_dataset__.download()
+        """Download the dataset (no-op when there is no owning dataset)."""
+        ds = self.__datamaestro_dataset__
+        if ds is not None:
+            ds.download()
 
     def prepare(self, *args, **kwargs):
         """Download the dataset (idempotent on a warm cache).
 
         Called by experimaestro as an in-memory dependency before any task
-        that references this dataset runs. Also safe to call directly.
+        that references this dataset runs. Also safe to call directly. Does
+        nothing when the config has no owning dataset (dynamically generated
+        subsets / unregistered collections).
         """
-        self.__datamaestro_dataset__.download()
+        self.download()
         return self
 
 
