@@ -41,6 +41,10 @@ class HuggingFaceDataset(Base):
     split: Param[Optional[str]] = field(default=None, ignore_default=True)
     """Dataset split to load."""
 
+    # TODO: back to Param - did it for keeping hashs
+    revision: Meta[Optional[str]] = field(default=None, ignore_default=True)
+    """HuggingFace repository git revision (commit SHA, branch, or tag)."""
+
     streaming: Meta[bool] = field(default=False, ignore_default=True)
     """When True, load the dataset in streaming mode — no local cache."""
 
@@ -76,7 +80,11 @@ class HuggingFaceDataset(Base):
             return
 
         hf_download_and_prepare(
-            self.source, self.name, data_files=self.data_files, split=self.split
+            self.source,
+            self.name,
+            data_files=self.data_files,
+            split=self.split,
+            revision=self.revision,
         )
 
     @cached_property
@@ -104,6 +112,7 @@ class HuggingFaceDataset(Base):
                 self.name,
                 data_files=self.data_files,
                 split=self.split,
+                revision=self.revision,
                 streaming=True,
             )
 
@@ -113,6 +122,10 @@ class HuggingFaceDataset(Base):
         # warm cache the prepare step is a no-op; on a cold one this is
         # exactly what ``load_dataset`` does internally.
         builder = hf_download_and_prepare(
-            self.source, self.name, data_files=self.data_files, split=self.split
+            self.source,
+            self.name,
+            data_files=self.data_files,
+            split=self.split,
+            revision=self.revision,
         )
         return builder.as_dataset(split=self.split)

@@ -116,11 +116,81 @@ def _find_cached_hashed_builder(source: str, name: str):
     return load_dataset_builder(source, hashed_name)
 
 
+def _find_cached_hashed_builder(source: str, name: str):
+    """Attempt to find a cached builder matching a hashed config name (e.g. ``quora-ccbd7fec3e15cba7``).
+
+    This happens when ``hf_builder`` restricted ``data_files`` during initial preparation,
+    which caused HF ``datasets`` to save the dataset under a hashed config name.
+    In offline mode, a plain ``load_dataset_builder(source, name)`` fails because the un-hashed
+    config directory does not exist on disk.
+
+    Note on HF ``datasets`` caching quirk:
+    HF ``datasets``' ``cache._find_hash_in_cache`` requires ``dataset_info.json``'s ``config_name``
+    field to match the cache subfolder name (``parts[-3]``). When a hashed builder is prepared,
+    HF ``datasets`` writes the unhashed ``config_name`` into ``dataset_info.json``. To allow
+    HF ``datasets`` cache loader to load the hashed config offline, we ensure ``dataset_info.json``
+    contains the matching hashed config name.
+    """
+    import json
+
+    try:
+        from datasets import load_dataset_builder
+        from datasets.config import HF_DATASETS_CACHE
+    except ModuleNotFoundError:
+        return None
+
+    repo_dir = Path(HF_DATASETS_CACHE) / source.replace("/", "___")
+    if not repo_dir.exists():
+        repo_dir_alt = Path(HF_DATASETS_CACHE) / source.replace("/", "---")
+        if repo_dir_alt.exists():
+            repo_dir = repo_dir_alt
+        else:
+            return None
+
+    matches = sorted(
+        [d for d in repo_dir.iterdir() if d.is_dir() and d.name.startswith(f"{name}-")],
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not matches:
+        return None
+
+    target_dir = matches[0]
+    hashed_name = target_dir.name
+
+    # Check and patch dataset_info.json if HF datasets wrote un-hashed config_name
+    for info_file in target_dir.glob("*/*/dataset_info.json"):
+        try:
+            info = json.loads(info_file.read_text(encoding="utf-8"))
+            if info.get("config_name") != hashed_name:
+                logger.info(
+                    "[hf] Updating %s config_name from '%s' to '%s' for HF datasets cache compatibility",
+                    info_file,
+                    info.get("config_name"),
+                    hashed_name,
+                )
+                info["config_name"] = hashed_name
+                info_file.write_text(json.dumps(info, indent=2), encoding="utf-8")
+        except Exception as exc:
+            logger.warning(
+                "[hf] Could not update dataset_info.json at %s: %s", info_file, exc
+            )
+
+    logger.info(
+        "[hf] Offline fallback: using cached split-restricted config '%s' for '%s' (requested config '%s')",
+        hashed_name,
+        source,
+        name,
+    )
+    return load_dataset_builder(source, hashed_name)
+
+
 def hf_builder(
     source: str,
     name: str | None = None,
     data_files: str | None = None,
     split: str | None = None,
+    revision: str | None = None,
 ):
     """Build a ``datasets`` builder, restricted to ``split`` when possible.
 
@@ -144,7 +214,9 @@ def hf_builder(
         raise
 
     try:
-        builder = load_dataset_builder(source, name, data_files=data_files)
+        builder = load_dataset_builder(
+            source, name, data_files=data_files, revision=revision
+        )
     except Exception as exc:
         if name is not None and data_files is None:
             logger.warning(
@@ -176,7 +248,7 @@ def hf_builder(
         len(resolved),
     )
     restricted = load_dataset_builder(
-        source, name, data_files={base: list(resolved[base])}
+        source, name, data_files={base: list(resolved[base])}, revision=revision
     )
     return restricted, True
 
@@ -186,6 +258,7 @@ def hf_download_and_prepare(
     name: str | None = None,
     data_files: str | None = None,
     split: str | None = None,
+    revision: str | None = None,
 ):
     """Materialise a HuggingFace dataset in the local cache.
 
@@ -203,7 +276,9 @@ def hf_download_and_prepare(
     the whole dataset fills two cache directories — a split-restricted build
     is a saving for pipelines that only ever want that split.
     """
-    builder, restricted = hf_builder(source, name, data_files, split)
+    builder, restricted = hf_builder(
+        source, name, data_files=data_files, split=split, revision=revision
+    )
 
     # A split-restricted or data_files-restricted build records fewer splits than the dataset
     # metadata declares, which trips ``verify_splits``.
@@ -242,6 +317,7 @@ class HFDownloader(ValueResource):
         name: str | None = None,
         data_files: str | None = None,
         split: str | None = None,
+        revision: str | None = None,
         streaming: bool = False,
         local_path: Path | str | None = None,
         transient: bool = False,
@@ -254,6 +330,7 @@ class HFDownloader(ValueResource):
                 argument to ``datasets.load_dataset``).
             data_files: Specific data files to load.
             split: Dataset split to load.
+            revision: HuggingFace git commit SHA, branch, or tag.
             streaming: If True, iterate the dataset in streaming mode
                 without materialising to local disk.
             local_path: If set, load from this local mirror instead of
@@ -268,6 +345,7 @@ class HFDownloader(ValueResource):
         self.config_name = name
         self.data_files = data_files
         self.split = split
+        self.revision = revision
         self.streaming = streaming
         self.local_path = Path(local_path) if local_path is not None else None
 
@@ -312,6 +390,7 @@ class HFDownloader(ValueResource):
             self.config_name,
             data_files=self.data_files,
             split=self.split,
+            revision=self.revision,
         )
         return True
 
@@ -321,6 +400,7 @@ class HFDownloader(ValueResource):
             "name": self.config_name,
             "data_files": self.data_files,
             "split": self.split,
+            "revision": self.revision,
             "streaming": self.streaming,
             "local_path": str(self.local_path) if self.local_path else None,
         }
