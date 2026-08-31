@@ -19,7 +19,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datamaestro.data.huggingface import HuggingFaceDataset
+from datamaestro.data.huggingface import (
+    FlattenAndShuffleDataset,
+    HuggingFaceDataset,
+)
 from datamaestro.download.huggingface import HFDownloader
 
 
@@ -44,7 +47,7 @@ def fake_datasets(monkeypatch):
     # Every builder handed out, in order.
     fake.builders = []
 
-    def load_dataset_builder(source, name=None, data_files=None):
+    def load_dataset_builder(source, name=None, data_files=None, revision=None):
         builder = MagicMock(name="FakeBuilder")
         builder.config.data_files = (
             {s: [f"hf://{source}/{s}.parquet"] for s in fake.SPLITS}
@@ -83,6 +86,24 @@ class TestHuggingFaceDatasetData:
             "config-a",
             data_files=None,
             split="train",
+            revision=None,
+            streaming=True,
+        )
+
+    def test_passes_revision(self, fake_datasets):
+        ds = HuggingFaceDataset.C(
+            id="test.hf.rev",
+            repo_id="user/dataset",
+            revision="main_commit_sha",
+            streaming=True,
+        )
+        _ = ds.data
+        fake_datasets.load_dataset.assert_called_once_with(
+            "user/dataset",
+            None,
+            data_files=None,
+            split=None,
+            revision="main_commit_sha",
             streaming=True,
         )
 
@@ -120,6 +141,7 @@ class TestHuggingFaceDatasetData:
             "user/dataset",
             None,  # name
             data_files=None,
+            revision=None,
         )
         builder = prepared(fake_datasets)
         builder.as_dataset.assert_called_once_with(split=None)
@@ -160,6 +182,7 @@ class TestHuggingFaceDatasetDownload:
             "user/dataset",
             "config-a",
             data_files="train.jsonl.gz",
+            revision=None,
         )
         prepared(fake_datasets).download_and_prepare.assert_called_once_with(
             verification_mode="no_checks"
@@ -246,7 +269,7 @@ class TestHuggingFaceDatasetSplitRestriction:
     def test_no_restriction_for_script_builder(self, fake_datasets):
         """A script-based builder exposes no per-split ``data_files``."""
 
-        def no_data_files(source, name=None, data_files=None):
+        def no_data_files(source, name=None, data_files=None, revision=None):
             builder = MagicMock(name="ScriptBuilder")
             builder.config.data_files = None
             fake_datasets.builders.append(builder)
@@ -293,6 +316,11 @@ class TestHuggingFaceDatasetIdentity:
         b = HuggingFaceDataset.C(id="test.id", repo_id="user/dataset", split="test")
         assert self._ident(a) != self._ident(b)
 
+    def test_different_revision_different_identity(self):
+        a = HuggingFaceDataset.C(id="test.id", repo_id="user/dataset", revision="rev1")
+        b = HuggingFaceDataset.C(id="test.id", repo_id="user/dataset", revision="rev2")
+        assert self._ident(a) != self._ident(b)
+
     def test_streaming_meta_does_not_change_identity(self):
         """``streaming`` is Meta → changing it should NOT change the hash."""
         a = HuggingFaceDataset.C(id="test.id", repo_id="user/dataset", streaming=False)
@@ -325,6 +353,7 @@ class TestHFDownloaderDownload:
             "user/dataset",
             "cfg",
             data_files="train.jsonl.gz",
+            revision=None,
         )
         # Downloading must not instantiate the dataset in memory.
         fake_datasets.load_dataset.assert_not_called()
@@ -369,6 +398,7 @@ class TestHFDownloaderPrepare:
             "name": "cfg",
             "data_files": "train.jsonl.gz",
             "split": "train",
+            "revision": None,
             "streaming": True,
             "local_path": None,
         }
@@ -435,3 +465,47 @@ class TestHuggingFaceOfflineHashedFallback:
         builder, restricted = hf_builder("user/dataset", name="quora", split="train")
         assert restricted is True
         assert builder.config.name == "quora-ccbd7fec3e15cba7"
+
+
+class TestFlattenAndShuffleDataset:
+    def test_empty_samples_raises_value_error(self):
+        task = FlattenAndShuffleDataset.C(samples=[], seed=42)
+        with pytest.raises(ValueError, match="empty list of samples"):
+            task.execute()
+
+        with pytest.raises(ValueError, match="empty list of samples"):
+            task.__submit__(MagicMock(), MagicMock())
+
+    def test_flatten_and_shuffle_execution(self, fake_datasets, tmp_path):
+        ds1 = HuggingFaceDataset.C(id="ds1", repo_id="user/dataset", name="cfg1")
+        ds2 = HuggingFaceDataset.C(id="ds2", repo_id="user/dataset", name="cfg2")
+
+        mock_dataset = MagicMock()
+        fake_datasets.load_dataset_builder.return_value.as_dataset.return_value = (
+            mock_dataset
+        )
+
+        task = FlattenAndShuffleDataset.C(
+            samples=[ds1, ds2], seed=42, output_dir=tmp_path / "out"
+        )
+        task.execute()
+
+        mock_dataset.shuffle.assert_called_once_with(seed=42)
+        flattened = mock_dataset.shuffle.return_value.flatten_indices.return_value
+        flattened.save_to_disk.assert_called_once()
+
+    def test_submit_returns_updated_config(self, tmp_path):
+        ds1 = HuggingFaceDataset.C(
+            id="ds1", repo_id="user/dataset", name="cfg1", streaming=True
+        )
+        task = FlattenAndShuffleDataset.C(
+            samples=[ds1], seed=42, output_dir=tmp_path / "out"
+        )
+
+        dep_mock = MagicMock(side_effect=lambda cfg: cfg)
+        result = task.__submit__(dep_mock, MagicMock())
+
+        assert result.local_path == tmp_path / "out"
+        assert result.streaming is False
+        assert result.repo_id == "user/dataset"
+        assert result.name == "cfg1"

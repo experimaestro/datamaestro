@@ -161,6 +161,12 @@ ds_local = HuggingFaceDataset.C(
 )
 ```
 
+### Preprocessing & Shuffling Tasks
+
+```
+.. autoxpmtask:: datamaestro.data.huggingface.FlattenAndShuffleDataset
+```
+
 ## Creating Custom Data Types
 
 ### Basic Custom Type
