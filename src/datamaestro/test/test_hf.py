@@ -19,7 +19,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datamaestro.data.huggingface import HuggingFaceDataset
+from datamaestro.data.huggingface import (
+    FlattenAndShuffleDataset,
+    HuggingFaceDataset,
+)
 from datamaestro.download.huggingface import HFDownloader
 
 
@@ -462,3 +465,47 @@ class TestHuggingFaceOfflineHashedFallback:
         builder, restricted = hf_builder("user/dataset", name="quora", split="train")
         assert restricted is True
         assert builder.config.name == "quora-ccbd7fec3e15cba7"
+
+
+class TestFlattenAndShuffleDataset:
+    def test_empty_samples_raises_value_error(self):
+        task = FlattenAndShuffleDataset.C(samples=[], seed=42)
+        with pytest.raises(ValueError, match="empty list of samples"):
+            task.execute()
+
+        with pytest.raises(ValueError, match="empty list of samples"):
+            task.__submit__(MagicMock(), MagicMock())
+
+    def test_flatten_and_shuffle_execution(self, fake_datasets, tmp_path):
+        ds1 = HuggingFaceDataset.C(id="ds1", repo_id="user/dataset", name="cfg1")
+        ds2 = HuggingFaceDataset.C(id="ds2", repo_id="user/dataset", name="cfg2")
+
+        mock_dataset = MagicMock()
+        fake_datasets.load_dataset_builder.return_value.as_dataset.return_value = (
+            mock_dataset
+        )
+
+        task = FlattenAndShuffleDataset.C(
+            samples=[ds1, ds2], seed=42, output_dir=tmp_path / "out"
+        )
+        task.execute()
+
+        mock_dataset.shuffle.assert_called_once_with(seed=42)
+        flattened = mock_dataset.shuffle.return_value.flatten_indices.return_value
+        flattened.save_to_disk.assert_called_once()
+
+    def test_submit_returns_updated_config(self, tmp_path):
+        ds1 = HuggingFaceDataset.C(
+            id="ds1", repo_id="user/dataset", name="cfg1", streaming=True
+        )
+        task = FlattenAndShuffleDataset.C(
+            samples=[ds1], seed=42, output_dir=tmp_path / "out"
+        )
+
+        dep_mock = MagicMock(side_effect=lambda cfg: cfg)
+        result = task.__submit__(dep_mock, MagicMock())
+
+        assert result.local_path == tmp_path / "out"
+        assert result.streaming is False
+        assert result.repo_id == "user/dataset"
+        assert result.name == "cfg1"
