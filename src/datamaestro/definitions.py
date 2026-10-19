@@ -39,6 +39,11 @@ if TYPE_CHECKING:
     from datamaestro.download import Download, Resource
     from .variants import Variants
 
+
+class DownloadError(RuntimeError):
+    """Raised when a dataset resource could not be downloaded"""
+
+
 # --- DAG utilities ---
 
 
@@ -312,7 +317,7 @@ class AbstractDataset(AbstractData):
         ds.__datamaestro_dataset__ = self
 
         if download:
-            ds.download()
+            self._download_or_raise()
         return ds
 
     def register_hook(self, hookname: str, hook: Callable):
@@ -399,6 +404,15 @@ class AbstractDataset(AbstractData):
             success = self._download_locked(force, ResourceState)
 
         return success
+
+    def _download_or_raise(self, force=False):
+        """Like :meth:`download`, but raises a :class:`DownloadError` (chained
+        to the original exception) instead of returning ``False``"""
+        self._download_error = None
+        if self.download(force) is False:
+            raise self._download_error or DownloadError(
+                f"Could not download dataset {getattr(self, 'id', self)}"
+            )
 
     def is_prepared(self) -> bool:
         """Whether every resource is already materialized on disk.
@@ -518,6 +532,9 @@ class AbstractDataset(AbstractData):
                         dep.name,
                         resource.name,
                     )
+                    self._download_error = DownloadError(
+                        f"Dependency {dep.name} of {resource.name} is not complete"
+                    )
                     return False
 
             # Step 2-4: Download with framework-managed state
@@ -529,9 +546,13 @@ class AbstractDataset(AbstractData):
                     _move_path(resource.transient_path, resource.path)
                 resource.state = ResourceState.COMPLETE
 
-            except Exception:
+            except Exception as exc:
                 logging.error("Could not download resource %s", resource)
                 traceback.print_exc()
+                self._download_error = DownloadError(
+                    f"Could not download resource {resource.name}"
+                )
+                self._download_error.__cause__ = exc
 
                 # Handle PARTIAL state
                 if resource.has_files() and resource.transient_path.exists():
@@ -591,7 +612,7 @@ class FutureAttr:
         return FutureAttr(self.dataset, self.keys + [key])
 
     def download(self, force=False):
-        self.dataset.download(force)
+        return self.dataset.download(force)
 
 
 class DatasetWrapper(AbstractDataset):

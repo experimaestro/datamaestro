@@ -861,9 +861,11 @@ class reference(LocalResourceMixin, Resource):
     def download(self, force=False):
         resolved = self._resolve_reference()
         if isinstance(resolved, AbstractDataset):
-            success = resolved.download(force)
+            resolved._download_or_raise(force)
+            return
         elif hasattr(resolved, "__datamaestro__"):
-            success = resolved.__datamaestro__.download(force)
+            resolved.__datamaestro__._download_or_raise(force)
+            return
         else:
             success = resolved.download(force)
 

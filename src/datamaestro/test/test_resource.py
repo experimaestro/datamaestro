@@ -559,6 +559,22 @@ class TestTwoPathFlow:
         assert not r.transient_path.exists()
         assert r.state == ResourceState.NONE
 
+    def test_failure_raises_on_prepare(self, dataset):
+        """Preparing with download=True raises, chained to the original error."""
+        from datamaestro.definitions import DownloadError
+
+        r = FailingResource("data.txt")
+        r.bind("DATA", dataset)
+
+        dataset.ordered_resources = [r]
+        _compute_dependents(dataset.resources)
+
+        with pytest.raises(DownloadError) as excinfo:
+            dataset.prepare(download=True)
+
+        assert isinstance(excinfo.value.__cause__, RuntimeError)
+        assert "DATA" in str(excinfo.value)
+
     def test_failure_with_recover_preserves(self, dataset):
         """On failure with can_recover, transient data is preserved."""
 
@@ -1121,7 +1137,7 @@ class TestReferenceResource:
         r.bind("ref", dataset)
 
         r.download(force=True)
-        mock_ref.__datamaestro__.download.assert_called_once_with(True)
+        mock_ref.__datamaestro__._download_or_raise.assert_called_once_with(True)
 
     def test_requires_reference(self):
         with pytest.raises(AssertionError, match="cannot be null"):

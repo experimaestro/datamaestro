@@ -86,7 +86,7 @@ class Base(Prepare):
         """Download the dataset (no-op when there is no owning dataset)."""
         ds = self.__datamaestro_dataset__
         if ds is not None:
-            ds.download()
+            ds._download_or_raise()
 
     def is_prepared(self) -> bool:
         """Whether the dataset is already downloaded.
