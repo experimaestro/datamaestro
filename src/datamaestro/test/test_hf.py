@@ -41,6 +41,9 @@ def fake_datasets(monkeypatch):
     fake = types.ModuleType("datasets")
     fake.load_dataset = MagicMock(return_value=MagicMock(name="FakeDataset"))
     fake.load_from_disk = MagicMock(return_value=MagicMock(name="FakeDiskDataset"))
+    fake.concatenate_datasets = MagicMock(
+        return_value=MagicMock(name="FakeConcatenatedDataset")
+    )
 
     # Splits the fake Hub repo advertises; tests may override.
     fake.SPLITS = ["train", "validation", "test"]
@@ -477,35 +480,46 @@ class TestFlattenAndShuffleDataset:
             task.__submit__(MagicMock(), MagicMock())
 
     def test_flatten_and_shuffle_execution(self, fake_datasets, tmp_path):
+        from experimaestro.xpmutils import DirectoryContext
+
         ds1 = HuggingFaceDataset.C(id="ds1", repo_id="user/dataset", name="cfg1")
         ds2 = HuggingFaceDataset.C(id="ds2", repo_id="user/dataset", name="cfg2")
 
         mock_dataset = MagicMock()
-        fake_datasets.load_dataset_builder.return_value.as_dataset.return_value = (
-            mock_dataset
-        )
+        fake_datasets.concatenate_datasets.return_value = mock_dataset
 
-        task = FlattenAndShuffleDataset.C(
-            samples=[ds1, ds2], seed=42, output_dir=tmp_path / "out"
-        )
-        task.execute()
+        task = FlattenAndShuffleDataset.C(samples=[ds1, ds2], seed=42)
+        inst = task.instance(context=DirectoryContext(tmp_path))
+        inst.execute()
 
+        fake_datasets.concatenate_datasets.assert_called_once()
         mock_dataset.shuffle.assert_called_once_with(seed=42)
         flattened = mock_dataset.shuffle.return_value.flatten_indices.return_value
-        flattened.save_to_disk.assert_called_once()
+        flattened.save_to_disk.assert_called_once_with(
+            inst.output_dir,
+            num_proc=mock_dataset.shuffle.return_value.flatten_indices.call_args.kwargs[
+                "num_proc"
+            ],
+        )
 
     def test_submit_returns_updated_config(self, tmp_path):
+        from experimaestro.scheduler.workspace import Workspace
+        from experimaestro.settings import Settings, WorkspaceSettings
+        from experimaestro.scheduler import RunMode
+
         ds1 = HuggingFaceDataset.C(
             id="ds1", repo_id="user/dataset", name="cfg1", streaming=True
         )
-        task = FlattenAndShuffleDataset.C(
-            samples=[ds1], seed=42, output_dir=tmp_path / "out"
+        task = FlattenAndShuffleDataset.C(samples=[ds1], seed=42)
+
+        workspace = Workspace(
+            Settings(),
+            WorkspaceSettings("test_submit", path=tmp_path),
+            run_mode=RunMode.DRY_RUN,
         )
+        result = task.submit(workspace=workspace)
 
-        dep_mock = MagicMock(side_effect=lambda cfg: cfg)
-        result = task.__submit__(dep_mock, MagicMock())
-
-        assert result.local_path == tmp_path / "out"
+        assert str(result.local_path).endswith("shuffled_dataset")
         assert result.streaming is False
         assert result.repo_id == "user/dataset"
         assert result.name == "cfg1"

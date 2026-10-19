@@ -180,13 +180,13 @@ class FlattenAndShuffleDataset(Task):
     """Output directory for the processed dataset."""
 
     def execute(self):
-        import os
-        from datasets import concatenate_datasets
-
         if not self.samples:
             raise ValueError(
                 "FlattenAndShuffleDataset received an empty list of samples."
             )
+
+        import os
+        from datasets import concatenate_datasets
 
         logging.info("Concatenating %d HuggingFace datasets...", len(self.samples))
         hf_datasets = [s.data for s in self.samples]
