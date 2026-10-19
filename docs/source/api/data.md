@@ -135,15 +135,36 @@ return Supervised(
 
 Package: `datamaestro.data.huggingface`
 
-For datasets from the HuggingFace Hub:
+For datasets from the HuggingFace Hub or local disk mirrors:
+
+```{eval-rst}
+.. autoxpmconfig:: datamaestro.data.huggingface.HuggingFaceDataset
+```
+
+Example usage:
 
 ```python
-from datamaestro.data.huggingface import DatasetDict
+from datamaestro.data.huggingface import HuggingFaceDataset
 
-return DatasetDict(
-    dataset_id="squad",
-    config=None,  # Optional config name
+# Load from HuggingFace Hub
+ds = HuggingFaceDataset.C(
+    id="squad_dataset",
+    repo_id="squad",
+    split="train",
 )
+
+# Load from a local disk mirror or task output directory
+ds_local = HuggingFaceDataset.C(
+    id="squad_local",
+    repo_id="squad",
+    local_path="/path/to/local/dataset",
+)
+```
+
+### Preprocessing & Shuffling Tasks
+
+```
+.. autoxpmtask:: datamaestro.data.huggingface.FlattenAndShuffleDataset
 ```
 
 ## Creating Custom Data Types

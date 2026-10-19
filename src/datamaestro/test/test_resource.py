@@ -1075,6 +1075,7 @@ class TestHFDownloader:
             "name": None,
             "data_files": "train.csv",
             "split": "train",
+            "revision": None,
             "streaming": False,
             "local_path": None,
         }

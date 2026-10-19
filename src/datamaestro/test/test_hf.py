@@ -19,7 +19,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datamaestro.data.huggingface import HuggingFaceDataset
+from datamaestro.data.huggingface import (
+    FlattenAndShuffleDataset,
+    HuggingFaceDataset,
+)
 from datamaestro.download.huggingface import HFDownloader
 
 
@@ -37,13 +40,17 @@ def fake_datasets(monkeypatch):
     """
     fake = types.ModuleType("datasets")
     fake.load_dataset = MagicMock(return_value=MagicMock(name="FakeDataset"))
+    fake.load_from_disk = MagicMock(return_value=MagicMock(name="FakeDiskDataset"))
+    fake.concatenate_datasets = MagicMock(
+        return_value=MagicMock(name="FakeConcatenatedDataset")
+    )
 
     # Splits the fake Hub repo advertises; tests may override.
     fake.SPLITS = ["train", "validation", "test"]
     # Every builder handed out, in order.
     fake.builders = []
 
-    def load_dataset_builder(source, name=None, data_files=None):
+    def load_dataset_builder(source, name=None, data_files=None, revision=None):
         builder = MagicMock(name="FakeBuilder")
         builder.config.data_files = (
             {s: [f"hf://{source}/{s}.parquet"] for s in fake.SPLITS}
@@ -82,10 +89,28 @@ class TestHuggingFaceDatasetData:
             "config-a",
             data_files=None,
             split="train",
+            revision=None,
             streaming=True,
         )
 
-    def test_local_path_replaces_repo_id(self, fake_datasets, tmp_path):
+    def test_passes_revision(self, fake_datasets):
+        ds = HuggingFaceDataset.C(
+            id="test.hf.rev",
+            repo_id="user/dataset",
+            revision="main_commit_sha",
+            streaming=True,
+        )
+        _ = ds.data
+        fake_datasets.load_dataset.assert_called_once_with(
+            "user/dataset",
+            None,
+            data_files=None,
+            split=None,
+            revision="main_commit_sha",
+            streaming=True,
+        )
+
+    def test_local_path_loads_from_disk(self, fake_datasets, tmp_path):
         local = tmp_path / "mirror"
         local.mkdir()
         ds = HuggingFaceDataset.C(
@@ -93,11 +118,22 @@ class TestHuggingFaceDatasetData:
             repo_id="user/dataset",
             local_path=local,
         )
-        _ = ds.data
-        # Source is the local path, not the repo id.
-        positional = fake_datasets.load_dataset_builder.call_args.args
-        assert positional[0] == str(local)
-        assert positional[1] is None  # no name
+        data = ds.data
+        fake_datasets.load_from_disk.assert_called_once_with(str(local))
+        assert data is fake_datasets.load_from_disk.return_value
+
+    def test_local_path_fallback_to_load_dataset(self, fake_datasets, tmp_path):
+        local = tmp_path / "mirror"
+        local.mkdir()
+        fake_datasets.load_from_disk.side_effect = Exception("Not a disk dataset")
+        ds = HuggingFaceDataset.C(
+            id="test.hf.2b",
+            repo_id="user/dataset",
+            local_path=local,
+        )
+        data = ds.data
+        fake_datasets.load_dataset.assert_called_once_with(str(local))
+        assert data is fake_datasets.load_dataset.return_value
 
     def test_default_args(self, fake_datasets):
         """Non-streaming access goes through the builder, and returns what
@@ -108,6 +144,7 @@ class TestHuggingFaceDatasetData:
             "user/dataset",
             None,  # name
             data_files=None,
+            revision=None,
         )
         builder = prepared(fake_datasets)
         builder.as_dataset.assert_called_once_with(split=None)
@@ -148,12 +185,15 @@ class TestHuggingFaceDatasetDownload:
             "user/dataset",
             "config-a",
             data_files="train.jsonl.gz",
+            revision=None,
         )
-        prepared(fake_datasets).download_and_prepare.assert_called_once_with()
+        prepared(fake_datasets).download_and_prepare.assert_called_once_with(
+            verification_mode="no_checks"
+        )
         # No in-RAM instantiation of the dataset.
         fake_datasets.load_dataset.assert_not_called()
 
-    def test_download_uses_local_path(self, fake_datasets, tmp_path):
+    def test_download_with_local_path_is_noop(self, fake_datasets, tmp_path):
         local = tmp_path / "mirror"
         local.mkdir()
         ds = HuggingFaceDataset.C(
@@ -162,7 +202,7 @@ class TestHuggingFaceDatasetDownload:
             local_path=local,
         )
         ds.download()
-        assert fake_datasets.load_dataset_builder.call_args.args[0] == str(local)
+        fake_datasets.load_dataset_builder.assert_not_called()
 
     def test_download_streaming_is_noop(self, fake_datasets):
         ds = HuggingFaceDataset.C(
@@ -202,10 +242,12 @@ class TestHuggingFaceDatasetSplitRestriction:
         assert list(builder.config.data_files) == ["train"]
 
     def test_no_restriction_for_compound_split(self, fake_datasets):
-        """``train+test`` spans several splits: prepare everything."""
+        """``train+test`` spans several splits: prepare everything with verification disabled."""
         builder = self._download(fake_datasets, split="train+test")
         assert list(builder.config.data_files) == ["train", "validation", "test"]
-        builder.download_and_prepare.assert_called_once_with()
+        builder.download_and_prepare.assert_called_once_with(
+            verification_mode="no_checks"
+        )
 
     def test_no_restriction_without_split(self, fake_datasets):
         builder = self._download(fake_datasets)
@@ -221,14 +263,16 @@ class TestHuggingFaceDatasetSplitRestriction:
     def test_no_restriction_when_already_single_split(self, fake_datasets):
         fake_datasets.SPLITS = ["train"]
         builder = self._download(fake_datasets, split="train")
-        # Nothing to gain: one builder, prepared with checks left on.
+        # Split is set: verification is bypassed.
         assert fake_datasets.load_dataset_builder.call_count == 1
-        builder.download_and_prepare.assert_called_once_with()
+        builder.download_and_prepare.assert_called_once_with(
+            verification_mode="no_checks"
+        )
 
     def test_no_restriction_for_script_builder(self, fake_datasets):
         """A script-based builder exposes no per-split ``data_files``."""
 
-        def no_data_files(source, name=None, data_files=None):
+        def no_data_files(source, name=None, data_files=None, revision=None):
             builder = MagicMock(name="ScriptBuilder")
             builder.config.data_files = None
             fake_datasets.builders.append(builder)
@@ -237,7 +281,20 @@ class TestHuggingFaceDatasetSplitRestriction:
         fake_datasets.load_dataset_builder.side_effect = no_data_files
         builder = self._download(fake_datasets, split="train")
         assert fake_datasets.load_dataset_builder.call_count == 1
-        builder.download_and_prepare.assert_called_once_with()
+        builder.download_and_prepare.assert_called_once_with(
+            verification_mode="no_checks"
+        )
+
+    def test_data_files_bypasses_split_verification(self, fake_datasets):
+        ds = HuggingFaceDataset.C(
+            id="test.hf.df",
+            repo_id="user/dataset",
+            data_files="data.parquet",
+        )
+        ds.download()
+        prepared(fake_datasets).download_and_prepare.assert_called_once_with(
+            verification_mode="no_checks"
+        )
 
 
 # ---- Identity: Param vs Meta --------------------------------------------
@@ -260,6 +317,11 @@ class TestHuggingFaceDatasetIdentity:
     def test_different_split_different_identity(self):
         a = HuggingFaceDataset.C(id="test.id", repo_id="user/dataset", split="train")
         b = HuggingFaceDataset.C(id="test.id", repo_id="user/dataset", split="test")
+        assert self._ident(a) != self._ident(b)
+
+    def test_different_revision_different_identity(self):
+        a = HuggingFaceDataset.C(id="test.id", repo_id="user/dataset", revision="rev1")
+        b = HuggingFaceDataset.C(id="test.id", repo_id="user/dataset", revision="rev2")
         assert self._ident(a) != self._ident(b)
 
     def test_streaming_meta_does_not_change_identity(self):
@@ -294,6 +356,7 @@ class TestHFDownloaderDownload:
             "user/dataset",
             "cfg",
             data_files="train.jsonl.gz",
+            revision=None,
         )
         # Downloading must not instantiate the dataset in memory.
         fake_datasets.load_dataset.assert_not_called()
@@ -338,6 +401,7 @@ class TestHFDownloaderPrepare:
             "name": "cfg",
             "data_files": "train.jsonl.gz",
             "split": "train",
+            "revision": None,
             "streaming": True,
             "local_path": None,
         }
@@ -371,3 +435,91 @@ class TestHFDownloaderCheck:
         r = HFDownloader("hf", repo_id="user/dataset", local_path=missing)
         out = r.check()
         assert out.status.value == "failed"
+
+
+class TestHuggingFaceOfflineHashedFallback:
+    def test_offline_hashed_fallback(self, monkeypatch, tmp_path):
+        from unittest.mock import MagicMock
+        import sys
+        import types
+        from datamaestro.download.huggingface import hf_builder
+
+        cache_dir = tmp_path / "hf_cache"
+        repo_dir = cache_dir / "user___dataset"
+        hashed_dir = repo_dir / "quora-ccbd7fec3e15cba7"
+        hashed_dir.mkdir(parents=True)
+
+        fake = types.ModuleType("datasets")
+        fake.config = types.SimpleNamespace(HF_DATASETS_CACHE=str(cache_dir))
+
+        def mock_load_builder(source, name=None, data_files=None):
+            if name == "quora" and data_files is None:
+                raise ValueError(
+                    "Couldn't find cache for user/dataset for config 'quora'"
+                )
+            builder = MagicMock(name=f"Builder_{name}")
+            builder.config.name = name
+            return builder
+
+        fake.load_dataset_builder = mock_load_builder
+        monkeypatch.setitem(sys.modules, "datasets", fake)
+        monkeypatch.setitem(sys.modules, "datasets.config", fake.config)
+
+        builder, restricted = hf_builder("user/dataset", name="quora", split="train")
+        assert restricted is True
+        assert builder.config.name == "quora-ccbd7fec3e15cba7"
+
+
+class TestFlattenAndShuffleDataset:
+    def test_empty_samples_raises_value_error(self):
+        task = FlattenAndShuffleDataset.C(samples=[], seed=42)
+        with pytest.raises(ValueError, match="empty list of samples"):
+            task.execute()
+
+        with pytest.raises(ValueError, match="empty list of samples"):
+            task.__submit__(MagicMock(), MagicMock())
+
+    def test_flatten_and_shuffle_execution(self, fake_datasets, tmp_path):
+        from experimaestro.xpmutils import DirectoryContext
+
+        ds1 = HuggingFaceDataset.C(id="ds1", repo_id="user/dataset", name="cfg1")
+        ds2 = HuggingFaceDataset.C(id="ds2", repo_id="user/dataset", name="cfg2")
+
+        mock_dataset = MagicMock()
+        fake_datasets.concatenate_datasets.return_value = mock_dataset
+
+        task = FlattenAndShuffleDataset.C(samples=[ds1, ds2], seed=42)
+        inst = task.instance(context=DirectoryContext(tmp_path))
+        inst.execute()
+
+        fake_datasets.concatenate_datasets.assert_called_once()
+        mock_dataset.shuffle.assert_called_once_with(seed=42)
+        flattened = mock_dataset.shuffle.return_value.flatten_indices.return_value
+        flattened.save_to_disk.assert_called_once_with(
+            inst.output_dir,
+            num_proc=mock_dataset.shuffle.return_value.flatten_indices.call_args.kwargs[
+                "num_proc"
+            ],
+        )
+
+    def test_submit_returns_updated_config(self, tmp_path):
+        from experimaestro.scheduler.workspace import Workspace
+        from experimaestro.settings import Settings, WorkspaceSettings
+        from experimaestro.scheduler import RunMode
+
+        ds1 = HuggingFaceDataset.C(
+            id="ds1", repo_id="user/dataset", name="cfg1", streaming=True
+        )
+        task = FlattenAndShuffleDataset.C(samples=[ds1], seed=42)
+
+        workspace = Workspace(
+            Settings(),
+            WorkspaceSettings("test_submit", path=tmp_path),
+            run_mode=RunMode.DRY_RUN,
+        )
+        result = task.submit(workspace=workspace)
+
+        assert str(result.local_path).endswith("shuffled_dataset")
+        assert result.streaming is False
+        assert result.repo_id == "user/dataset"
+        assert result.name == "cfg1"

@@ -168,7 +168,7 @@ HuggingFace Integration
 
 Package: ``datamaestro.download.huggingface``
 
-For datasets hosted on HuggingFace Hub:
+For datasets hosted on HuggingFace Hub or local disk mirrors:
 
 .. autoclass:: datamaestro.download.huggingface.HFDownloader
 
@@ -178,7 +178,11 @@ For datasets hosted on HuggingFace Hub:
 
     @dataset(url="https://huggingface.co/datasets/squad")
     class Squad(QADataset):
-        HF_DATA = HFDownloader("squad_data", "squad")
+        # Download from HuggingFace Hub
+        HF_DATA = HFDownloader("squad_data", repo_id="squad")
+
+        # Or specify a local mirror path to bypass Hub download
+        LOCAL_DATA = HFDownloader("local_data", repo_id="squad", local_path="/path/to/mirror")
 
 Links
 -----

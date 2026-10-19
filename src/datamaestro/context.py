@@ -565,6 +565,7 @@ def prepare_dataset(
     context: Optional[Union[Context, Path]] = None,
     *,
     variant: Optional[Dict] = None,
+    download: Optional[bool] = None,
 ):
     """Find a dataset given its id and download the resources.
 
@@ -578,11 +579,12 @@ def prepare_dataset(
     Passing both a selector and ``variant`` raises ``ValueError``.
 
     When called inside an active experimaestro experiment context, the
-    download is deferred: the returned config is an ``experimaestro.Prepare``
+    download is deferred by default: the returned config is an ``experimaestro.Prepare``
     instance, and the framework calls ``.prepare()`` lazily as an in-memory
     dependency before any task that references the dataset runs. Outside an
     experiment context (e.g. notebook, standalone script), the download is
-    performed eagerly to preserve the previous behavior.
+    performed eagerly. Callers may explicitly pass ``download=True`` to force
+    synchronous, blocking downloading and building even inside an experiment.
     """
     match context:
         case Path() | str():
@@ -592,15 +594,17 @@ def prepare_dataset(
         dataset_id, context=context, variant=variant
     )
 
-    in_experiment = False
-    try:
-        from experimaestro.scheduler.experiment import experiment as _xp
+    if download is None:
+        in_experiment = False
+        try:
+            from experimaestro.scheduler.experiment import experiment as _xp
 
-        in_experiment = _xp.CURRENT is not None
-    except ImportError:
-        pass
+            in_experiment = _xp.CURRENT is not None
+        except ImportError:
+            pass
+        download = not in_experiment
 
-    return ds.prepare(download=not in_experiment, variant_kwargs=variant_kwargs)
+    return ds.prepare(download=download, variant_kwargs=variant_kwargs)
 
 
 def get_dataset(dataset_id: str, *, variant: Optional[Dict] = None):
