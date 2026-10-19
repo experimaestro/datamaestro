@@ -13,6 +13,17 @@ class Base(Prepare):
     a download) before the task runs. Downloads are idempotent on a warm
     cache, so it is safe to keep declaring ``prepare_dataset(...)`` in
     experiment scripts that may run multiple times.
+
+    Because :meth:`is_prepared` is implemented, a download too heavy for the
+    experiment driver can instead be submitted as a job::
+
+        dataset = prepare_dataset("irds.msmarco-passage").submit(
+            launcher=preprocessing_launcher
+        )
+
+    This assumes the driver and the compute node share the datamaestro data
+    directory: a node-local one would be downloaded where nothing else can
+    see it.
     """
 
     id: Param[str]
@@ -77,13 +88,28 @@ class Base(Prepare):
         if ds is not None:
             ds.download()
 
+    def is_prepared(self) -> bool:
+        """Whether the dataset is already downloaded.
+
+        Answered from the data directory alone — the download writes there
+        and not into any job directory, so this, and not experimaestro's
+        bookkeeping, is what decides whether the work still has to be done.
+        Read-only and stat-level: no lock is taken and no state is written.
+
+        A config with no owning dataset (dynamically generated subset,
+        unregistered collection) has nothing to download, hence is prepared.
+        """
+        ds = self.__datamaestro_dataset__
+        return True if ds is None else ds.is_prepared()
+
     def prepare(self, *args, **kwargs):
         """Download the dataset (idempotent on a warm cache).
 
-        Called by experimaestro as an in-memory dependency before any task
-        that references this dataset runs. Also safe to call directly. Does
-        nothing when the config has no owning dataset (dynamically generated
-        subsets / unregistered collections).
+        Called by experimaestro before any task that references this dataset
+        runs — in the driver process, or as a job when the config was
+        submitted. Also safe to call directly. Does nothing when the config
+        has no owning dataset (dynamically generated subsets / unregistered
+        collections).
         """
         self.download()
         return self

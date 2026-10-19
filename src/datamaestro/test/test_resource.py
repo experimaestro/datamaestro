@@ -2062,3 +2062,87 @@ class TestHFSnapshotDownloader:
         assert calls["revision"] == "abc"
         assert calls["local_dir"] == str(r.transient_path)
         assert r.transient_path.exists()
+
+
+# ==== is_prepared Tests ====
+
+
+class TestIsPrepared:
+    """``is_prepared()`` mirrors ``download()``'s skip decisions, read-only.
+
+    It is what experimaestro asks to decide whether a preparation still has
+    to run — including when the preparation is submitted as a job, where the
+    job's own ``.done`` marker cannot be trusted (the data lives in the
+    datamaestro directory, not in the job directory).
+    """
+
+    def test_not_prepared_before_download(self, dataset):
+        r = DummyFileResource("data.txt")
+        r.bind("DATA", dataset)
+        dataset.ordered_resources = [r]
+        _compute_dependents(dataset.resources)
+
+        assert dataset.is_prepared() is False
+
+    def test_prepared_after_download(self, dataset):
+        r = DummyFileResource("data.txt")
+        r.bind("DATA", dataset)
+        dataset.ordered_resources = [r]
+        _compute_dependents(dataset.resources)
+
+        dataset.download()
+
+        assert dataset.is_prepared() is True
+
+    def test_not_prepared_when_files_deleted(self, dataset):
+        """COMPLETE but the files are gone: the state file alone must not fool us."""
+        r = DummyFileResource("data.txt")
+        r.bind("DATA", dataset)
+        dataset.ordered_resources = [r]
+        _compute_dependents(dataset.resources)
+
+        dataset.download()
+        r.path.unlink()
+
+        assert r.state == ResourceState.COMPLETE
+        assert dataset.is_prepared() is False
+
+    def test_prepared_with_preexisting_files(self, dataset):
+        """Files from an old download, predating the state file, count."""
+        r = DummyFileResource("data.txt")
+        r.bind("DATA", dataset)
+        dataset.ordered_resources = [r]
+        _compute_dependents(dataset.resources)
+
+        r.path.parent.mkdir(parents=True, exist_ok=True)
+        r.path.write_text("downloaded by an older datamaestro")
+
+        assert r.state == ResourceState.NONE
+        assert dataset.is_prepared() is True
+
+    def test_prepared_when_transient_source_cleaned_up(self, dataset):
+        """A transient source is expected to be gone once its dependents are built."""
+        src = DummyFileResource("src.txt", transient=True)
+        src.bind("SRC", dataset)
+        out = DependentResource("out.txt", source=src)
+        out.bind("OUT", dataset)
+        dataset.ordered_resources = topological_sort(dataset.resources)
+        _compute_dependents(dataset.resources)
+
+        dataset.download()
+
+        assert not src.path.exists(), "The transient source should have been cleaned up"
+        assert dataset.is_prepared() is True
+
+    def test_is_read_only(self, dataset):
+        """No lock, no state write, no download — it only looks."""
+        r = DummyFileResource("data.txt")
+        r.bind("DATA", dataset)
+        dataset.ordered_resources = [r]
+        _compute_dependents(dataset.resources)
+
+        assert dataset.is_prepared() is False
+
+        assert not r._download_called
+        assert r.state == ResourceState.NONE
+        assert not (dataset.datapath / ".state.lock").exists()

@@ -400,6 +400,49 @@ class AbstractDataset(AbstractData):
 
         return success
 
+    def is_prepared(self) -> bool:
+        """Whether every resource is already materialized on disk.
+
+        Read-only counterpart of :meth:`download`, taking the same decisions
+        without writing anything: no lock, no state update, no transient
+        cleanup. Used by experimaestro to decide whether the preparation
+        still has to happen — see :meth:`datamaestro.data.Base.is_prepared`.
+
+        Resource enumeration needs no :meth:`prepare` call: resources are
+        bound to the wrapper at class-decoration time, and only the download
+        itself needs the materialized config.
+        """
+        from datamaestro.download import ResourceState
+
+        for resource in self.ordered_resources:
+            # A transient resource need not exist once every resource built
+            # from it is complete
+            if (
+                resource.transient
+                and resource.dependents
+                and all(d.state == ResourceState.COMPLETE for d in resource.dependents)
+            ):
+                continue
+
+            if resource.state == ResourceState.COMPLETE:
+                # ... unless the files it stands for have been deleted since
+                if resource.has_files() and not resource.files_present():
+                    logging.debug(
+                        "Resource %s is marked complete but missing at %s",
+                        resource.name,
+                        resource.path,
+                    )
+                    return False
+                continue
+
+            # Files from an older download, predating the state file, count
+            if resource.has_files() and resource.files_present():
+                continue
+
+            return False
+
+        return True
+
     @staticmethod
     def _cleanup_transient_deps(resource, ResourceState):
         """Clean up transient dependencies whose dependents are all COMPLETE."""

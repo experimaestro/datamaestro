@@ -80,3 +80,39 @@ def test_dynamic_config_empty_id_prepare_is_noop(context):
     # Regression: both of these used to raise AttributeError.
     assert config.prepare() is config
     config.download()
+
+
+def test_is_prepared_delegates_to_the_dataset(context, monkeypatch):
+    """``Base.is_prepared`` reports what the owning dataset says."""
+    wrapper = _make_wrapper("datamaestro.config.issue25.checked")
+    config = wrapper.prepare()
+
+    answers = [False, True]
+    monkeypatch.setattr(wrapper, "is_prepared", lambda: answers.pop(0))
+
+    assert config.is_prepared() is False
+    assert config.is_prepared() is True
+
+
+def test_is_prepared_survives_the_clone(context, monkeypatch):
+    """A config cloned at submit time resolves its dataset back through ``id``.
+
+    Same path as ``prepare()`` (issue #25): the raw
+    ``__datamaestro_dataset__`` link does not survive the clone, and
+    experimaestro asks a *cloned* config whether it is prepared.
+    """
+    wrapper = _make_wrapper("datamaestro.config.issue25.checkedclone")
+    cloned = clone(wrapper.prepare())
+    assert "__datamaestro_dataset__" not in cloned.__dict__
+
+    monkeypatch.setattr(Context, "dataset", lambda self, did: wrapper)
+    monkeypatch.setattr(wrapper, "is_prepared", lambda: True)
+
+    assert cloned.is_prepared() is True
+
+
+def test_dynamic_config_is_prepared(context):
+    """Nothing to download means nothing to wait for."""
+    config = _Data.C(name="adhoc")  # never went through AbstractDataset.prepare
+
+    assert config.is_prepared() is True
