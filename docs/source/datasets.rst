@@ -286,6 +286,117 @@ string ID rather than by class:
     class ExtendedDataset(ExtendedData):
         BASE = links("base", "com.example.base_dataset")
 
+Dataset Families
+----------------
+
+When a module registers many similar datasets (one per language, per
+sub-collection, per split, …), writing one class per dataset is not
+practical. :py:class:`~datamaestro.factory.DatasetFactory` creates the
+dataset classes from a loop: it builds the
+:py:class:`~datamaestro.definitions.Dataset` subclass, applies the
+``@dataset`` decorator, and adds the class to the module namespace so that
+datamaestro discovers it.
+
+Example: a multilingual collection with, for each language, a corpus, and
+for each split, the topics and the task combining the corpus and the
+topics:
+
+.. code-block:: python
+
+    # src/datamaestro_myplugin/config/org/example/multilingual.py
+    from experimaestro import Param
+
+    from datamaestro.data import Base, File
+    from datamaestro.download import reference
+    from datamaestro.download.single import FileDownloader
+    from datamaestro.factory import DatasetFactory
+
+    URL = "https://example.org/multilingual"
+
+    # language -> available splits
+    LANGUAGES = {"en": ["train", "dev"], "sw": ["dev"]}
+
+
+    class Task(Base):
+        """A corpus with a set of topics"""
+
+        corpus: Param[File]
+        topics: Param[File]
+
+
+    def register():
+        datasets = DatasetFactory(
+            __name__, prefix="org.example.multilingual", class_prefix="Multilingual"
+        )
+
+        for lang, splits in LANGUAGES.items():
+            # org.example.multilingual.<lang>.corpus
+            # The keyword gives the resource name (here, CORPUS)
+            corpus = datasets.file(
+                f"{lang}.corpus",
+                File,
+                url=URL,
+                CORPUS=FileDownloader("corpus.jsonl", f"{URL}/{lang}/corpus.jsonl"),
+            )
+
+            for split in splits:
+                # org.example.multilingual.<lang>.<split>.topics
+                topics = datasets.file(
+                    f"{lang}.{split}.topics",
+                    File,
+                    TOPICS=FileDownloader("topics.tsv", f"{URL}/{lang}/{split}.tsv"),
+                )
+
+                # org.example.multilingual.<lang>.<split>: any configuration,
+                # built by a config(self) function from the resources
+                def config(self) -> Task:
+                    return Task.C(
+                        corpus=self.CORPUS.config(), topics=self.TOPICS.config()
+                    )
+
+                datasets.register(
+                    f"{lang}.{split}",
+                    Task,
+                    config,
+                    resources={
+                        "CORPUS": reference(corpus),
+                        "TOPICS": reference(topics),
+                    },
+                    url=URL,
+                    doc=f"Multilingual task ({lang}, {split})",
+                )
+
+
+    register()
+
+This registers ``org.example.multilingual.en.corpus``,
+``org.example.multilingual.en.train.topics``,
+``org.example.multilingual.en.train``, and so on; e.g.
+``prepare_dataset("org.example.multilingual.sw.dev")`` downloads the Swahili
+corpus and dev topics, and returns a ``Task``.
+
+A few points to keep in mind:
+
+- Dataset ids are always explicit (``<prefix>.<id>``); class names are
+  derived from the ids (here, ``Multilingual_en_train``) and only matter
+  for discovery. A name already in use gets a numeric suffix (``a-b`` and
+  ``a_b`` give ``a_b`` and ``a_b_2``), or can be set with ``name=``.
+- Resource names (``CORPUS``, ``TOPICS``) are used to track the download
+  state, so keep them stable once datasets have been downloaded.
+- Each registered dataset has its own resources and data folder. This
+  differs from :doc:`dataset variants <api/variants>`, where a single
+  dataset (and its resources) is parameterized at prepare time: use
+  variants when the variants share the same source (e.g. different
+  configurations of one HuggingFace dataset), and a factory when each
+  dataset has its own files.
+
+Plugins can subclass :py:class:`~datamaestro.factory.DatasetFactory` to add
+domain-specific builders (e.g. a document store built from a corpus file)
+on top of :py:meth:`~datamaestro.factory.DatasetFactory.register`.
+
+.. autoclass:: datamaestro.factory.DatasetFactory
+    :members: register, file, full_id, class_name
+
 Data Types
 ==========
 
