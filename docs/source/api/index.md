@@ -157,9 +157,63 @@ definition guide):
     :members: datapath, search
 ```
 
+## Catalog
+
+The catalog lists the available datasets without importing their
+definitions (it is cached, see `datamaestro search`). It is what
+`datamaestro search` and `datamaestro serve` use:
+
+```python
+from datamaestro import Context
+from datamaestro.catalog import Catalog
+
+catalog = Catalog.load(Context.instance())
+
+# Same syntax as `datamaestro search`
+for entry in catalog.search("tag:classification repo:image"):
+    print(entry.id, entry.name)
+
+# Number of datasets per tag, task and repository
+print(catalog.facets()["tag"].most_common(10))
+
+# Variants of a dataset family
+entry = catalog.get("org.example.corpus")
+if entry.variants is not None:
+    for axis in entry.variants.axes or []:
+        print(axis.name, axis.domain, axis.default)
+
+# Loads the dataset itself
+dataset = entry.dataset()
+```
+
+```{eval-rst}
+.. autoclass:: datamaestro.catalog.Catalog
+    :members: load, build, get, search, facets
+
+.. autofunction:: datamaestro.catalog.parse_query
+
+.. autoclass:: datamaestro.catalog.DatasetEntry
+    :members: dataset, from_dataset
+
+.. autoclass:: datamaestro.catalog.VariantsInfo
+    :members: axes, examples, documentation
+
+.. autoclass:: datamaestro.catalog.VariantAxis
+
+.. autoclass:: datamaestro.catalog.LoadError
+```
+
+## Registry of Downloaded Datasets
+
+```{eval-rst}
+.. automodule:: datamaestro.cleaner
+    :members: register, sync, entries, SyncReport
+```
+
 ## Search Conditions
 
-For programmatic dataset search:
+Deprecated: use the catalog (see above), which does not need to load the
+datasets. To search loaded datasets:
 
 ```python
 from datamaestro.search import Condition, AndCondition, TagCondition

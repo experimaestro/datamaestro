@@ -37,8 +37,10 @@ ds = prepare_dataset("com.lecun.mnist", context=Path("/path/to/data"))
 │   ├── image/              # Image repository datasets
 │   │   └── com/lecun/mnist/
 │   ├── text/               # Text repository datasets
-│   └── ml/                 # ML repository datasets
+│   ├── ml/                 # ML repository datasets
+│   └── ds-cache-cleaner/   # Registry of the downloaded datasets
 ├── cache/                   # Temporary download cache
+│   └── catalog/            # Lists of datasets (when not in the environment)
 └── settings.json           # Global settings
 ```
 
@@ -148,6 +150,38 @@ Downloaded files are cached in `$DATAMAESTRO_DIR/cache/` to avoid re-downloading
 ```bash
 rm -rf ~/datamaestro/cache/*
 ```
+
+### Catalog of Datasets
+
+`datamaestro search` and `datamaestro serve` use a cached list of the
+datasets defined in the current Python environment (it is rebuilt when a
+repository is installed, updated or modified). Since each environment (e.g.
+each uv project) can have different repositories or repository versions,
+the list is stored in the environment itself:
+`<environment>/share/datamaestro/catalog.json` (e.g.
+`.venv/share/datamaestro/catalog.json` for a uv project).
+
+When the environment is not writable, or is temporary (`uv run --with ...`),
+the list is stored in `$DATAMAESTRO_DIR/cache/catalog/`, in a file named
+after the installed repositories and their versions; the 10 most recently
+used files are kept. These files can be deleted at any time.
+
+## Registry of Downloaded Datasets
+
+Downloaded datasets are recorded in `data/ds-cache-cleaner/`, the format
+read by [ds-cache-cleaner](https://pypi.org/project/ds-cache-cleaner/), a
+tool to see and clean up the disk space used by datasets and models
+caches. The registry is updated when a dataset is downloaded; registration
+errors never make a download fail. `datamaestro cache sync` updates the
+registry after datasets were downloaded or deleted outside datamaestro.
+
+A data folder can be shared by several Python environments (e.g. uv
+projects) with different repositories, or repository versions, installed.
+Each registered dataset thus records the repository version and the
+definition module that last used it, which lets `datamaestro serve` and
+`datamaestro orphans` show downloaded datasets that are not defined in the
+current environment. A sync runs automatically the first time a repository
+version is used with a data folder.
 
 ## Remote Execution
 

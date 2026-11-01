@@ -38,12 +38,14 @@ The main repository only deals with very generic processing (downloading, basic 
 
 The command line interface allows to interact with the datasets. The commands are listed below, help can be found by typing `datamaestro COMMAND --help`:
 
-- `search` search dataset by name, tags and/or tasks
+- `search` search dataset by id, name, description, tags and/or tasks
 - `download` download files (if accessible on Internet) or ask for download path otherwise
 - `prepare` download dataset files and outputs a JSON containing path and other dataset information
 - `repositories` list the available repositories
-- `orphans` list data directories that do no correspond to any registered dataset (and allows to clean them up)
+- `orphans` list data directories that do not correspond to any dataset defined in the current environment
 - `create-dataset` creates a dataset definition
+- `serve` starts a web interface to browse the datasets (needs `pip install datamaestro[gui]`)
+- `cache sync` updates the [ds-cache-cleaner](https://pypi.org/project/ds-cache-cleaner/) registry of downloaded datasets
 
 
 # Example (CLI)

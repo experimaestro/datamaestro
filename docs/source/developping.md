@@ -145,10 +145,13 @@ datamaestro/
 ├── src/datamaestro/
 │   ├── __init__.py          # Package init, version
 │   ├── __main__.py          # CLI entry point
+│   ├── catalog.py           # Cached list of datasets, search
+│   ├── cleaner.py           # ds-cache-cleaner registry of downloads
 │   ├── context.py           # Context and Repository classes
 │   ├── definitions.py       # Dataset decorators and models
+│   ├── gui.py               # Web interface (datamaestro serve)
 │   ├── record.py            # Record system (deprecated)
-│   ├── search.py            # Search conditions
+│   ├── search.py            # Search conditions (deprecated)
 │   ├── settings.py          # Settings management
 │   ├── utils.py             # Utility functions
 │   ├── sphinx.py            # Sphinx documentation extension

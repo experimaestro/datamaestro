@@ -41,6 +41,20 @@ datamaestro search repo:image mnist
 datamaestro search mnist tag:benchmark
 ```
 
+Terms without a prefix are matched against the id, name, description, tags
+and tasks of the datasets (see the `search` command in the [command line interface](cli.md)).
+
+### Browsing Datasets in a Web Interface
+
+With the `gui` extra installed, `datamaestro serve` starts a web interface
+(at <http://127.0.0.1:8080> by default) to search and browse the datasets,
+see which ones are downloaded, and choose the variants of a dataset:
+
+```bash
+pip install "datamaestro[gui]"
+datamaestro serve
+```
+
 ### Getting Dataset Information
 
 ```bash

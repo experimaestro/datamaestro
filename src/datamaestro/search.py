@@ -1,3 +1,9 @@
+"""Search conditions on loaded datasets
+
+Deprecated: `datamaestro search` uses :mod:`datamaestro.catalog`, which does
+not need to import the dataset definitions.
+"""
+
 from .definitions import AbstractDataset
 import re
 
