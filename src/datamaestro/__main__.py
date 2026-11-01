@@ -117,6 +117,15 @@ def info(config: Config, dataset):
         print("Tags:", ", ".join(dataset.tags))
     if dataset.tasks:
         print("Tasks:", ", ".join(dataset.tasks))
+    if dataset.requirements:
+        missing = set(dataset.missing_requirements())
+        print(
+            "Requires:",
+            ", ".join(
+                f"{r}{' [missing]' if r in missing else ''}"
+                for r in dataset.requirements
+            ),
+        )
 
     variants = getattr(dataset, "variants", None)
     if variants is not None:

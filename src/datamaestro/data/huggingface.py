@@ -18,8 +18,10 @@ import logging
 from experimaestro import Param, Meta, field, Task, PathGenerator
 
 from datamaestro.download.huggingface import hf_download_and_prepare
+from datamaestro.requirements import require, requires
 
 
+@requires("datasets")
 class HuggingFaceDataset(Base):
     """Adapter for datasets from HuggingFace Hub or local disk mirrors.
 
@@ -71,6 +73,7 @@ class HuggingFaceDataset(Base):
         :func:`~datamaestro.download.huggingface.hf_download_and_prepare`.
         """
         super().download()
+        require(self.__class__, what=f"{self.__class__.__name__} ({self.source})")
 
         # Streaming mode never materialises anything locally.
         # When local_path is set (e.g. from task output directory or local mirror),
@@ -88,6 +91,8 @@ class HuggingFaceDataset(Base):
 
     @cached_property
     def data(self):
+        require(self.__class__, what=f"{self.__class__.__name__} ({self.source})")
+
         if self.local_path is not None:
             from datasets import load_from_disk
 
@@ -99,12 +104,7 @@ class HuggingFaceDataset(Base):
                 return load_dataset(str(self.local_path))
 
         if self.streaming:
-            try:
-                from datasets import load_dataset
-            except ModuleNotFoundError:
-                logging.error("the datasets library is not installed:")
-                logging.error("pip install datasets")
-                raise
+            from datasets import load_dataset
 
             return load_dataset(
                 self.source,

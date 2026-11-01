@@ -163,6 +163,9 @@ Parameters
      - Version timestamp for evolving datasets.
    * - ``size``
      - Dataset size (for documentation).
+   * - ``requires``
+     - Python modules needed by the dataset that are not dependencies of the
+       repository (see :ref:`dataset-requirements`).
    * - ``as_prepare`` (deprecated)
      - If True, the function receives the dataset object for manual resource handling.
 
@@ -242,6 +245,81 @@ HuggingFace Integration
     @dataset(url="https://huggingface.co/datasets/squad")
     class Squad(QADataset):
         HF_DATA = HFDownloader("squad_data", "squad")
+
+.. _dataset-requirements:
+
+Python Requirements
+-------------------
+
+Some datasets need Python packages that the repository does not depend on
+(e.g. HuggingFace ``datasets``, or a parser for an exotic format), typically
+because they are heavy and only useful for a few datasets. They are declared
+with ``requires``, so that datamaestro checks them *before* downloading
+anything and tells users what to install, instead of failing in the middle of
+a download with an ``ImportError``:
+
+.. code-block:: python
+
+    @dataset(
+        url="https://huggingface.co/datasets/org/name",
+        requires={"datasets": "datamaestro_myplugin[huggingface]"},
+    )
+    class MyDataset(Dataset):
+        def config(self) -> MyHFData:
+            ...
+
+``requires`` accepts a module name (``"datasets"``), a list of module names,
+or a mapping from module name to what should be installed to get it, as a
+Python requirement — typically an extra of the plugin, so that versions are
+handled in one place (the plugin's ``pyproject.toml``):
+
+.. code-block:: toml
+
+    [project.optional-dependencies]
+    huggingface = ["datasets>=2.19"]
+
+Requirements are checked when the dataset is downloaded (``prepare_dataset``,
+``datamaestro download/prepare``, or experimaestro preparing a task). If some
+are missing, the download fails with a
+:class:`~datamaestro.requirements.MissingRequirementError` (an
+``ImportError``) listing them::
+
+    Missing Python requirements for dataset org.example.name:
+      - datasets: not installed
+    Please install: datamaestro_myplugin[huggingface]
+
+A directory named like a required module (without ``__init__.py``) in the
+current directory shadows the installed package; it is reported as such
+rather than failing later with a confusing error.
+
+Requirements are shown by ``datamaestro info`` (with ``[missing]`` for those
+not available) and in the generated documentation.
+
+**Data types.** When a requirement comes from the data type rather than from
+the dataset, declare it on the type with
+:func:`~datamaestro.requirements.requires`: every dataset whose configuration
+is of this type (or of a subclass) inherits it. This is how
+:class:`~datamaestro.data.huggingface.HuggingFaceDataset` declares its
+dependency on ``datasets``. A dataset can still give a more precise
+installation target for the same module (as in the example above), which
+takes precedence:
+
+.. code-block:: python
+
+    from datamaestro.requirements import require, requires
+
+    @requires("pyarrow")
+    class MyParquetData(Base):
+        def iter(self):
+            # Checked here too: the configuration might not come from a
+            # registered dataset
+            require(self.__class__, what="MyParquetData")
+            import pyarrow.parquet as pq
+            ...
+
+Avoid importing optional modules at the top level of a dataset definition
+module: import them where they are used, so that the dataset can be listed,
+documented and checked even when they are missing.
 
 Referencing Other Datasets
 --------------------------

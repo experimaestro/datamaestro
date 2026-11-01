@@ -117,6 +117,17 @@ class DatasetsDirective(SphinxDirective):
                     )
                 )
 
+        requirements = getattr(ds, "requirements", ())
+        if requirements:
+            content.append(
+                nodes.paragraph(
+                    "",
+                    "",
+                    nodes.strong("", "Requires: "),
+                    nodes.Text(", ".join(str(r) for r in requirements)),
+                )
+            )
+
         if ds.url:
             href = nodes.reference(refuri=ds.url)
             href.append(nodes.Text(ds.url))

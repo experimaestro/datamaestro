@@ -139,6 +139,17 @@ def my_dataset():
     ...
 ```
 
+## Python Requirements
+
+Declaring and checking the optional Python modules needed by datasets and
+data types (see [Python Requirements](../datasets.rst) in the dataset
+definition guide):
+
+```{eval-rst}
+.. automodule:: datamaestro.requirements
+    :members: Requirement, MissingRequirementError, requires, require, missing_requirements, parse_requirements, type_requirements
+```
+
 ## Repository
 
 ```{eval-rst}

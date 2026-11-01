@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from .data import Base
     from .context import Repository, Context, DatafolderPath  # noqa: F401 (re-exports)
     from datamaestro.download import Download, Resource
+    from datamaestro.requirements import Requirement, RequirementsSpec
     from .variants import Variants
 
 
@@ -275,6 +276,9 @@ class AbstractDataset(AbstractData):
     doi: Optional[str] = None
     """The DOI of this dataset"""
 
+    requirements: Tuple["Requirement", ...] = ()
+    """Python modules needed to download or use this dataset"""
+
     def __init__(self, repository: Optional["Repository"]):
         super().__init__()
         self.repository = repository
@@ -292,6 +296,26 @@ class AbstractDataset(AbstractData):
 
         self.url = None
         self.version = None
+        self.requirements = ()
+
+    def missing_requirements(self) -> List["Requirement"]:
+        """Returns the requirements whose Python module cannot be used"""
+        from datamaestro.requirements import missing_requirements
+
+        return missing_requirements(self.requirements)
+
+    def check_requirements(self):
+        """Checks that the Python requirements are available
+
+        :raises datamaestro.requirements.MissingRequirementError: when some
+            required modules are missing
+        """
+        from datamaestro.requirements import MissingRequirementError
+
+        if missing := self.missing_requirements():
+            raise MissingRequirementError(
+                missing, f"dataset {getattr(self, 'id', self)}"
+            )
 
     @property
     def description(self):
@@ -384,6 +408,15 @@ class AbstractDataset(AbstractData):
         from filelock import FileLock
 
         from datamaestro.download import ResourceState
+        from datamaestro.requirements import MissingRequirementError
+
+        # Check the Python requirements before downloading anything
+        try:
+            self.check_requirements()
+        except MissingRequirementError as exc:
+            logging.error("%s", exc)
+            self._download_error = exc
+            return False
 
         # ``prepare()`` materializes the config so downstream hooks /
         # legacy function-based datasets see their resource paths. For
@@ -659,6 +692,14 @@ class DatasetWrapper(AbstractDataset):
         self.url = annotation.url
         self.doi = annotation.doi
         self.as_prepare = annotation.as_prepare
+
+        # Python requirements: declared on the dataset, and inherited from
+        # the configuration type (see :func:`datamaestro.requirements.requires`)
+        from datamaestro.requirements import type_requirements, _unique
+
+        self.requirements = _unique(
+            (*annotation.requirements, *type_requirements(self.base))
+        )
 
         # Variants support — None for classic flat datasets.
         self.variants = annotation.variants
@@ -1040,6 +1081,12 @@ class dataset:
     :param size: The size of the dataset (should be a parsable format).
     :param doi: The DOI of the corresponding paper.
     :param as_prepare: Resources are setup within the method itself
+    :param requires: Python modules needed to download or use the dataset
+        that are not dependencies of the repository: a module name, a list
+        of module names or :class:`~datamaestro.requirements.Requirement`, or
+        a mapping from module name to what should be installed (e.g.
+        ``{"datasets": "datamaestro_ir[huggingface]"}``). They are checked
+        before downloading; see :mod:`datamaestro.requirements`.
     :param variants: Optional :class:`~datamaestro.variants.Variants`
         instance (or subclass) that declares the variant space. When
         provided, callers select a specific variant via a query-style
@@ -1057,6 +1104,7 @@ class dataset:
         size: None | int | str = None,
         doi: None | str = None,
         as_prepare: bool = False,
+        requires: "RequirementsSpec" = None,
         variants: "Variants | type | None" = None,
     ):
         if hasattr(base, "__datamaestro__") and isinstance(
@@ -1073,6 +1121,10 @@ class dataset:
         self.size = size
         self.doi = doi
         self.as_prepare = as_prepare
+
+        from datamaestro.requirements import parse_requirements
+
+        self.requirements = parse_requirements(requires)
         self.variants = self._normalise_variants(variants)
 
     @staticmethod

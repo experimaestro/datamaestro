@@ -137,6 +137,11 @@ Package: `datamaestro.data.huggingface`
 
 For datasets from the HuggingFace Hub or local disk mirrors:
 
+These types require the `datasets` package, which is not a dependency of
+datamaestro: every dataset using them inherits this requirement (see
+[Python Requirements](../datasets.rst)), and plugins can point to their own
+extra with `requires={"datasets": "myplugin[huggingface]"}`.
+
 ```{eval-rst}
 .. autoxpmconfig:: datamaestro.data.huggingface.HuggingFaceDataset
 ```

@@ -446,10 +446,16 @@ class Repository(BaseRepository):
 
     def datasets(self, candidate: str):
         """Returns the dataset candidates from a module"""
+        name = "%s.config.%s" % (self.module, candidate)
         try:
-            module = importlib.import_module("%s.config.%s" % (self.module, candidate))
-        except ModuleNotFoundError:
-            return None
+            module = importlib.import_module(name)
+        except ModuleNotFoundError as e:
+            # Only "this module does not exist" means "no candidate": a
+            # module missing one of *its* imports (e.g. an optional
+            # dependency) must not silently look like an unknown dataset
+            if e.name is not None and (name == e.name or name.startswith(e.name + ".")):
+                return None
+            raise
         return Datasets(module)
 
     def modules(self) -> Iterator["Module"]:
