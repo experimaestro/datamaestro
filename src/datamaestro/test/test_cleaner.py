@@ -63,6 +63,7 @@ def test_download_registers(make_dataset):
         "repository": "test-simple",
         "tags": ["a", "b"],
         "url": "http://example.com/data",
+        "module": __name__,
     }
 
 
@@ -151,3 +152,72 @@ def test_sync_only_once(make_dataset, monkeypatch):
 
     assert new.download()
     assert _entry(old) is None
+
+
+def test_new_repository_syncs(make_dataset, monkeypatch):
+    """A repository that was not installed during the first sync gets synced"""
+    import json
+
+    old, new = make_dataset(), make_dataset()
+    _without_registration(monkeypatch, old)
+    monkeypatch.setattr(Context, "datasets", lambda self: iter([old, new]))
+
+    context = old.context
+    marker = context.datapath / "ds-cache-cleaner" / cleaner.SYNC_MARKER
+    marker.write_text(json.dumps(["other"]))
+    monkeypatch.setattr(Context, "repositories", lambda self: iter([old.repository]))
+
+    assert new.download()
+    assert _entry(old) is not None
+    assert json.loads(marker.read_text()) == ["other", "test-simple"]
+
+
+def test_old_marker_syncs_again(make_dataset, monkeypatch):
+    old, new = make_dataset(), make_dataset()
+    _without_registration(monkeypatch, old)
+    monkeypatch.setattr(Context, "datasets", lambda self: iter([old, new]))
+
+    marker = old.context.datapath / "ds-cache-cleaner" / cleaner.SYNC_MARKER
+    marker.write_text("")
+    monkeypatch.setattr(Context, "repositories", lambda self: iter([old.repository]))
+
+    assert new.download()
+    assert _entry(old) is not None
+
+
+def test_repository_version(make_dataset, monkeypatch):
+    """The entry records the repository version that last used it"""
+    ds = make_dataset()
+    monkeypatch.setattr(MyRepository, "version", classmethod(lambda cls: "1.0"))
+    assert ds.download()
+    first = _entry(ds)
+    assert first.metadata["repository_version"] == "1.0"
+
+    # Used from an environment with another version: metadata is updated,
+    # but the size is not recomputed
+    cleaner.registry(ds.context).update_size(cleaner.PART, first.path, 1)
+    monkeypatch.setattr(MyRepository, "version", classmethod(lambda cls: "2.0"))
+    assert ds.download()
+
+    entry = _entry(ds)
+    assert entry.metadata["repository_version"] == "2.0"
+    assert entry.size == 1
+    assert entry.created == first.created
+
+
+def test_new_repository_version_syncs(make_dataset, monkeypatch):
+    """A repository version that was never synced gets synced"""
+    import json
+
+    old, new = make_dataset(), make_dataset()
+    _without_registration(monkeypatch, old)
+    monkeypatch.setattr(Context, "datasets", lambda self: iter([old, new]))
+    monkeypatch.setattr(Context, "repositories", lambda self: iter([old.repository]))
+    monkeypatch.setattr(MyRepository, "version", classmethod(lambda cls: "2.0"))
+
+    marker = old.context.datapath / "ds-cache-cleaner" / cleaner.SYNC_MARKER
+    marker.write_text(json.dumps(["test-simple==1.0"]))
+
+    assert new.download()
+    assert _entry(old) is not None
+    assert json.loads(marker.read_text()) == ["test-simple==1.0", "test-simple==2.0"]
