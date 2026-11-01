@@ -252,6 +252,32 @@ def orphans(config: Config, size):
         lookup(repository.datapath)
 
 
+@cli.group(help="Manage the ds-cache-cleaner registry of downloaded datasets")
+def cache():
+    pass
+
+
+@cache.command(
+    "sync",
+    help="Register the downloaded datasets with ds-cache-cleaner, "
+    "and forget the deleted ones",
+)
+@click.option("--dry-run", is_flag=True, help="Only show what would change")
+@pass_cfg
+def cache_sync(config: Config, dry_run: bool):
+    from datamaestro.cleaner import sync
+
+    report = sync(config.context, dry_run=dry_run)
+    for path in report.added:
+        print(f"+ {path}")
+    for path in report.removed:
+        print(f"- {path}")
+    print(
+        f"{len(report.added)} registered, {len(report.removed)} removed"
+        + (" (dry run)" if dry_run else "")
+    )
+
+
 # --- Manage external data folders
 
 

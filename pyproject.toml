@@ -12,6 +12,7 @@ dependencies = [
     "cached-property>=2.0.1",
     "click>=8.2.1",
     "docstring-parser>=0.16",
+    "ds-cache-cleaner>=0.4.0",
     "experimaestro>=2.5.0",
     "filelock>=3.13.0",
     "idna>=3.15",

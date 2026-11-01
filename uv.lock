@@ -405,6 +405,7 @@ dependencies = [
     { name = "cached-property" },
     { name = "click" },
     { name = "docstring-parser" },
+    { name = "ds-cache-cleaner" },
     { name = "experimaestro" },
     { name = "filelock" },
     { name = "idna" },
@@ -454,6 +455,7 @@ requires-dist = [
     { name = "cached-property", specifier = ">=2.0.1" },
     { name = "click", specifier = ">=8.2.1" },
     { name = "docstring-parser", specifier = ">=0.16" },
+    { name = "ds-cache-cleaner", specifier = ">=0.4.0" },
     { name = "experimaestro", specifier = ">=2.5.0" },
     { name = "filelock", specifier = ">=3.13.0" },
     { name = "idna", specifier = ">=3.15" },
@@ -551,6 +553,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/36/8b/ab2d8a292bba8fe3135cacc8bfd3576710a14b8f2d0a8cde19130d5c9d21/domdf_python_tools-3.10.0.tar.gz", hash = "sha256:2ae308d2f4f1e9145f5f4ba57f840fbfd1c2983ee26e4824347789649d3ae298", size = 100458, upload-time = "2025-02-12T17:34:05.747Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5b/11/208f72084084d3f6a2ed5ebfdfc846692c3f7ad6dce65e400194924f7eed/domdf_python_tools-3.10.0-py3-none-any.whl", hash = "sha256:5e71c1be71bbcc1f881d690c8984b60e64298ec256903b3147f068bc33090c36", size = 126860, upload-time = "2025-02-12T17:34:04.093Z" },
+]
+
+[[package]]
+name = "ds-cache-cleaner"
+version = "0.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "pydantic" },
+    { name = "rich" },
+    { name = "textual" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/77/94/5018a247868469cae7ed721e3b051c4804e568b1f96070d363a0740e3427/ds_cache_cleaner-0.4.0.tar.gz", hash = "sha256:04bea121ff7b5223ad5662053e5871953e0d54de1daa701cba1aa1d7e875d4b8", size = 22618, upload-time = "2026-01-13T12:54:39.086Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a9/27/95ff403f599ee1d94e2b6b3b2b1e3505ac99494f27c66be964879370e108/ds_cache_cleaner-0.4.0-py3-none-any.whl", hash = "sha256:971263ee313e41e8e4c86cf0034853bcaf3f239e283e6aead02c6a7a399223de", size = 28373, upload-time = "2026-01-13T12:54:37.596Z" },
 ]
 
 [[package]]

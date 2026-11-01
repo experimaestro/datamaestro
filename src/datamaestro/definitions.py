@@ -400,8 +400,14 @@ class AbstractDataset(AbstractData):
 
         self.datapath.mkdir(parents=True, exist_ok=True)
         lock_path = self.datapath / ".state.lock"
+        self._download_changed = False
         with FileLock(str(lock_path)):
             success = self._download_locked(force, ResourceState)
+
+        if success:
+            from datamaestro.cleaner import register
+
+            register(self, updated=self._download_changed)
 
         return success
 
@@ -516,6 +522,7 @@ class AbstractDataset(AbstractData):
                     resource.path,
                 )
                 resource.state = ResourceState.COMPLETE
+                self._download_changed = True
                 self._cleanup_transient_deps(resource, ResourceState)
                 continue
 
@@ -545,6 +552,7 @@ class AbstractDataset(AbstractData):
                 if resource.has_files():
                     _move_path(resource.transient_path, resource.path)
                 resource.state = ResourceState.COMPLETE
+                self._download_changed = True
 
             except Exception as exc:
                 logging.error("Could not download resource %s", resource)
