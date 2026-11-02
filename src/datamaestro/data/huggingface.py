@@ -17,7 +17,7 @@ from . import Base
 import logging
 from experimaestro import Param, Meta, field, Task, PathGenerator
 
-from datamaestro.download.huggingface import hf_download_and_prepare
+from datamaestro.download.huggingface import hf_download_and_prepare, hf_is_prepared
 from datamaestro.requirements import require, requires
 
 
@@ -81,12 +81,35 @@ class HuggingFaceDataset(Base):
         if self.streaming or self.local_path is not None:
             return
 
-        hf_download_and_prepare(
+        try:
+            hf_download_and_prepare(
+                self.source,
+                self.name,
+                data_files=self.data_files,
+                split=self.split,
+                revision=self.revision,
+            )
+        except Exception as exc:
+            from datamaestro.definitions import DownloadError
+
+            raise DownloadError(
+                f"Could not download HuggingFace dataset {self.source}"
+                + (f" ({self.name})" if self.name else "")
+            ) from exc
+
+    def is_prepared(self) -> bool:
+        """Whether the dataset is already materialised locally (read-only)."""
+        if not super().is_prepared():
+            return False
+        if self.streaming:
+            return True
+        if self.local_path is not None:
+            return Path(self.local_path).exists()
+        return hf_is_prepared(
             self.source,
             self.name,
             data_files=self.data_files,
             split=self.split,
-            revision=self.revision,
         )
 
     @cached_property
