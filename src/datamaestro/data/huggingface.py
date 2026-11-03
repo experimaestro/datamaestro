@@ -110,6 +110,7 @@ class HuggingFaceDataset(Base):
             self.name,
             data_files=self.data_files,
             split=self.split,
+            revision=self.revision,
         )
 
     @cached_property
@@ -209,6 +210,7 @@ class FlattenAndShuffleDataset(Task):
             )
 
         import os
+        import shutil
         from datasets import concatenate_datasets
 
         # Pre-import multiprocess submodules before long dataset loading so lazy
@@ -247,7 +249,12 @@ class FlattenAndShuffleDataset(Task):
         )
         try:
             shuffled.save_to_disk(self.output_dir, num_proc=num_proc)
-        except (ModuleNotFoundError, OSError) as e:
+        except ModuleNotFoundError as e:
+            # Only the worker-pool failure observed on shared filesystems
+            # (e.g. "No module named 'multiprocess.queues'" when .venv files on
+            # Lustre change mid-run). Anything else — notably OSError such as
+            # ENOSPC — must propagate rather than trigger a long single-process
+            # retry that would fail the same way.
             if num_proc <= 1:
                 raise
             logging.warning(
@@ -255,6 +262,14 @@ class FlattenAndShuffleDataset(Task):
                 num_proc,
                 e,
             )
+            # The failed attempt may have left partial shards / state files in
+            # output_dir; wipe it so the retry starts from a clean directory and
+            # cannot produce a dataset mixing shards from both attempts.
+            if Path(self.output_dir).exists():
+                logging.warning(
+                    "Removing partially written %s before retrying", self.output_dir
+                )
+                shutil.rmtree(self.output_dir)
             shuffled.save_to_disk(self.output_dir)
         logging.info("Dataset successfully saved to %s.", self.output_dir)
 

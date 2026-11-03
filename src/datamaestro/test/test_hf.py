@@ -286,7 +286,9 @@ class TestHuggingFaceDatasetDownload:
         assert ds_stream.is_prepared() is True
 
         # Different split cached -> still False for fiqa_en
-        other_dir = cache_dir / "user___dataset" / "queries-1111" / "0.0.0" / "aaaa"
+        other_dir = (
+            cache_dir / "user___dataset" / "queries-1111111111111111" / "0.0.0" / "aaaa"
+        )
         other_dir.mkdir(parents=True)
         (other_dir / "dataset_info.json").write_text(
             json.dumps({"config_name": "queries", "splits": {"fever_en": {}}}),
@@ -296,7 +298,9 @@ class TestHuggingFaceDatasetDownload:
         assert ds.is_prepared() is False
 
         # Matching split cached with .arrow shard -> True
-        match_dir = cache_dir / "user___dataset" / "queries-2222" / "0.0.0" / "bbbb"
+        match_dir = (
+            cache_dir / "user___dataset" / "queries-2222222222222222" / "0.0.0" / "bbbb"
+        )
         match_dir.mkdir(parents=True)
         (match_dir / "dataset_info.json").write_text(
             json.dumps({"config_name": "queries", "splits": {"fiqa_en": {}}}),
@@ -557,6 +561,118 @@ class TestHuggingFaceOfflineHashedFallback:
         assert restricted is True
         assert builder.config.name == "quora-ccbd7fec3e15cba7"
 
+    def test_offline_hashed_fallback_ignores_prefixed_config(
+        self, monkeypatch, tmp_path
+    ):
+        """``quora-en`` is another config, not a hashed variant of ``quora``."""
+        from datamaestro.download.huggingface import _find_cached_hashed_builder
+
+        cache_dir = tmp_path / "hf_cache"
+        (cache_dir / "user___dataset" / "quora-en").mkdir(parents=True)
+
+        fake = types.ModuleType("datasets")
+        fake.config = types.SimpleNamespace(HF_DATASETS_CACHE=str(cache_dir))
+        fake.load_dataset_builder = MagicMock()
+        monkeypatch.setitem(sys.modules, "datasets", fake)
+        monkeypatch.setitem(sys.modules, "datasets.config", fake.config)
+
+        assert _find_cached_hashed_builder("user/dataset", "quora", "train") is None
+        fake.load_dataset_builder.assert_not_called()
+
+
+class TestHfIsPrepared:
+    """Read-only cache check: must never report a false "cached"."""
+
+    HASH = "ccbd7fec3e15cba7"
+
+    @pytest.fixture
+    def cache_dir(self, monkeypatch, tmp_path):
+        cache_dir = tmp_path / "hf_cache"
+        fake = types.ModuleType("datasets")
+        fake.config = types.SimpleNamespace(HF_DATASETS_CACHE=str(cache_dir))
+        monkeypatch.setitem(sys.modules, "datasets", fake)
+        monkeypatch.setitem(sys.modules, "datasets.config", fake.config)
+        return cache_dir
+
+    @staticmethod
+    def make_build(cache_dir, config_dir, splits, shards):
+        import json
+
+        d = cache_dir / "user___dataset" / config_dir / "0.0.0" / "abcd"
+        d.mkdir(parents=True)
+        (d / "dataset_info.json").write_text(
+            json.dumps({"splits": {s: {} for s in splits}}), encoding="utf-8"
+        )
+        for shard in shards:
+            (d / shard).write_bytes(b"arrow")
+        return d
+
+    def test_ignores_prefixed_config(self, cache_dir):
+        from datamaestro.download.huggingface import hf_is_prepared
+
+        self.make_build(cache_dir, "corpus-en", ["train"], ["ds-train.arrow"])
+        assert hf_is_prepared("user/dataset", "corpus", split="train") is False
+
+        self.make_build(cache_dir, f"corpus-{self.HASH}", ["train"], ["ds-train.arrow"])
+        assert hf_is_prepared("user/dataset", "corpus", split="train") is True
+
+    def test_requires_shards_of_requested_split(self, cache_dir):
+        from datamaestro.download.huggingface import hf_is_prepared
+
+        # Split listed in the info, but only shards of other splits on disk
+        # (including one sharing the name as a prefix).
+        self.make_build(
+            cache_dir,
+            f"queries-{self.HASH}",
+            ["fiqa_en"],
+            ["ds-fiqa_en_dev.arrow", "ds-train.arrow"],
+        )
+        assert hf_is_prepared("user/dataset", "queries", split="fiqa_en") is False
+
+    @pytest.mark.parametrize(
+        "shards",
+        [
+            ["ds-fiqa_en.arrow"],
+            ["ds-fiqa_en-00000-of-00002.arrow", "ds-fiqa_en-00001-of-00002.arrow"],
+        ],
+    )
+    def test_accepts_single_and_multi_shard(self, cache_dir, shards):
+        from datamaestro.download.huggingface import hf_is_prepared
+
+        self.make_build(cache_dir, f"queries-{self.HASH}", ["fiqa_en"], shards)
+        assert hf_is_prepared("user/dataset", "queries", split="fiqa_en") is True
+        # Slices map back to the base split.
+        assert hf_is_prepared("user/dataset", "queries", split="fiqa_en[:10%]") is True
+
+    def test_no_split_requires_all_splits(self, cache_dir):
+        from datamaestro.download.huggingface import hf_is_prepared
+
+        d = self.make_build(cache_dir, "queries", ["train", "test"], ["ds-train.arrow"])
+        assert hf_is_prepared("user/dataset", "queries") is False
+        (d / "ds-test.arrow").write_bytes(b"arrow")
+        assert hf_is_prepared("user/dataset", "queries") is True
+
+    def test_false_when_revision_pinned(self, cache_dir):
+        from datamaestro.download.huggingface import hf_is_prepared
+
+        self.make_build(cache_dir, "queries", ["train"], ["ds-train.arrow"])
+        assert hf_is_prepared("user/dataset", "queries", split="train") is True
+        assert (
+            hf_is_prepared("user/dataset", "queries", split="train", revision="abc")
+            is False
+        )
+
+    def test_dataset_is_prepared_forwards_revision(self, cache_dir):
+        self.make_build(cache_dir, "queries", ["train"], ["ds-train.arrow"])
+        ds = HuggingFaceDataset.C(
+            id="test.hf.rev",
+            repo_id="user/dataset",
+            name="queries",
+            split="train",
+            revision="abc",
+        )
+        assert ds.is_prepared() is False
+
 
 class TestFlattenAndShuffleDataset:
     def test_empty_samples_raises_value_error(self):
@@ -613,6 +729,53 @@ class TestFlattenAndShuffleDataset:
         assert shuffled.save_to_disk.call_count == 2
         assert shuffled.save_to_disk.call_args_list[0].kwargs == {"num_proc": 4}
         assert shuffled.save_to_disk.call_args_list[1].kwargs == {}
+
+    def test_fallback_wipes_partial_output(self, fake_datasets, monkeypatch, tmp_path):
+        from experimaestro.xpmutils import DirectoryContext
+
+        monkeypatch.setenv("SLURM_CPUS_PER_TASK", "4")
+        ds1 = HuggingFaceDataset.C(id="ds1", repo_id="user/dataset", name="cfg1")
+        mock_dataset = MagicMock()
+        fake_datasets.concatenate_datasets.return_value = mock_dataset
+        shuffled = mock_dataset.shuffle.return_value
+
+        seen_on_retry = []
+
+        def save_side_effect(path, num_proc=None):
+            if num_proc is not None and num_proc > 1:
+                path.mkdir(parents=True, exist_ok=True)
+                (path / "data-00000-of-00004.arrow").write_bytes(b"partial")
+                raise ModuleNotFoundError("No module named 'multiprocess.queues'")
+            seen_on_retry.append(path.exists())
+
+        shuffled.save_to_disk.side_effect = save_side_effect
+
+        task = FlattenAndShuffleDataset.C(samples=[ds1], seed=42)
+        inst = task.instance(context=DirectoryContext(tmp_path))
+        inst.execute()
+
+        assert seen_on_retry == [False]
+
+    def test_no_fallback_on_oserror(self, fake_datasets, monkeypatch, tmp_path):
+        """E.g. a full disk must fail fast, not retry single-process."""
+        import errno
+
+        from experimaestro.xpmutils import DirectoryContext
+
+        monkeypatch.setenv("SLURM_CPUS_PER_TASK", "4")
+        ds1 = HuggingFaceDataset.C(id="ds1", repo_id="user/dataset", name="cfg1")
+        mock_dataset = MagicMock()
+        fake_datasets.concatenate_datasets.return_value = mock_dataset
+        shuffled = mock_dataset.shuffle.return_value
+        shuffled.save_to_disk.side_effect = OSError(
+            errno.ENOSPC, "No space left on device"
+        )
+
+        task = FlattenAndShuffleDataset.C(samples=[ds1], seed=42)
+        inst = task.instance(context=DirectoryContext(tmp_path))
+        with pytest.raises(OSError):
+            inst.execute()
+        assert shuffled.save_to_disk.call_count == 1
 
     def test_submit_returns_updated_config(self, tmp_path):
         from experimaestro.scheduler.workspace import Workspace
