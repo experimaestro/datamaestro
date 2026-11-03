@@ -594,13 +594,37 @@ class TestFlattenAndShuffleDataset:
 
         fake_datasets.concatenate_datasets.assert_called_once()
         mock_dataset.shuffle.assert_called_once_with(seed=42)
-        flattened = mock_dataset.shuffle.return_value.flatten_indices.return_value
-        flattened.save_to_disk.assert_called_once_with(
-            inst.output_dir,
-            num_proc=mock_dataset.shuffle.return_value.flatten_indices.call_args.kwargs[
-                "num_proc"
-            ],
-        )
+        shuffled = mock_dataset.shuffle.return_value
+        shuffled.flatten_indices.assert_not_called()
+        shuffled.save_to_disk.assert_called_once()
+        assert shuffled.save_to_disk.call_args.args == (inst.output_dir,)
+        assert shuffled.save_to_disk.call_args.kwargs["num_proc"] >= 1
+
+    def test_flatten_and_shuffle_fallback_on_multiprocess_error(
+        self, fake_datasets, monkeypatch, tmp_path
+    ):
+        from experimaestro.xpmutils import DirectoryContext
+
+        monkeypatch.setenv("SLURM_CPUS_PER_TASK", "4")
+        ds1 = HuggingFaceDataset.C(id="ds1", repo_id="user/dataset", name="cfg1")
+
+        mock_dataset = MagicMock()
+        fake_datasets.concatenate_datasets.return_value = mock_dataset
+        shuffled = mock_dataset.shuffle.return_value
+
+        def save_side_effect(path, num_proc=None):
+            if num_proc is not None and num_proc > 1:
+                raise ModuleNotFoundError("No module named 'multiprocess.queues'")
+
+        shuffled.save_to_disk.side_effect = save_side_effect
+
+        task = FlattenAndShuffleDataset.C(samples=[ds1], seed=42)
+        inst = task.instance(context=DirectoryContext(tmp_path))
+        inst.execute()
+
+        assert shuffled.save_to_disk.call_count == 2
+        assert shuffled.save_to_disk.call_args_list[0].kwargs == {"num_proc": 4}
+        assert shuffled.save_to_disk.call_args_list[1].kwargs == {}
 
     def test_submit_returns_updated_config(self, tmp_path):
         from experimaestro.scheduler.workspace import Workspace
