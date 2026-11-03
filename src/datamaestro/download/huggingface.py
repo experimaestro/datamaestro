@@ -47,9 +47,7 @@ def _base_split(split: str | None) -> str | None:
     return m.group(1) if m else None
 
 
-def _find_cached_hashed_builder(
-    source: str, name: str, split: str | None = None
-):
+def _find_cached_hashed_builder(source: str, name: str, split: str | None = None):
     """Attempt to find a cached builder matching a hashed config name (e.g. ``quora-ccbd7fec3e15cba7``).
 
     This happens when ``hf_builder`` restricted ``data_files`` during initial preparation,

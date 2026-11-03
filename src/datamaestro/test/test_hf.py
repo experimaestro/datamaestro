@@ -286,13 +286,7 @@ class TestHuggingFaceDatasetDownload:
         assert ds_stream.is_prepared() is True
 
         # Different split cached -> still False for fiqa_en
-        other_dir = (
-            cache_dir
-            / "user___dataset"
-            / "queries-1111"
-            / "0.0.0"
-            / "aaaa"
-        )
+        other_dir = cache_dir / "user___dataset" / "queries-1111" / "0.0.0" / "aaaa"
         other_dir.mkdir(parents=True)
         (other_dir / "dataset_info.json").write_text(
             json.dumps({"config_name": "queries", "splits": {"fever_en": {}}}),
@@ -302,13 +296,7 @@ class TestHuggingFaceDatasetDownload:
         assert ds.is_prepared() is False
 
         # Matching split cached with .arrow shard -> True
-        match_dir = (
-            cache_dir
-            / "user___dataset"
-            / "queries-2222"
-            / "0.0.0"
-            / "bbbb"
-        )
+        match_dir = cache_dir / "user___dataset" / "queries-2222" / "0.0.0" / "bbbb"
         match_dir.mkdir(parents=True)
         (match_dir / "dataset_info.json").write_text(
             json.dumps({"config_name": "queries", "splits": {"fiqa_en": {}}}),
