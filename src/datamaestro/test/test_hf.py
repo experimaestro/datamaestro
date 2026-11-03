@@ -217,6 +217,98 @@ class TestHuggingFaceDatasetDownload:
         assert ds.prepare() is ds
         prepared(fake_datasets).download_and_prepare.assert_called_once()
 
+    def test_dataset_wrapper_prepare_download_true_triggers_hf_download(
+        self, fake_datasets
+    ):
+        """``AbstractDataset.prepare(download=True)`` must call ``ds.download()``
+        so ``HuggingFaceDataset`` subclasses materialise Arrow shards (issue #27
+        regression after a119973)."""
+        from datamaestro.definitions import Dataset, dataset as dataset_dec
+
+        class WrappedHF(Dataset):
+            def config(self) -> HuggingFaceDataset:
+                return HuggingFaceDataset.C(
+                    repo_id="user/dataset", name="config-a", split="train"
+                )
+
+        WrappedHF.__module__ = "datamaestro.config.test.wrapped_hf"
+        WrappedHF.__qualname__ = "WrappedHF"
+        wrapper = dataset_dec(url="https://huggingface.co/datasets/user/dataset")(
+            WrappedHF
+        ).__dataset__
+
+        cfg = wrapper.prepare(download=True)
+        assert isinstance(cfg, HuggingFaceDataset)
+        prepared(fake_datasets).download_and_prepare.assert_called_once_with(
+            verification_mode="no_checks"
+        )
+
+    def test_download_failure_raises_download_error(self, fake_datasets):
+        """Failures in ``hf_download_and_prepare`` are chained into ``DownloadError``."""
+        from datamaestro.definitions import DownloadError
+
+        fake_datasets.load_dataset_builder.side_effect = ConnectionError("Hub offline")
+        ds = HuggingFaceDataset.C(
+            id="test.hf.dl.err", repo_id="user/dataset", name="config-a"
+        )
+        with pytest.raises(DownloadError, match="user/dataset") as excinfo:
+            ds.download()
+        assert isinstance(excinfo.value.__cause__, ConnectionError)
+
+    def test_is_prepared_checks_hf_cache(self, monkeypatch, tmp_path):
+        """``HuggingFaceDataset.is_prepared()`` checks ``HF_DATASETS_CACHE`` read-only."""
+        import json
+
+        cache_dir = tmp_path / "hf_cache"
+        fake = types.ModuleType("datasets")
+        fake.config = types.SimpleNamespace(HF_DATASETS_CACHE=str(cache_dir))
+        monkeypatch.setitem(sys.modules, "datasets", fake)
+        monkeypatch.setitem(sys.modules, "datasets.config", fake.config)
+
+        ds = HuggingFaceDataset.C(
+            id="test.hf.prep",
+            repo_id="user/dataset",
+            name="queries",
+            split="fiqa_en",
+            streaming=False,
+        )
+        # Cold cache -> False
+        assert ds.is_prepared() is False
+
+        # Streaming mode -> always True
+        ds_stream = HuggingFaceDataset.C(
+            id="test.hf.prep.s",
+            repo_id="user/dataset",
+            name="queries",
+            split="fiqa_en",
+            streaming=True,
+        )
+        assert ds_stream.is_prepared() is True
+
+        # Different split cached -> still False for fiqa_en
+        other_dir = (
+            cache_dir / "user___dataset" / "queries-1111111111111111" / "0.0.0" / "aaaa"
+        )
+        other_dir.mkdir(parents=True)
+        (other_dir / "dataset_info.json").write_text(
+            json.dumps({"config_name": "queries", "splits": {"fever_en": {}}}),
+            encoding="utf-8",
+        )
+        (other_dir / "dataset-fever_en.arrow").write_bytes(b"arrow")
+        assert ds.is_prepared() is False
+
+        # Matching split cached with .arrow shard -> True
+        match_dir = (
+            cache_dir / "user___dataset" / "queries-2222222222222222" / "0.0.0" / "bbbb"
+        )
+        match_dir.mkdir(parents=True)
+        (match_dir / "dataset_info.json").write_text(
+            json.dumps({"config_name": "queries", "splits": {"fiqa_en": {}}}),
+            encoding="utf-8",
+        )
+        (match_dir / "dataset-fiqa_en.arrow").write_bytes(b"arrow")
+        assert ds.is_prepared() is True
+
 
 class TestHuggingFaceDatasetSplitRestriction:
     """Only the requested split should be fetched (``download_and_prepare``
@@ -452,7 +544,7 @@ class TestHuggingFaceOfflineHashedFallback:
         fake = types.ModuleType("datasets")
         fake.config = types.SimpleNamespace(HF_DATASETS_CACHE=str(cache_dir))
 
-        def mock_load_builder(source, name=None, data_files=None):
+        def mock_load_builder(source, name=None, data_files=None, revision=None):
             if name == "quora" and data_files is None:
                 raise ValueError(
                     "Couldn't find cache for user/dataset for config 'quora'"
@@ -468,6 +560,118 @@ class TestHuggingFaceOfflineHashedFallback:
         builder, restricted = hf_builder("user/dataset", name="quora", split="train")
         assert restricted is True
         assert builder.config.name == "quora-ccbd7fec3e15cba7"
+
+    def test_offline_hashed_fallback_ignores_prefixed_config(
+        self, monkeypatch, tmp_path
+    ):
+        """``quora-en`` is another config, not a hashed variant of ``quora``."""
+        from datamaestro.download.huggingface import _find_cached_hashed_builder
+
+        cache_dir = tmp_path / "hf_cache"
+        (cache_dir / "user___dataset" / "quora-en").mkdir(parents=True)
+
+        fake = types.ModuleType("datasets")
+        fake.config = types.SimpleNamespace(HF_DATASETS_CACHE=str(cache_dir))
+        fake.load_dataset_builder = MagicMock()
+        monkeypatch.setitem(sys.modules, "datasets", fake)
+        monkeypatch.setitem(sys.modules, "datasets.config", fake.config)
+
+        assert _find_cached_hashed_builder("user/dataset", "quora", "train") is None
+        fake.load_dataset_builder.assert_not_called()
+
+
+class TestHfIsPrepared:
+    """Read-only cache check: must never report a false "cached"."""
+
+    HASH = "ccbd7fec3e15cba7"
+
+    @pytest.fixture
+    def cache_dir(self, monkeypatch, tmp_path):
+        cache_dir = tmp_path / "hf_cache"
+        fake = types.ModuleType("datasets")
+        fake.config = types.SimpleNamespace(HF_DATASETS_CACHE=str(cache_dir))
+        monkeypatch.setitem(sys.modules, "datasets", fake)
+        monkeypatch.setitem(sys.modules, "datasets.config", fake.config)
+        return cache_dir
+
+    @staticmethod
+    def make_build(cache_dir, config_dir, splits, shards):
+        import json
+
+        d = cache_dir / "user___dataset" / config_dir / "0.0.0" / "abcd"
+        d.mkdir(parents=True)
+        (d / "dataset_info.json").write_text(
+            json.dumps({"splits": {s: {} for s in splits}}), encoding="utf-8"
+        )
+        for shard in shards:
+            (d / shard).write_bytes(b"arrow")
+        return d
+
+    def test_ignores_prefixed_config(self, cache_dir):
+        from datamaestro.download.huggingface import hf_is_prepared
+
+        self.make_build(cache_dir, "corpus-en", ["train"], ["ds-train.arrow"])
+        assert hf_is_prepared("user/dataset", "corpus", split="train") is False
+
+        self.make_build(cache_dir, f"corpus-{self.HASH}", ["train"], ["ds-train.arrow"])
+        assert hf_is_prepared("user/dataset", "corpus", split="train") is True
+
+    def test_requires_shards_of_requested_split(self, cache_dir):
+        from datamaestro.download.huggingface import hf_is_prepared
+
+        # Split listed in the info, but only shards of other splits on disk
+        # (including one sharing the name as a prefix).
+        self.make_build(
+            cache_dir,
+            f"queries-{self.HASH}",
+            ["fiqa_en"],
+            ["ds-fiqa_en_dev.arrow", "ds-train.arrow"],
+        )
+        assert hf_is_prepared("user/dataset", "queries", split="fiqa_en") is False
+
+    @pytest.mark.parametrize(
+        "shards",
+        [
+            ["ds-fiqa_en.arrow"],
+            ["ds-fiqa_en-00000-of-00002.arrow", "ds-fiqa_en-00001-of-00002.arrow"],
+        ],
+    )
+    def test_accepts_single_and_multi_shard(self, cache_dir, shards):
+        from datamaestro.download.huggingface import hf_is_prepared
+
+        self.make_build(cache_dir, f"queries-{self.HASH}", ["fiqa_en"], shards)
+        assert hf_is_prepared("user/dataset", "queries", split="fiqa_en") is True
+        # Slices map back to the base split.
+        assert hf_is_prepared("user/dataset", "queries", split="fiqa_en[:10%]") is True
+
+    def test_no_split_requires_all_splits(self, cache_dir):
+        from datamaestro.download.huggingface import hf_is_prepared
+
+        d = self.make_build(cache_dir, "queries", ["train", "test"], ["ds-train.arrow"])
+        assert hf_is_prepared("user/dataset", "queries") is False
+        (d / "ds-test.arrow").write_bytes(b"arrow")
+        assert hf_is_prepared("user/dataset", "queries") is True
+
+    def test_false_when_revision_pinned(self, cache_dir):
+        from datamaestro.download.huggingface import hf_is_prepared
+
+        self.make_build(cache_dir, "queries", ["train"], ["ds-train.arrow"])
+        assert hf_is_prepared("user/dataset", "queries", split="train") is True
+        assert (
+            hf_is_prepared("user/dataset", "queries", split="train", revision="abc")
+            is False
+        )
+
+    def test_dataset_is_prepared_forwards_revision(self, cache_dir):
+        self.make_build(cache_dir, "queries", ["train"], ["ds-train.arrow"])
+        ds = HuggingFaceDataset.C(
+            id="test.hf.rev",
+            repo_id="user/dataset",
+            name="queries",
+            split="train",
+            revision="abc",
+        )
+        assert ds.is_prepared() is False
 
 
 class TestFlattenAndShuffleDataset:
@@ -494,13 +698,84 @@ class TestFlattenAndShuffleDataset:
 
         fake_datasets.concatenate_datasets.assert_called_once()
         mock_dataset.shuffle.assert_called_once_with(seed=42)
-        flattened = mock_dataset.shuffle.return_value.flatten_indices.return_value
-        flattened.save_to_disk.assert_called_once_with(
-            inst.output_dir,
-            num_proc=mock_dataset.shuffle.return_value.flatten_indices.call_args.kwargs[
-                "num_proc"
-            ],
+        shuffled = mock_dataset.shuffle.return_value
+        shuffled.flatten_indices.assert_not_called()
+        shuffled.save_to_disk.assert_called_once()
+        assert shuffled.save_to_disk.call_args.args == (inst.output_dir,)
+        assert shuffled.save_to_disk.call_args.kwargs["num_proc"] >= 1
+
+    def test_flatten_and_shuffle_fallback_on_multiprocess_error(
+        self, fake_datasets, monkeypatch, tmp_path
+    ):
+        from experimaestro.xpmutils import DirectoryContext
+
+        monkeypatch.setenv("SLURM_CPUS_PER_TASK", "4")
+        ds1 = HuggingFaceDataset.C(id="ds1", repo_id="user/dataset", name="cfg1")
+
+        mock_dataset = MagicMock()
+        fake_datasets.concatenate_datasets.return_value = mock_dataset
+        shuffled = mock_dataset.shuffle.return_value
+
+        def save_side_effect(path, num_proc=None):
+            if num_proc is not None and num_proc > 1:
+                raise ModuleNotFoundError("No module named 'multiprocess.queues'")
+
+        shuffled.save_to_disk.side_effect = save_side_effect
+
+        task = FlattenAndShuffleDataset.C(samples=[ds1], seed=42)
+        inst = task.instance(context=DirectoryContext(tmp_path))
+        inst.execute()
+
+        assert shuffled.save_to_disk.call_count == 2
+        assert shuffled.save_to_disk.call_args_list[0].kwargs == {"num_proc": 4}
+        assert shuffled.save_to_disk.call_args_list[1].kwargs == {}
+
+    def test_fallback_wipes_partial_output(self, fake_datasets, monkeypatch, tmp_path):
+        from experimaestro.xpmutils import DirectoryContext
+
+        monkeypatch.setenv("SLURM_CPUS_PER_TASK", "4")
+        ds1 = HuggingFaceDataset.C(id="ds1", repo_id="user/dataset", name="cfg1")
+        mock_dataset = MagicMock()
+        fake_datasets.concatenate_datasets.return_value = mock_dataset
+        shuffled = mock_dataset.shuffle.return_value
+
+        seen_on_retry = []
+
+        def save_side_effect(path, num_proc=None):
+            if num_proc is not None and num_proc > 1:
+                path.mkdir(parents=True, exist_ok=True)
+                (path / "data-00000-of-00004.arrow").write_bytes(b"partial")
+                raise ModuleNotFoundError("No module named 'multiprocess.queues'")
+            seen_on_retry.append(path.exists())
+
+        shuffled.save_to_disk.side_effect = save_side_effect
+
+        task = FlattenAndShuffleDataset.C(samples=[ds1], seed=42)
+        inst = task.instance(context=DirectoryContext(tmp_path))
+        inst.execute()
+
+        assert seen_on_retry == [False]
+
+    def test_no_fallback_on_oserror(self, fake_datasets, monkeypatch, tmp_path):
+        """E.g. a full disk must fail fast, not retry single-process."""
+        import errno
+
+        from experimaestro.xpmutils import DirectoryContext
+
+        monkeypatch.setenv("SLURM_CPUS_PER_TASK", "4")
+        ds1 = HuggingFaceDataset.C(id="ds1", repo_id="user/dataset", name="cfg1")
+        mock_dataset = MagicMock()
+        fake_datasets.concatenate_datasets.return_value = mock_dataset
+        shuffled = mock_dataset.shuffle.return_value
+        shuffled.save_to_disk.side_effect = OSError(
+            errno.ENOSPC, "No space left on device"
         )
+
+        task = FlattenAndShuffleDataset.C(samples=[ds1], seed=42)
+        inst = task.instance(context=DirectoryContext(tmp_path))
+        with pytest.raises(OSError):
+            inst.execute()
+        assert shuffled.save_to_disk.call_count == 1
 
     def test_submit_returns_updated_config(self, tmp_path):
         from experimaestro.scheduler.workspace import Workspace

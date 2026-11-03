@@ -341,7 +341,12 @@ class AbstractDataset(AbstractData):
         ds.__datamaestro_dataset__ = self
 
         if download:
-            self._download_or_raise()
+            from datamaestro.data import Base
+
+            if isinstance(ds, Base):
+                ds.download()
+            else:
+                self._download_or_raise()
         return ds
 
     def register_hook(self, hookname: str, hook: Callable):

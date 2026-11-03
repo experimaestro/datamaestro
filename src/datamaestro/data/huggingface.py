@@ -17,7 +17,7 @@ from . import Base
 import logging
 from experimaestro import Param, Meta, field, Task, PathGenerator
 
-from datamaestro.download.huggingface import hf_download_and_prepare
+from datamaestro.download.huggingface import hf_download_and_prepare, hf_is_prepared
 from datamaestro.requirements import require, requires
 
 
@@ -81,7 +81,31 @@ class HuggingFaceDataset(Base):
         if self.streaming or self.local_path is not None:
             return
 
-        hf_download_and_prepare(
+        try:
+            hf_download_and_prepare(
+                self.source,
+                self.name,
+                data_files=self.data_files,
+                split=self.split,
+                revision=self.revision,
+            )
+        except Exception as exc:
+            from datamaestro.definitions import DownloadError
+
+            raise DownloadError(
+                f"Could not download HuggingFace dataset {self.source}"
+                + (f" ({self.name})" if self.name else "")
+            ) from exc
+
+    def is_prepared(self) -> bool:
+        """Whether the dataset is already materialised locally (read-only)."""
+        if not super().is_prepared():
+            return False
+        if self.streaming:
+            return True
+        if self.local_path is not None:
+            return Path(self.local_path).exists()
+        return hf_is_prepared(
             self.source,
             self.name,
             data_files=self.data_files,
@@ -186,7 +210,24 @@ class FlattenAndShuffleDataset(Task):
             )
 
         import os
+        import shutil
         from datasets import concatenate_datasets
+
+        # Pre-import multiprocess submodules before long dataset loading so lazy
+        # imports inside BaseContext.Pool() cannot fail if .venv metadata on a
+        # shared filesystem (e.g. Lustre) is updated while the task is running.
+        try:
+            import multiprocess.connection  # noqa: F401
+            import multiprocess.heap  # noqa: F401
+            import multiprocess.pool  # noqa: F401
+            import multiprocess.queues  # noqa: F401
+            import multiprocess.reduction  # noqa: F401
+            import multiprocess.resource_tracker  # noqa: F401
+            import multiprocess.sharedctypes  # noqa: F401
+            import multiprocess.spawn  # noqa: F401
+            import multiprocess.synchronize  # noqa: F401
+        except Exception as e:
+            logging.debug("Could not pre-import multiprocess submodules: %s", e)
 
         logging.info("Concatenating %d HuggingFace datasets...", len(self.samples))
         hf_datasets = [s.data for s in self.samples]
@@ -195,16 +236,41 @@ class FlattenAndShuffleDataset(Task):
         logging.info("Shuffling dataset with seed=%d...", self.seed)
         shuffled = combined_hf.shuffle(seed=self.seed)
 
-        # Maximize speed by using all allocated CPUs
+        # Maximize speed by using all allocated CPUs.
+        # Note: Dataset.save_to_disk() already materializes/flattens _indices
+        # into contiguous Arrow shards on disk, so calling flatten_indices()
+        # beforehand would redundantly write the entire dataset twice (once to
+        # HF_DATASETS_CACHE and once to self.output_dir).
         num_proc = int(os.environ.get("SLURM_CPUS_PER_TASK", os.cpu_count() or 1))
-
-        # Multiprocessing flatten with larger batches to reduce I/O overhead
-        logging.info("Flattening indices with num_proc=%d...", num_proc)
-        flattened = shuffled.flatten_indices(num_proc=num_proc, writer_batch_size=10000)
-
-        # Save to the task's output directory concurrently
-        logging.info("Saving dataset to %s...", self.output_dir)
-        flattened.save_to_disk(self.output_dir, num_proc=num_proc)
+        logging.info(
+            "Saving flattened & shuffled dataset to %s (num_proc=%d)...",
+            self.output_dir,
+            num_proc,
+        )
+        try:
+            shuffled.save_to_disk(self.output_dir, num_proc=num_proc)
+        except ModuleNotFoundError as e:
+            # Only the worker-pool failure observed on shared filesystems
+            # (e.g. "No module named 'multiprocess.queues'" when .venv files on
+            # Lustre change mid-run). Anything else — notably OSError such as
+            # ENOSPC — must propagate rather than trigger a long single-process
+            # retry that would fail the same way.
+            if num_proc <= 1:
+                raise
+            logging.warning(
+                "Multiprocess save_to_disk(num_proc=%d) failed (%s); falling back to single-process save_to_disk.",
+                num_proc,
+                e,
+            )
+            # The failed attempt may have left partial shards / state files in
+            # output_dir; wipe it so the retry starts from a clean directory and
+            # cannot produce a dataset mixing shards from both attempts.
+            if Path(self.output_dir).exists():
+                logging.warning(
+                    "Removing partially written %s before retrying", self.output_dir
+                )
+                shutil.rmtree(self.output_dir)
+            shuffled.save_to_disk(self.output_dir)
         logging.info("Dataset successfully saved to %s.", self.output_dir)
 
     def __submit__(self, dep, add_action, **kwargs):
